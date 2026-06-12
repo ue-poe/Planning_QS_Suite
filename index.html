@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v7 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v9 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -2263,6 +2263,8 @@ function estEditCell(wbsId,locId){
   _estResetRelock();
   const act=_wbsNodes.find(n=>n.id===wbsId),loc=_locNodes.find(n=>n.id===locId);
   if(!act||!loc)return;
+  // MATERIAL nodes use the mini-estimate build-up editor instead of qty×rate.
+  if((act.node_type||'')==='material'){ return estMaterialBuildup(wbsId,locId); }
   const ex=_scopeMap()[wbsId+'|'+locId];
   if(ex&&ex.scope_status==='approved'){toast('Approved estimate — un-approve the package first','warn');return;}
   const _eligNow=_effectiveLeavesJS(wbsId).has(locId);
@@ -2307,11 +2309,204 @@ async function estDeleteCell(wbsId,locId){
   await _estSaveRows([{wbs_node_id:wbsId,loc_node_id:locId,_delete:true}],'Deleting…');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// MATERIAL BUILD-UP — mini-estimate behind a material cell's budget.
+// Rows pick from pu_material_master; their sum becomes the cell est_amount.
+// Detail rows persist in wbs_material_buildup, keyed to the wbs_scope row.
+// ════════════════════════════════════════════════════════════════════
+let _matMaster=null;        // [{material_code,material_name,uom,estimated_rate}]
+let _buildupRows=[];        // working set for the open popup
+let _buildupCtx=null;       // {wbsId, locId, scopeId|null}
+
+async function _loadMatMaster(){
+  if(_matMaster) return _matMaster;
+  const {data,error}=await sb.from('pu_material_master')
+    .select('material_code,material_name,uom,estimated_rate,is_active').eq('is_active',true).order('material_name');
+  if(error){toast('Material master: '+error.message,'error');_matMaster=[];return _matMaster;}
+  _matMaster=data||[];
+  return _matMaster;
+}
+
+async function estMaterialBuildup(wbsId,locId){
+  const node=_wbsNodes.find(n=>n.id===wbsId), loc=_locNodes.find(n=>n.id===locId);
+  if(!node||!loc)return;
+  const ex=_scopeMap()[wbsId+'|'+locId];
+  if(ex&&ex.scope_status==='approved'){toast('Approved estimate — un-approve the package first','warn');return;}
+  const _eligNow=_effectiveLeavesJS(wbsId).has(locId);
+  if(!ex&&!_eligNow){toast('Pair not allowed by allocation rules','warn');return;}
+  await _loadMatMaster();
+  _buildupCtx={wbsId,locId,scopeId:ex?ex.id:null};
+  // load existing build-up rows if this cell already has them
+  _buildupRows=[];
+  if(ex&&ex.id){
+    const {data}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',ex.id).order('sno');
+    _buildupRows=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty),rate:Number(r.rate)}));
+  }
+  if(!_buildupRows.length) _buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});
+  openModal(`🧱 Material Build-up — ${_esc(node.name)}`,`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
+    <div style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:6px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;" id="bu_table">
+        <thead><tr style="background:var(--panel-2);">
+          <th style="text-align:left;padding:5px 8px;">Material</th>
+          <th style="width:55px;">UOM</th>
+          <th style="width:80px;">Qty</th>
+          <th style="width:90px;">Rate ₹</th>
+          <th style="width:100px;text-align:right;padding-right:8px;">Amount</th>
+          <th style="width:28px;"></th>
+        </tr></thead>
+        <tbody id="bu_body"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="_buAddRow()">+ Add material</button>
+      <div style="font-weight:700;color:#1B2A47;">Total: ₹<span id="bu_total">0</span></div>
+    </div>
+  `,async()=>{
+    const total=_buRowsTotal();
+    const clean=_buildupRows.filter(r=>r.material_name&&r.qty>0);
+    if(!clean.length){toast('Add at least one material row with qty','error');return;}
+    closeModal();
+    // 1) save the scope cell carrying the total (est_qty=1, est_rate=total → est_amount=total)
+    await _estSaveRows([{wbs_node_id:wbsId,loc_node_id:locId,est_qty:1,est_rate:total,notes:'(material build-up)'}],'Saving material budget…');
+    // 2) resolve the scope id by natural key and write build-up detail rows
+    try{
+      const {data:sc}=await sb.from('wbs_scope').select('id').eq('wbs_node_id',wbsId).eq('loc_node_id',locId).single();
+      if(sc&&sc.id){
+        await sb.from('wbs_material_buildup').delete().eq('scope_id',sc.id);
+        await sb.from('wbs_material_buildup').insert(clean.map((r,i)=>({
+          scope_id:sc.id, sno:i+1, material_code:r.material_code, material_name:r.material_name,
+          uom:r.uom||null, qty:r.qty, rate:r.rate, amount:r.qty*r.rate
+        })));
+      }
+    }catch(e){toast('Build-up detail save: '+e.message,'warn',5000);}
+  });
+  _buRenderRows();
+}
+
+function _buRenderRows(){
+  const body=document.getElementById('bu_body'); if(!body)return;
+  body.innerHTML=_buildupRows.map((r,i)=>`<tr>
+    <td style="padding:3px 6px;position:relative;">
+      <input id="bu_mat_${i}" value="${_esc(r.material_name||'')}" placeholder="type material…" autocomplete="off"
+        style="width:100%;font-size:12px;" oninput="_buMatType(${i})" onblur="setTimeout(()=>{const d=document.getElementById('bu_res_${i}');if(d)d.style.display='none';},200)">
+      <div id="bu_res_${i}" style="display:none;position:absolute;top:100%;left:0;z-index:50;background:#fff;border:1px solid var(--border);border-radius:5px;max-height:180px;overflow:auto;min-width:260px;box-shadow:0 4px 14px rgba(0,0,0,.14);"></div>
+    </td>
+    <td style="text-align:center;"><input id="bu_uom_${i}" value="${_esc(r.uom||'')}" style="width:50px;font-size:11px;" readonly></td>
+    <td><input id="bu_qty_${i}" type="number" min="0" step="0.001" value="${r.qty||''}" style="width:74px;font-size:12px;" oninput="_buSet(${i},'qty',this.value)"></td>
+    <td><input id="bu_rate_${i}" type="number" min="0" step="0.01" value="${r.rate||''}" style="width:84px;font-size:12px;" oninput="_buSet(${i},'rate',this.value)"></td>
+    <td style="text-align:right;padding-right:8px;font-variant-numeric:tabular-nums;" id="bu_amt_${i}">₹${_inr((r.qty||0)*(r.rate||0))}</td>
+    <td style="text-align:center;"><button class="btn btn-ghost btn-xs" onclick="_buDelRow(${i})">✕</button></td>
+  </tr>`).join('');
+  _buUpdateTotal();
+}
+function _buAddRow(){_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});_buRenderRows();}
+function _buDelRow(i){_buildupRows.splice(i,1);if(!_buildupRows.length)_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});_buRenderRows();}
+function _buSet(i,k,v){if(_buildupRows[i]){_buildupRows[i][k]=Number(v)||0;const a=document.getElementById('bu_amt_'+i);if(a)a.textContent='₹'+_inr((_buildupRows[i].qty||0)*(_buildupRows[i].rate||0));_buUpdateTotal();}}
+function _buRowsTotal(){return _buildupRows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.rate)||0),0);}
+function _buUpdateTotal(){const el=document.getElementById('bu_total');if(el)el.textContent=_inr(_buRowsTotal());}
+function _buMatType(i){
+  const inp=document.getElementById('bu_mat_'+i), res=document.getElementById('bu_res_'+i);
+  if(!inp||!res)return;
+  _buildupRows[i].material_name=inp.value;
+  const q=inp.value.toLowerCase().trim();
+  if(!q){res.style.display='none';return;}
+  const hits=(_matMaster||[]).filter(m=>(m.material_name||'').toLowerCase().includes(q)||(m.material_code||'').toLowerCase().includes(q)).slice(0,12);
+  if(!hits.length){res.style.display='none';return;}
+  res.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_buPick(${i},'${_esc(m.material_code)}')">
+    <div style="font-size:12px;">${_esc(m.material_name)}</div>
+    <div style="font-size:10px;color:var(--muted);">${_esc(m.material_code||'')} · ${_esc(m.uom||'')}${m.estimated_rate?` · ₹${_inr(m.estimated_rate)}`:''}</div></div>`).join('');
+  res.style.display='';
+}
+function _buPick(i,code){
+  const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code));if(!m)return;
+  _buildupRows[i].material_code=m.material_code;
+  _buildupRows[i].material_name=m.material_name;
+  _buildupRows[i].uom=m.uom||'';
+  if(!_buildupRows[i].rate&&m.estimated_rate)_buildupRows[i].rate=Number(m.estimated_rate);
+  _buRenderRows();
+}
+
+// Material bulk-fill: define ONE build-up (typical-unit take-off), choose units,
+// write that same build-up (total + detail rows) to every selected unit.
+async function estMaterialBulkFill(wbsId){
+  const node=_wbsNodes.find(n=>n.id===wbsId);if(!node)return;
+  const eff=_effectiveLeavesJS(wbsId);
+  const cols=_estCols().filter(c=>eff.has(c.id));
+  if(!cols.length){toast('No eligible units in the current filter','warn');return;}
+  await _loadMatMaster();
+  const sm=_scopeMap();
+  // seed the build-up from the first unit that already has one (handy template)
+  _buildupRows=[];
+  const seed=cols.map(c=>sm[wbsId+'|'+c.id]).find(x=>x&&x.id);
+  if(seed){
+    const {data}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',seed.id).order('sno');
+    _buildupRows=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty),rate:Number(r.rate)}));
+  }
+  if(!_buildupRows.length)_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});
+  const unitRows=cols.map(c=>{
+    const ex=sm[wbsId+'|'+c.id];
+    const locked=ex&&ex.scope_status==='approved';
+    return`<label style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px;${locked?'opacity:.5;':''}">
+      <input type="checkbox" class="bf_unit" value="${c.id}" ${locked?'disabled':'checked'} style="width:auto;margin:0;">
+      ${_esc(c.name)}
+      ${ex?`<span style="font-size:10px;color:${locked?'#16a34a':'#d97706'};">${locked?'approved — skipped':`overwrites ₹${_inr(ex.est_amount)}`}</span>`:'<span style="font-size:10px;color:#94a3b8;">new</span>'}
+    </label>`;
+  }).join('');
+  openModal(`⇉ Material Bulk-fill — ${_esc(node.name)}`,`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">${_esc(_wbsPathJS(wbsId))}</div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:4px;">1 · Build-up (applied to every selected unit)</div>
+    <div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:6px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:var(--panel-2);">
+          <th style="text-align:left;padding:5px 8px;">Material</th><th style="width:55px;">UOM</th>
+          <th style="width:80px;">Qty</th><th style="width:90px;">Rate ₹</th>
+          <th style="width:100px;text-align:right;padding-right:8px;">Amount</th><th style="width:28px;"></th>
+        </tr></thead>
+        <tbody id="bu_body"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+      <button class="btn btn-ghost btn-sm" onclick="_buAddRow()">+ Add material</button>
+      <div style="font-weight:700;color:#1B2A47;">Per-unit total: ₹<span id="bu_total">0</span></div>
+    </div>
+    <div style="font-size:12px;font-weight:600;margin:10px 0 4px;">2 · Units to fill</div>
+    <div style="max-height:150px;overflow-y:auto;border:0.5px solid var(--border);border-radius:4px;padding:6px 10px;">${unitRows}</div>
+    <div style="margin-top:8px;font-size:11px;color:#b45309;">The same build-up is written to each selected unit. Existing drafts are overwritten; approved cells are skipped.</div>
+  `,async()=>{
+    const clean=_buildupRows.filter(r=>r.material_name&&r.qty>0);
+    if(!clean.length){toast('Add at least one material row with qty','error');return;}
+    const ids=[...document.querySelectorAll('.bf_unit:checked')].map(i=>i.value);
+    if(!ids.length){toast('Select at least one unit','error');return;}
+    const total=_buRowsTotal();
+    if(!confirm(`Apply build-up (₹${_inr(total)}/unit) to ${ids.length} unit(s)?`))return;
+    closeModal();
+    // 1) save scope totals for all selected units in one batch
+    await _estSaveRows(ids.map(id=>({wbs_node_id:wbsId,loc_node_id:id,est_qty:1,est_rate:total,notes:'(material build-up)'})),`Filling ${ids.length} unit(s)…`);
+    // 2) resolve each scope id by natural key and write its build-up detail rows
+    pbShow('Writing build-up details…');
+    try{
+      const {data:scopes}=await sb.from('wbs_scope').select('id,loc_node_id').eq('wbs_node_id',wbsId).in('loc_node_id',ids);
+      for(const sc of (scopes||[])){
+        await sb.from('wbs_material_buildup').delete().eq('scope_id',sc.id);
+        await sb.from('wbs_material_buildup').insert(clean.map((r,i)=>({
+          scope_id:sc.id, sno:i+1, material_code:r.material_code, material_name:r.material_name,
+          uom:r.uom||null, qty:r.qty, rate:r.rate, amount:r.qty*r.rate
+        })));
+      }
+    }catch(e){toast('Build-up detail save: '+e.message,'warn',5000);}
+    finally{pbDone();}
+  });
+  _buRenderRows();
+}
+
 function estBulkFill(wbsId){
   if(_estLocked){_estFlashLock();return;}
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   _estResetRelock();
   const act=_wbsNodes.find(n=>n.id===wbsId);if(!act)return;
+  // MATERIAL nodes bulk-fill a whole build-up sheet across units.
+  if((act.node_type||'')==='material'){ return estMaterialBulkFill(wbsId); }
   const eff=_effectiveLeavesJS(wbsId);
   const cols=_estCols().filter(c=>eff.has(c.id));
   if(!cols.length){toast('No eligible units in the current filter','warn');return;}
