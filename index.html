@@ -1,0 +1,2567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Penguin Planning &amp; QS Suite v7 · Urban Excellence LLP · Poetry of Earth</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ============================================================
+   Penguin Planning & QS Suite — Styles
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#eef1f6;--panel:#ffffff;--panel-2:#e4e9f2;
+  --accent:#0d9488;--accent-2:#2563eb;--accent-3:#0d9488;
+  --warn:#d97706;--danger:#dc2626;
+  --text:#1e293b;--muted:#64748b;--border:#cbd5e1;--input-bg:#f8fafc;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+
+/* Auth */
+#authGate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#c7d2e8 0%,#dde3ef 100%);z-index:1000;}
+#authGate .card{background:#fff;padding:40px;border-radius:12px;width:420px;box-shadow:0 20px 40px rgba(27,42,71,.12);border:1px solid var(--border);}
+#authGate h2{color:#0d9488;margin-bottom:6px;font-size:20px;}
+#authGate .sub{color:var(--muted);margin-bottom:24px;font-size:13px;}
+#authGate input{width:100%;padding:12px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:6px;margin-bottom:12px;font-size:14px;}
+#authGate button{width:100%;padding:12px;background:#0d9488;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;}
+#authGate button:hover{background:#0f766e;}
+#authError{color:var(--danger);font-size:12px;margin-top:8px;min-height:16px;}
+
+/* Topbar */
+.topbar{background:#1e3a5f;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #16324f;position:sticky;top:0;z-index:100;}
+.topbar h1{font-size:17px;color:#5eead4;}
+.topbar h1 span{color:#94a3b8;font-weight:400;font-size:13px;margin-left:8px;}
+.topbar .user{color:#94a3b8;font-size:12px;}
+.topbar .user strong{color:#e2e8f0;}
+.topbar button.logout{background:transparent;border:1px solid #334155;color:#94a3b8;padding:6px 12px;border-radius:4px;cursor:pointer;margin-left:12px;}
+.topbar button.logout:hover{color:#e2e8f0;border-color:#94a3b8;}
+
+/* Tabs */
+.tabs{background:#fff;padding:0 24px;display:flex;gap:4px;border-bottom:2px solid var(--border);overflow-x:auto;white-space:nowrap;}
+.tab{padding:12px 18px;cursor:pointer;color:var(--muted);font-weight:500;font-size:13px;border-bottom:3px solid transparent;transition:all .15s;flex-shrink:0;}
+.tab:hover{color:var(--text);}
+.tab.active{color:#0d9488;border-bottom-color:#0d9488;background:rgba(13,148,136,.05);}
+
+/* Container */
+.container{padding:20px 24px;max-width:1400px;margin:0 auto;}
+.module{display:none;}
+.module.active{display:block;}
+.section-title{font-size:18px;margin-bottom:4px;color:var(--text);font-weight:600;}
+.section-sub{color:var(--muted);font-size:13px;margin-bottom:16px;}
+
+/* Cards */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px;}
+.card h3{margin-bottom:14px;font-size:15px;font-weight:600;color:#0d9488;border-bottom:1px solid var(--border);padding-bottom:8px;}
+
+/* Buttons */
+.btn{padding:9px 16px;border:none;border-radius:4px;font-weight:500;cursor:pointer;font-size:13px;margin-right:6px;transition:all .15s;font-family:inherit;}
+.btn-primary{background:#0d9488;color:#fff;}
+.btn-primary:hover{background:#0f766e;}
+.btn-secondary{background:#2563eb;color:#fff;}
+.btn-secondary:hover{background:#1d4ed8;}
+.btn-purple{background:#7c3aed;color:#fff;}
+.btn-purple:hover{background:#6d28d9;}
+.btn-warn{background:var(--warn);color:#fff;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{color:var(--text);border-color:#0d9488;background:rgba(13,148,136,.05);}
+.btn-sm{padding:5px 10px;font-size:11px;}
+.btn-xs{padding:3px 7px;font-size:10px;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:6px;color:#fff;font-size:13px;font-weight:500;z-index:2000;display:none;box-shadow:0 8px 24px rgba(30,58,95,.25);max-width:400px;}
+.toast.show{display:block;animation:slideIn .25s ease;}
+.toast.success{background:#0d9488;}
+.toast.error{background:var(--danger);}
+.toast.info{background:#2563eb;}
+.toast.warn{background:#d97706;color:#fff;}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+/* Progress bar */
+#progressBar{position:fixed;bottom:0;right:0;width:280px;background:#fff;border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;padding:10px 14px 8px;box-shadow:0 -4px 16px rgba(30,58,95,.12);z-index:3000;display:none;}
+#progressBar.show{display:block;}
+#progressBar .pb-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+#progressBar .pb-dot{width:7px;height:7px;border-radius:50%;background:#0d9488;animation:pbPulse 1s ease-in-out infinite;flex-shrink:0;}
+#progressBar .pb-track{height:4px;background:#e4e9f2;border-radius:2px;overflow:hidden;}
+#progressBar .pb-fill{height:100%;background:linear-gradient(90deg,#0d9488,#14b8a6);border-radius:2px;width:0%;transition:width .4s ease;}
+#progressBar .pb-msg{font-size:11px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@keyframes pbPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+
+/* Badge */
+.badge-count{display:inline-block;padding:2px 7px;background:#dde6f0;color:#1e3a5f;border-radius:99px;font-size:10px;font-weight:700;margin-left:6px;}
+
+.hidden{display:none!important;}
+
+/* ── Tree nodes ────────────────────────────────────────── */
+.tree-node{margin-bottom:2px;}
+.tree-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:4px;transition:background .1s;}
+.tree-row:hover{background:rgba(13,148,136,.04);}
+.tree-toggle{width:16px;text-align:center;cursor:pointer;color:var(--muted);font-size:11px;flex-shrink:0;user-select:none;}
+.tree-children{margin-left:20px;border-left:1px dashed var(--border);padding-left:8px;}
+
+/* ── Tree depth colours — matches Procurement Suite palette ── */
+/* d0 — light blue-grey fill, navy text */
+.wbs-d0 .tree-row,.loc-d0 .tree-row{
+  background:#dde6f0;border-radius:6px;font-weight:700;font-size:14px;color:#1e3a5f;}
+.wbs-d0 .tree-toggle,.loc-d0 .tree-toggle{color:#64748b;}
+.wbs-d0 .badge-count,.loc-d0 .badge-count{background:#c2d0e0;color:#1e3a5f;}
+.wbs-d0 .tree-children,.loc-d0 .tree-children{border-left-color:#b8c9d9;}
+/* d1 — near-white, teal left border */
+.wbs-d1 .tree-row,.loc-d1 .tree-row{
+  background:#eef1f6;border-left:3px solid #0d9488;font-weight:600;color:#0d9488;}
+.wbs-d1 .tree-toggle,.loc-d1 .tree-toggle{color:#0d9488;}
+.wbs-d1 .badge-count,.loc-d1 .badge-count{background:#d1fae5;color:#065f46;}
+.wbs-d1 .tree-children,.loc-d1 .tree-children{border-left-color:#cbd5e1;}
+/* d2 — white, blue left border */
+.wbs-d2 .tree-row,.loc-d2 .tree-row{
+  background:#f8fafc;border-left:3px solid #2563eb;font-weight:600;color:#1e40af;}
+.wbs-d2 .tree-toggle,.loc-d2 .tree-toggle{color:#2563eb;}
+.wbs-d2 .badge-count,.loc-d2 .badge-count{background:#dbeafe;color:#1e40af;}
+.wbs-d2 .tree-children,.loc-d2 .tree-children{border-left-color:#e2e8f0;}
+/* d3 — plain white, slate left border */
+.wbs-d3 .tree-row,.loc-d3 .tree-row{
+  background:#ffffff;border-left:3px solid #64748b;color:#1e293b;}
+.wbs-d3 .tree-toggle,.loc-d3 .tree-toggle{color:#94a3b8;}
+.wbs-d3 .badge-count,.loc-d3 .badge-count{background:#e4e9f2;color:#475569;}
+.wbs-d3 .tree-children,.loc-d3 .tree-children{border-left-color:#e2e8f0;}
+/* d4 — off-white, light slate left border */
+.wbs-d4 .tree-row,.loc-d4 .tree-row{
+  background:#f8fafc;border-left:2px solid #cbd5e1;color:#1e293b;}
+.wbs-d4 .tree-toggle,.loc-d4 .tree-toggle{color:#94a3b8;}
+.wbs-d4 .badge-count,.loc-d4 .badge-count{background:#e4e9f2;color:#475569;}
+.wbs-d4 .tree-children,.loc-d4 .tree-children{border-left-color:#e2e8f0;}
+/* leaf — soft green tint, teal text */
+.wbs-leaf .tree-row,.loc-leaf .tree-row{
+  background:#f0fdf4;border-left:3px solid #0d9488;color:#065f46;}
+.wbs-leaf .tree-toggle,.loc-leaf .tree-toggle{color:#0d9488;}
+/* code badges */
+.wbs-code-badge{font-family:monospace;font-size:10px;font-weight:700;color:#0f766e;background:#ccfbf1;padding:1px 6px;border-radius:3px;margin-left:4px;}
+.loc-code-badge{font-family:monospace;font-size:10px;font-weight:700;color:#0f766e;background:#ccfbf1;padding:1px 6px;border-radius:3px;margin-left:4px;}
+/* badge-leaf — teal */
+.badge-leaf{display:inline-block;padding:1px 6px;background:#0d9488;color:#ffffff;border-radius:99px;font-size:9px;font-weight:700;margin-left:4px;vertical-align:middle;}
+/* hover — very subtle */
+.tree-row:hover{background:rgba(13,148,136,.04);}
+.wbs-d0 .tree-row:hover,.loc-d0 .tree-row:hover{background:#ccd8e8;}
+.wbs-d1 .tree-row:hover,.loc-d1 .tree-row:hover{background:#e4e9f4;}
+
+/* Inline input wrap */
+.inline-add{display:flex;gap:6px;align-items:center;padding:6px 8px;flex-wrap:wrap;margin:4px 0;}
+.inline-add input{padding:5px 9px;border:1px solid var(--accent);border-radius:4px;font-size:12px;background:var(--input-bg);color:var(--text);}
+.inline-add input:focus{outline:none;border-color:var(--accent-2);}
+.inline-add select{padding:5px 9px;border:1px solid var(--accent);border-radius:4px;font-size:12px;background:var(--input-bg);color:var(--text);}
+
+/* dotted code badge */
+.wbs-code-badge{font-family:monospace;font-size:10px;font-weight:700;color:var(--accent);background:#e8f5e9;padding:1px 6px;border-radius:3px;margin-left:4px;}
+.loc-code-badge{font-family:monospace;font-size:10px;font-weight:700;color:var(--accent-2);background:#e8f0fe;padding:1px 6px;border-radius:3px;margin-left:4px;}
+
+/* Allocation Rules */
+.rules-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.rules-wbs-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.rules-wbs-panel .panel-hdr{background:#1e3a5f;color:#e2e8f0;padding:10px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.rules-loc-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.rules-loc-panel .panel-hdr{background:#0d9488;color:#ffffff;padding:10px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.rules-tree-body{padding:12px;max-height:600px;overflow-y:auto;}
+.rules-row{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;transition:background .1s;}
+.rules-row:hover{background:rgba(13,148,136,.06);}
+.rules-row.selected{background:#d1fae5;border:1px solid #6ee7b7;}
+.rules-row input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0;}
+.rules-assigned{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;}
+.rules-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#dbeafe;color:#1d4ed8;border-radius:99px;font-size:10px;font-weight:600;}
+.rules-tag .rm{cursor:pointer;color:#93c5fd;}
+.rules-tag .rm:hover{color:#dc2626;}
+
+/* Bulk generator form */
+.bulk-form{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:end;}
+.bulk-form label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+.bulk-form input,.bulk-form select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--input-bg);color:var(--text);}
+.bulk-form input:focus,.bulk-form select:focus{outline:none;border-color:var(--accent);}
+.preview-box{background:#f8fafc;border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:12px;font-size:12px;color:var(--muted);max-height:120px;overflow-y:auto;font-family:monospace;}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(30,41,59,.45);z-index:4000;display:flex;align-items:center;justify-content:center;}
+.modal{background:#fff;border-radius:10px;padding:28px;width:500px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px;}
+.modal input,.modal select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--input-bg);color:var(--text);margin-bottom:10px;}
+.modal input:focus,.modal select:focus{outline:none;border-color:var(--accent);}
+.modal label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+
+/* Table */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{background:#f1f5f9;padding:8px 10px;text-align:left;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--border);}
+.tbl td{padding:7px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+.tbl tr:hover td{background:#fafbfd;}
+
+@media(max-width:900px){.rules-layout{grid-template-columns:1fr;}.bulk-form{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="authGate">
+  <div class="card" style="margin:0;">
+    <h2>🐧 Penguin Planning &amp; QS Suite</h2>
+    <div class="sub">Urban Excellence LLP · Poetry of Earth</div>
+    <input type="email" id="authEmail" placeholder="Email address" autocomplete="email"
+           onkeydown="if(event.key==='Enter')document.getElementById('authPass').focus()">
+    <input type="password" id="authPass" placeholder="Password" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()" id="loginBtn">Sign In</button>
+    <div id="authError"></div>
+    <div style="text-align:center;margin-top:12px;">
+      <a href="#" onclick="showForgotPanel()" style="font-size:12px;color:var(--accent);text-decoration:none;">Forgot password?</a>
+    </div>
+    <div id="authPanel-forgot" style="display:none;margin-top:16px;">
+      <input type="email" id="resetEmail" placeholder="Email address">
+      <button onclick="doResetPassword()" style="background:var(--warn);">Send Reset Link</button>
+      <div id="resetMsg" style="font-size:12px;margin-top:8px;color:var(--accent);"></div>
+      <div style="text-align:center;margin-top:8px;">
+        <a href="#" onclick="showLoginPanel()" style="font-size:12px;color:var(--muted);text-decoration:none;">← Back</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+  <div class="topbar">
+    <h1>🐧 Penguin Planning &amp; QS Suite <span>Urban Excellence LLP <span style="opacity:.6;">›</span> Poetry of Earth</span></h1>
+    <div class="user">
+      Signed in as <strong id="currentUser">—</strong>
+      (<span id="currentRole" style="color:var(--accent);"></span>)
+      <button class="logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="wbs"      onclick="switchTab('wbs')">📐 WBS Structure <span id="tab-wbs-count" class="badge-count" style="display:none;"></span></div>
+    <div class="tab"        data-tab="location" onclick="switchTab('location')">📍 Location Structure <span id="tab-loc-count" class="badge-count" style="display:none;"></span></div>
+    <div class="tab"        data-tab="rules"    onclick="switchTab('rules')">🔗 Allocation Rules</div>
+    <div class="tab"        data-tab="estimation" onclick="switchTab('estimation')">🧮 Estimation</div>
+    <div class="tab"        data-tab="masters"  onclick="switchTab('masters')" id="tab-masters">⚙ Masters</div>
+  </div>
+
+  <div class="container">
+
+    <!-- ═══ WBS MODULE ═══ -->
+    <div class="module active" id="mod-wbs">
+      <div class="section-title">WBS Structure</div>
+      <div class="section-sub">
+        Unlimited depth — codes assigned at leaf nodes only. Dotted path (1.2.3) is display-only based on sort order.
+        <span id="wbs-role-hint" style="margin-left:8px;padding:3px 10px;background:#fef9c3;color:#854d0e;border-radius:99px;font-size:11px;font-weight:600;"></span>
+      </div>
+      <div class="card" style="padding:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);">WBS Tree</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div style="display:flex;border:0.5px solid var(--border);border-radius:4px;overflow:hidden;">
+              <button style="padding:5px 10px;background:var(--panel-2);border:none;font-size:11px;color:#1B2A47;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:4px;white-space:nowrap;" onclick="wbsExpandAll()" title="Expand all to leaf level">⊞ Expand all</button>
+              <div style="width:0.5px;background:var(--border);"></div>
+              <button style="padding:5px 10px;background:var(--panel-2);border:none;font-size:11px;color:#1B2A47;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:4px;white-space:nowrap;" onclick="wbsCollapseAll()" title="Collapse to root level">⊟ Collapse all</button>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadWBS()">↻ Refresh</button>
+            <button class="btn btn-primary btn-sm" id="btn-wbs-addroot" onclick="wbsAddRoot()">+ Add Root Node</button>
+          </div>
+        </div>
+        <div id="wbs_tree_wrap"><div style="padding:24px;text-align:center;color:var(--muted);">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ═══ LOCATION MODULE ═══ -->
+    <div class="module" id="mod-location">
+      <div class="section-title">Location Structure</div>
+      <div class="section-sub">
+        Free n-level tree — same as WBS. Define your own depth. Mark leaves to assign location codes.
+        <span id="loc-role-hint" style="margin-left:8px;padding:3px 10px;background:#fef9c3;color:#854d0e;border-radius:99px;font-size:11px;font-weight:600;"></span>
+      </div>
+      <!-- Tree -->
+      <div class="card" style="padding:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);">Location Tree</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div style="display:flex;border:0.5px solid var(--border);border-radius:4px;overflow:hidden;">
+              <button style="padding:5px 10px;background:var(--panel-2);border:none;font-size:11px;color:#1B2A47;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:4px;white-space:nowrap;" onclick="locExpandAll()" title="Expand all to leaf level">⊞ Expand all</button>
+              <div style="width:0.5px;background:var(--border);"></div>
+              <button style="padding:5px 10px;background:var(--panel-2);border:none;font-size:11px;color:#1B2A47;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:4px;white-space:nowrap;" onclick="locCollapseAll()" title="Collapse to root level">⊟ Collapse all</button>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadLoc()">↻ Refresh</button>
+            <button class="btn btn-primary btn-sm" id="btn-loc-addroot" onclick="locAddRoot()">+ Add Root Node</button>
+          </div>
+        </div>
+        <div id="loc_tree_wrap"><div style="padding:24px;text-align:center;color:var(--muted);">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ═══ ALLOCATION RULES MODULE ═══ -->
+    <div class="module" id="mod-rules">
+      <div class="section-title">Allocation Rules</div>
+      <div class="section-sub">
+        WBS nodes mapped to locations. Rules inherit downward on both trees — a rule at group or package level covers all children; an <strong>exclude</strong> rule carves units out of wider coverage. Rules are stored exactly where you click.
+        <span id="rules-role-hint" style="margin-left:8px;padding:3px 10px;background:#fef9c3;color:#854d0e;border-radius:99px;font-size:11px;font-weight:600;"></span>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <!-- Matrix toolbar -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#1B2A47;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;font-weight:500;color:#e8edf5;">Allocation Rules Matrix</span>
+            <span id="rules_coverage" style="font-size:11px;color:#8fa8cc;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <!-- Expand/Collapse WBS rows -->
+            <div style="display:flex;border:0.5px solid #4A6FA5;border-radius:4px;overflow:hidden;">
+              <button style="padding:4px 10px;background:#253d5e;border:none;font-size:11px;color:#c2d3ec;cursor:pointer;white-space:nowrap;" onclick="wbsExpandAll()" title="Expand all WBS rows">⊞ Expand all</button>
+              <div style="width:0.5px;background:#4A6FA5;"></div>
+              <button style="padding:4px 10px;background:#253d5e;border:none;font-size:11px;color:#c2d3ec;cursor:pointer;white-space:nowrap;" onclick="wbsCollapseAll()" title="Collapse all WBS rows">⊟ Collapse all</button>
+            </div>
+            <!-- WBS Filter buttons -->
+            <div style="display:flex;gap:4px;">
+              <button class="rules-filter-btn active" id="rf_all"        onclick="rulesSetFilter('all')"        style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid #4A6FA5;background:#253d5e;color:#c2d3ec;cursor:pointer;">All WBS</button>
+              <button class="rules-filter-btn"        id="rf_leaves"     onclick="rulesSetFilter('leaves')"     style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid transparent;background:transparent;color:#8fa8cc;cursor:pointer;">Leaves only</button>
+              <button class="rules-filter-btn"        id="rf_unassigned" onclick="rulesSetFilter('unassigned')" style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid transparent;background:transparent;color:#8fa8cc;cursor:pointer;">Unassigned</button>
+            </div>
+            <!-- Include / Exclude mode toggle (active when unlocked) -->
+            <div id="rules_mode_wrap" style="display:flex;border:0.5px solid #4A6FA5;border-radius:4px;overflow:hidden;">
+              <button id="rules_mode_include" onclick="rulesSetMode('include')" title="Clicks add include rules"
+                style="padding:4px 10px;border:none;font-size:11px;cursor:pointer;background:#1f6f43;color:#eafff3;">✓ Include</button>
+              <button id="rules_mode_exclude" onclick="rulesSetMode('exclude')" title="Clicks add exclude rules — carve units out of wider coverage"
+                style="padding:4px 10px;border:none;font-size:11px;cursor:pointer;background:transparent;color:#8fa8cc;">✗ Exclude</button>
+            </div>
+            <!-- Lock button -->
+            <button id="rules_lock_btn" onclick="rulesToggleLock()"
+              style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:1px solid #D4AF37;background:#1B2A47;color:#D4AF37;cursor:pointer;font-size:12px;font-weight:500;">
+              <span id="rules_lock_icon">🔒</span>
+              <span id="rules_lock_label">Locked</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" title="Verify matrix rendering against DB resolution function" onclick="_rulesVerify()">⚖</button>
+            <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="loadRules()">↻</button>
+          </div>
+        </div>
+        <!-- Depth selector row -->
+        <div style="display:flex;align-items:center;gap:12px;padding:7px 14px;background:#253d5e;border-bottom:1px solid #1B2A47;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#8fa8cc;white-space:nowrap;">Stage:</span>
+            <select id="rules_stage_filter" onchange="rulesSetStage(this.value)"
+              style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;max-width:180px;">
+              <option value="__all__">All stages</option>
+            </select>
+          </div>
+          <div style="width:1px;height:16px;background:#4A6FA5;flex-shrink:0;"></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#8fa8cc;white-space:nowrap;">Column depth:</span>
+            <div id="rules_depth_btns" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+          </div>
+          <span id="rules_col_count" style="font-size:11px;color:#8fa8cc;margin-left:auto;"></span>
+        </div>
+        <!-- Lock overlay message -->
+        <div id="rules_lock_banner" style="background:#fdf8e8;border-bottom:1px solid #D4AF37;padding:7px 14px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:#7a5c00;">🔒 Matrix is locked. Click <strong>Locked</strong> to enable editing. Auto-relocks after 3 minutes of inactivity.</span>
+        </div>
+        <!-- Matrix table -->
+        <div style="overflow-x:auto;overflow-y:auto;max-height:65vh;">
+          <table id="rules_matrix_table" style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead id="rules_matrix_head"></thead>
+            <tbody id="rules_matrix_body"></tbody>
+            <tfoot id="rules_matrix_foot"></tfoot>
+          </table>
+        </div>
+        <!-- Legend -->
+        <div style="padding:8px 14px;background:var(--panel-2);border-top:0.5px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:#D4AF37;border-radius:3px;font-size:10px;color:#7a5c00;">✓</span>
+            Direct rule — stored at this exact pair
+          </span>
+          <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:#f0e8c8;border:0.5px solid #D4AF37;border-radius:3px;font-size:9px;color:#a07d10;">↑</span>
+            Inherited from WBS parent
+          </span>
+          <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:#fffbe9;border:0.5px dashed #D4AF37;border-radius:3px;font-size:9px;color:#a07d10;">⇡</span>
+            Covered by rule at location ancestor
+          </span>
+          <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:#b91c1c;border-radius:3px;font-size:9px;color:#fff;">✗</span>
+            Excluded
+          </span>
+          <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:0.5px solid #2563eb;border-radius:3px;">
+              <span style="width:7px;height:7px;border-radius:50%;background:#2563eb;display:block;"></span>
+            </span>
+            Partial — rules exist deeper down
+          </span>
+          <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:0.5px solid var(--border);border-radius:3px;font-size:10px;color:var(--muted);">—</span>
+            Not allowed
+          </span>
+          <span id="rules_relock_timer" style="font-size:11px;color:#D4AF37;margin-left:auto;display:none;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ESTIMATION MODULE ═══ -->
+    <div class="module" id="mod-estimation">
+      <div class="section-title">Estimation</div>
+      <div class="section-sub">
+        Budget grid at <strong>activity × location-leaf</strong> grain. Only rule-eligible pairs are editable; package rows show subtotals. Approved estimates are immutable until un-approved — downstream budget gates read approved values only.
+        <span id="est-role-hint" style="margin-left:8px;padding:3px 10px;background:#fef9c3;color:#854d0e;border-radius:99px;font-size:11px;font-weight:600;"></span>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#1B2A47;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;font-weight:500;color:#e8edf5;">Estimation Grid</span>
+            <span id="est_summary" style="font-size:11px;color:#8fa8cc;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <button id="est_lock_btn" onclick="estToggleLock()"
+              style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:1px solid #D4AF37;background:#1B2A47;color:#D4AF37;cursor:pointer;font-size:12px;font-weight:500;">
+              <span id="est_lock_icon">🔒</span><span id="est_lock_label">Locked</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="loadEstimation()">↻</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:7px 14px;background:#253d5e;border-bottom:1px solid #1B2A47;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#8fa8cc;">Stage:</span>
+            <select id="est_stage_filter" onchange="estSetStage(this.value)"
+              style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;max-width:200px;">
+              <option value="__all__">All stages</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#8fa8cc;">Narrow to:</span>
+            <select id="est_floor_filter" onchange="estSetFloor(this.value)"
+              style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;max-width:220px;">
+              <option value="__all__">Whole stage</option>
+            </select>
+          </div>
+          <span id="est_col_count" style="font-size:11px;color:#8fa8cc;margin-left:auto;"></span>
+        </div>
+        <div id="est_lock_banner" style="background:#fdf8e8;border-bottom:1px solid #D4AF37;padding:7px 14px;">
+          <span style="font-size:12px;color:#7a5c00;">🔒 Grid is locked. Click <strong>Locked</strong> to enable editing. Auto-relocks after 3 minutes of inactivity.</span>
+        </div>
+        <div style="overflow-x:auto;overflow-y:auto;max-height:65vh;">
+          <table id="est_table" style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead id="est_head"></thead>
+            <tbody id="est_body"></tbody>
+            <tfoot id="est_foot"></tfoot>
+          </table>
+        </div>
+        <div style="padding:8px 14px;background:var(--panel-2);border-top:0.5px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;"></span> Draft</span>
+          <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;"></span> Approved (immutable)</span>
+          <span style="font-size:11px;color:var(--muted);">Grey cell — pair not allowed by rules</span>
+          <span style="font-size:11px;color:var(--muted);">⇉ bulk-fill across units · ✔ approve package</span>
+          <span id="est_relock_timer" style="font-size:11px;color:#D4AF37;margin-left:auto;display:none;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MASTERS MODULE ═══ -->
+    <div class="module" id="mod-masters">
+      <div class="section-title">Masters</div>
+      <div class="section-sub">
+        Admin-only configuration. Changes here affect all dropdowns across the tool.
+        <span id="masters-role-hint" style="margin-left:8px;padding:3px 10px;background:#fef9c3;color:#854d0e;border-radius:99px;font-size:11px;font-weight:600;"></span>
+      </div>
+
+      <!-- ── Project Config ── -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;border:none;padding:0;">🏗 Project Config</h3>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="mastersLoadProjects()">↻ Refresh</button>
+            <button class="btn btn-primary btn-sm" id="btn-masters-addproj" onclick="mastersAddProject()">+ Add Project</button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Projects listed here populate the Bulk Generator and transaction dropdowns in Penguin Suite.
+        </div>
+        <div id="masters_proj_wrap">
+          <div style="padding:16px;text-align:center;color:var(--muted);">Loading…</div>
+        </div>
+      </div>
+
+    </div><!-- /mod-masters -->
+
+  </div><!-- /container -->
+</div><!-- /app -->
+
+<!-- Progress bar -->
+<div id="progressBar">
+  <div class="pb-label"><span class="pb-dot"></span><span id="pb-labelText">Loading…</span></div>
+  <div class="pb-track"><div class="pb-fill" id="pb-fill"></div></div>
+  <div class="pb-msg" id="pb-msg"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toastEl"></div>
+
+<!-- Modal (reusable) -->
+<div class="modal-overlay hidden" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalBox">
+    <h3 id="modalTitle">Add Node</h3>
+    <div id="modalBody"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="modalSaveBtn" onclick="modalSave()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SUPABASE CONFIG
+// ============================================================
+const SUPABASE_URL = 'https://lrpwfqqnljknonermltr.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxycHdmcXFubGprbm9uZXJtbHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczODk5NjQsImV4cCI6MjA5Mjk2NTk2NH0.gihnXLmiUomN_d2DA8G4X28L_Ig3ig7VNqQJatS5yGk';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}
+});
+const ALLOWED_ROLES = ['Admin','Planning/ QS'];
+const state = {user:null,role:null,roles:[],userName:null,userId:null};
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(msg,type='info',dur=3500){
+  const el=document.getElementById('toastEl');
+  el.textContent=msg;el.className='toast show '+type;
+  clearTimeout(el._t);el._t=setTimeout(()=>el.className='toast',dur);
+}
+let _pbActive=0,_pbTimer=null,_pbAnim1=null,_pbAnim2=null,_pbForce=null;
+function pbShow(label){
+  _pbActive++;
+  const el=document.getElementById('progressBar'),fill=document.getElementById('pb-fill');
+  document.getElementById('pb-labelText').textContent=label||'Loading…';
+  fill.style.width='15%';el.classList.add('show');
+  clearTimeout(_pbTimer);clearTimeout(_pbForce);clearTimeout(_pbAnim1);clearTimeout(_pbAnim2);
+  _pbAnim1=setTimeout(()=>{if(_pbActive>0)fill.style.width='60%';},350);
+  _pbAnim2=setTimeout(()=>{if(_pbActive>0)fill.style.width='80%';},1100);
+  _pbForce=setTimeout(()=>{_pbActive=0;document.getElementById('progressBar').classList.remove('show');fill.style.width='0%';},15000);
+}
+function pbDone(){
+  _pbActive=Math.max(0,_pbActive-1);if(_pbActive>0)return;
+  clearTimeout(_pbForce);clearTimeout(_pbAnim1);clearTimeout(_pbAnim2);
+  const fill=document.getElementById('pb-fill');fill.style.width='100%';
+  clearTimeout(_pbTimer);_pbTimer=setTimeout(()=>{document.getElementById('progressBar').classList.remove('show');fill.style.width='0%';_pbActive=0;},400);
+}
+function _parseRoles(raw){
+  if(!raw)return[];if(Array.isArray(raw))return raw;
+  const s=String(raw).trim();
+  if(s.startsWith('['))try{return JSON.parse(s);}catch(e){}
+  return[s];
+}
+function isAdmin(){return state.roles.includes('Admin');}
+function canEdit(){return state.roles.includes('Admin')||state.roles.includes('Planning/ QS');}
+
+// ============================================================
+// AUTH
+// ============================================================
+let _authHandled=false,_loginInProgress=false;
+function showForgotPanel(){document.getElementById('authPanel-forgot').style.display='block';}
+function showLoginPanel(){document.getElementById('authPanel-forgot').style.display='none';}
+
+async function doLogin(){
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPass').value;
+  const errEl=document.getElementById('authError');
+  if(!email||!password){errEl.textContent='Enter email and password.';return;}
+  const btn=document.getElementById('loginBtn');
+  btn.textContent='Signing in…';btn.disabled=true;
+  _loginInProgress=true;
+  try{
+    const{data,error}=await sb.auth.signInWithPassword({email,password});
+    if(error)throw error;
+    _authHandled=true;
+    await onSignedIn(data.user);
+  }catch(e){errEl.textContent=e.message||'Login failed.';}
+  finally{btn.textContent='Sign In';btn.disabled=false;_loginInProgress=false;}
+}
+async function doResetPassword(){
+  const email=document.getElementById('resetEmail').value.trim();
+  if(!email){document.getElementById('resetMsg').textContent='Enter email.';return;}
+  await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
+  document.getElementById('resetMsg').textContent='Reset link sent — check your inbox.';
+}
+async function onSignedIn(user){
+  let profile=null;
+  for(let i=0;i<3;i++){
+    const{data}=await sb.from('user_profiles').select('full_name,role,is_active').eq('id',user.id).single();
+    if(data){profile=data;break;}
+    await new Promise(r=>setTimeout(r,500));
+  }
+  if(!profile){await sb.auth.signOut();document.getElementById('authError').textContent='No profile. Ask admin.';return;}
+  if(!profile.is_active){await sb.auth.signOut();document.getElementById('authError').textContent='Account deactivated.';return;}
+  const roles=_parseRoles(profile.role);
+  if(!roles.some(r=>ALLOWED_ROLES.includes(r))){await sb.auth.signOut();document.getElementById('authError').textContent='Access denied. Admin or Planning/QS only.';return;}
+  state.userId=user.id;state.user=user.email;state.roles=roles;state.role=roles.join(' · ');state.userName=profile.full_name;
+  document.getElementById('authGate').style.display='none';
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('currentUser').textContent=profile.full_name;
+  document.getElementById('currentRole').textContent=roles.join(' · ');
+  const hint=canEdit()?`${state.roles.join(' · ')} — full edit access`:'View only';
+  document.getElementById('wbs-role-hint').textContent=hint;
+  document.getElementById('loc-role-hint').textContent=hint;
+  document.getElementById('rules-role-hint').textContent=hint;
+  document.getElementById('masters-role-hint').textContent=hint;
+  if(!canEdit()){
+    document.getElementById('btn-wbs-addroot').style.display='none';
+    document.getElementById('btn-loc-addroot').style.display='none';
+    document.getElementById('btn-masters-addproj').style.display='none';
+  }
+  await initApp();
+}
+async function doLogout(){
+  _authHandled=false;state.user=state.role=state.userName=state.userId=null;state.roles=[];
+  await sb.auth.signOut();
+  document.getElementById('authGate').style.display='flex';
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('authEmail').value='';document.getElementById('authPass').value='';
+  document.getElementById('authError').textContent='';
+}
+(async()=>{const{data:{session}}=await sb.auth.getSession();if(session&&session.user&&!_authHandled){_authHandled=true;await onSignedIn(session.user);}})();
+sb.auth.onAuthStateChange(async(event,session)=>{
+  if(event==='SIGNED_OUT'&&!_loginInProgress)_authHandled=false;
+});
+
+// ============================================================
+// TAB SWITCHER
+// ============================================================
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.querySelectorAll('.module').forEach(m=>m.classList.toggle('active',m.id==='mod-'+tab));
+  if(tab==='wbs')     loadWBS();
+  if(tab==='location')loadLoc();
+  if(tab==='rules')   loadRules();
+  if(tab==='estimation')loadEstimation();
+  if(tab==='masters') mastersLoad();
+}
+
+// ============================================================
+// APP INIT
+// ============================================================
+async function initApp(){
+  pbShow('Loading data…');
+  try{
+    await Promise.all([apiLoadWBS(),apiLoadLoc(),mastersLoadProjects()]);
+    renderWBSTree();
+  }catch(e){console.error(e);}
+  finally{pbDone();}
+}
+async function loadWBS(){await apiLoadWBS();renderWBSTree();}
+async function loadLoc(){await apiLoadLoc();renderLocTree();}
+async function loadRules(){await apiLoadWBS();await apiLoadLoc();await apiLoadRules();renderRulesWBSTree();renderRulesSummary();}
+
+// ============================================================
+// DATA STORES
+// ============================================================
+let _wbsNodes=[];      // flat array from wbs_nodes
+let _locNodes=[];      // flat array from location_nodes
+let _rules=[];         // flat array from wbs_location_rules
+let _projects=[];  // from project_config
+async function apiLoadWBS(){
+  pbShow('Loading WBS…');
+  try{const{data,error}=await sb.from('wbs_nodes').select('*').eq('is_active',true).order('sort_order');if(error)throw error;_wbsNodes=data||[];}
+  catch(e){console.error(e);}finally{pbDone();}
+}
+async function apiLoadLoc(){
+  pbShow('Loading locations…');
+  try{const{data,error}=await sb.from('location_nodes').select('*').eq('is_active',true).order('sort_order');if(error)throw error;_locNodes=data||[];}
+  catch(e){console.error(e);}finally{pbDone();}
+}
+async function apiLoadRules(){
+  pbShow('Loading rules…');
+  try{const{data,error}=await sb.from('wbs_location_rules').select('*').order('created_at');if(error)throw error;_rules=data||[];}
+  catch(e){console.error(e);}finally{pbDone();}
+}
+// ── Tree helpers ──────────────────────────────────────────────
+function buildTree(nodes,parentId=null){
+  return nodes
+    .filter(n=>n.parent_id==parentId)
+    .sort((a,b)=>a.sort_order-b.sort_order)
+    .map(n=>({...n,children:buildTree(nodes,n.id)}));
+}
+function getAncestors(nodes,id){
+  const map=Object.fromEntries(nodes.map(n=>[n.id,n]));
+  const path=[];let cur=map[id];
+  while(cur&&cur.parent_id!=null){cur=map[cur.parent_id];if(cur)path.unshift(cur);}
+  return path;
+}
+function getDescendantIds(nodes,id){
+  const children=nodes.filter(n=>n.parent_id===id);
+  return[id,...children.flatMap(c=>getDescendantIds(nodes,c.id))];
+}
+function computeDotPath(nodes,nodeId){
+  // returns e.g. "2.3.1"
+  const map=Object.fromEntries(nodes.map(n=>[n.id,n]));
+  const path=[];
+  let cur=map[nodeId];
+  while(cur){
+    const siblings=nodes.filter(n=>n.parent_id===cur.parent_id&&n.is_active).sort((a,b)=>a.sort_order-b.sort_order);
+    const idx=siblings.findIndex(s=>s.id===cur.id)+1;
+    path.unshift(idx);
+    cur=cur.parent_id?map[cur.parent_id]:null;
+  }
+  return path.join('.');
+}
+function nextSortOrder(nodes,parentId){
+  const siblings=nodes.filter(n=>n.parent_id==parentId);
+  return siblings.length?Math.max(...siblings.map(s=>s.sort_order))+1:0;
+}
+
+// ============================================================
+// WBS TREE RENDER
+// ============================================================
+function renderWBSTree(){
+  const wrap=document.getElementById('wbs_tree_wrap');
+  if(!wrap)return;
+  const roots=_wbsNodes.filter(n=>n.parent_id==null).sort((a,b)=>a.sort_order-b.sort_order);
+  if(!roots.length){
+    wrap.innerHTML=`<div style="padding:24px;text-align:center;color:var(--muted);">${canEdit()?'No WBS nodes. Use "+ Add Root Node" to begin.':'No WBS nodes.'}</div>`;
+    return;
+  }
+  wrap.innerHTML='<div>'+roots.map(n=>renderWBSNode(n,0)).join('')+'</div>';
+  updateTabCounts();
+}
+// Expand/collapse memory — persists across re-renders within session
+const _wbsExpanded=new Set();
+const _locExpanded=new Set();
+// Matrix has its own collapse set — nodes explicitly collapsed in the matrix
+const _matrixWbsCollapsed=new Set();
+
+// ── Master expand / collapse ───────────────────────────────
+function wbsExpandAll(){
+  _wbsNodes.filter(n=>!n.is_leaf).forEach(n=>_wbsExpanded.add(n.id));
+  _matrixWbsCollapsed.clear(); // clear matrix collapses too
+  renderWBSTree();
+  if(document.getElementById('mod-rules').classList.contains('active')){
+    _renderMatrixBody();_renderMatrixFoot();
+  }
+}
+function wbsCollapseAll(){
+  _wbsExpanded.clear();
+  // In matrix: mark all non-leaf nodes as explicitly collapsed
+  _wbsNodes.filter(n=>!n.is_leaf).forEach(n=>_matrixWbsCollapsed.add(n.id));
+  renderWBSTree();
+  if(document.getElementById('mod-rules').classList.contains('active')){
+    _renderMatrixBody();_renderMatrixFoot();
+  }
+}
+function locExpandAll(){
+  _locNodes.filter(n=>!n.is_leaf).forEach(n=>_locExpanded.add(n.id));
+  renderLocTree();
+}
+function locCollapseAll(){
+  _locExpanded.clear();
+  renderLocTree();
+}
+
+function updateTabCounts(){
+  const wbsLeaves=_wbsNodes.filter(n=>n.is_leaf).length;
+  const locLeaves=_locNodes.filter(n=>n.is_leaf).length;
+  const wc=document.getElementById('tab-wbs-count');
+  const lc=document.getElementById('tab-loc-count');
+  if(wc){wc.textContent=wbsLeaves+' leaves';wc.style.display=wbsLeaves?'':'none';}
+  if(lc){lc.textContent=locLeaves+' units';lc.style.display=locLeaves?'':'none';}
+}
+function renderWBSNode(node,depth){
+  const children=_wbsNodes.filter(n=>n.parent_id===node.id).sort((a,b)=>a.sort_order-b.sort_order);
+  const hasChildren=children.length>0;
+  const expanded=_wbsExpanded.has(node.id);
+  const dotPath=computeDotPath(_wbsNodes,node.id);
+  const ntype=node.node_type||'group';
+  const depthClass=node.is_leaf?'wbs-leaf':`wbs-d${Math.min(depth,4)}`;
+  const icon=ntype==='package'?'📦':ntype==='activity'?'📄':ntype==='material'?'🧱':depth===0?'📁':depth===1?'📂':'📋';
+  const leafCount=node.is_leaf?0:getDescendantIds(_wbsNodes,node.id).filter(id=>_wbsNodes.find(n=>n.id===id&&n.is_leaf)).length;
+  return`<div class="tree-node ${depthClass}" id="wn_${node.id}">
+    <div class="tree-row">
+      <span class="tree-toggle" onclick="toggleWBSNode(${node.id})">${hasChildren?(expanded?'▾':'▸'):node.is_leaf?'':' '}</span>
+      <span style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">
+        <span>${icon}</span>
+        <span id="wn_label_${node.id}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(node.name)}</span>
+        <span class="wbs-code-badge">${_esc(dotPath)}</span>
+        ${ntype==='package'?`<span class="badge-leaf" style="background:#1e3a5f;color:#dbe7f8;">PKG</span>`:''}
+        ${ntype==='activity'?`<span class="badge-leaf">ACTIVITY</span>`:''}
+        ${ntype==='material'?`<span class="badge-leaf" style="background:#7c3a14;color:#fde9d8;">MATERIAL</span>`:''}
+        ${(ntype==='activity'||ntype==='material')?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;">${_esc(node.uom||'?')}${node.default_rate?` · ₹${Number(node.default_rate).toLocaleString('en-IN')}`:''}</span>`:''}
+        ${(ntype==='activity'||ntype==='material')&&node.wbs_code?`<span style="font-family:monospace;font-size:10px;color:#a07d10;">${_esc(node.wbs_code)}</span>`:''}
+        ${!node.is_leaf&&leafCount?`<span class="badge-count">${leafCount} leaves</span>`:''}
+      </span>
+      ${canEdit()?`<div style="display:flex;gap:3px;flex-shrink:0;">
+        ${!node.is_leaf?`<button class="btn btn-primary btn-xs" title="Add child" onclick="wbsAddChild(${node.id})">+Child</button>`:''}
+        <button class="btn btn-ghost btn-xs" title="Rename" onclick="wbsRename(${node.id})">✏</button>
+        <button class="btn btn-secondary btn-xs" title="Change node type / UOM / rate" onclick="wbsSetType(${node.id})">⚙</button>
+        <button class="btn btn-ghost btn-xs" title="Promote — move up one level" onclick="wbsPromote(${node.id})">←</button>
+        <button class="btn btn-ghost btn-xs" title="Demote — make child of sibling above" onclick="wbsDemote(${node.id})">→</button>
+        <button class="btn btn-ghost btn-xs" title="Move to…" onclick="wbsMoveTo(${node.id})">✂</button>
+        <button class="btn btn-ghost btn-xs" title="Move up" onclick="wbsMove(${node.id},-1)">↑</button>
+        <button class="btn btn-ghost btn-xs" title="Move down" onclick="wbsMove(${node.id},1)">↓</button>
+        <button class="btn btn-danger btn-xs" title="Delete" onclick="wbsDelete(${node.id})">🗑</button>
+      </div>`:''}
+    </div>
+    <div class="tree-children" id="wnch_${node.id}" style="${expanded?'':'display:none;'}">
+      <div id="wnin_${node.id}"></div>
+      ${children.map(c=>renderWBSNode(c,depth+1)).join('')}
+    </div>
+  </div>`;
+}
+
+// ── Node-type helpers (client-side mirrors of trg_wbs_nodes_structure) ──
+function _wbsPackageAncestor(startParentId){
+  const map=Object.fromEntries(_wbsNodes.map(n=>[n.id,n]));
+  let cur=map[startParentId],found=null;
+  while(cur){if((cur.node_type||'group')==='package')found=cur;cur=cur.parent_id?map[cur.parent_id]:null;}
+  return found;
+}
+function _wbsHasTypeDescendant(id,type){
+  return getDescendantIds(_wbsNodes,id).some(did=>{
+    const n=_wbsNodes.find(x=>x.id===did);return n&&(n.node_type||'group')===type;
+  });
+}
+function toggleWBSNode(id){
+  const ch=document.getElementById('wnch_'+id);
+  if(!ch)return;
+  const nowHidden=ch.style.display==='none';
+  ch.style.display=nowHidden?'':'none';
+  if(nowHidden)_wbsExpanded.add(id);else _wbsExpanded.delete(id);
+  const tog=document.querySelector(`#wn_${id} .tree-toggle`);
+  if(tog)tog.textContent=nowHidden?'▾':'▸';
+}
+
+// ── WBS Add root ───────────────────────────────────────────
+function wbsAddRoot(){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  openModal('Add Root WBS Node',`
+    <label>Name</label>
+    <input id="m_name" placeholder="e.g. Civil Works" autocomplete="off">
+  `,async()=>{
+    const name=document.getElementById('m_name').value.trim();
+    if(!name){toast('Name required','error');return;}
+    pbShow('Saving…');
+    try{
+      const{error}=await sb.from('wbs_nodes').insert({
+        parent_id:null,name,is_leaf:false,
+        sort_order:nextSortOrder(_wbsNodes,null),
+        created_by:state.userName,updated_by:state.userName
+      });
+      if(error)throw error;
+      toast('Root node added','success');closeModal();await loadWBS();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+
+// ── WBS code generator — MAX-based, not count-based.
+// Count-based generation collides as soon as a coded leaf is promoted
+// (count regresses, codes don't). Derive from highest existing suffix.
+async function _nextWbsCode(){
+  const{data,error}=await sb.from('wbs_nodes').select('wbs_code').not('wbs_code','is',null);
+  if(error)throw error;
+  let max=0;
+  (data||[]).forEach(r=>{
+    const m=/^WBS-(\d+)$/.exec(r.wbs_code||'');
+    if(m)max=Math.max(max,parseInt(m[1],10));
+  });
+  return`WBS-${String(max+1).padStart(4,'0')}`;
+}
+
+// ── WBS Add child ──────────────────────────────────────────
+function wbsAddChild(parentId){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const parent=_wbsNodes.find(n=>n.id===parentId);
+  if(!parent)return;
+  const ptype=parent.node_type||'group';
+  if(ptype==='activity'){toast('Cannot add children under an activity.','error');return;}
+  const pkgAnc=ptype==='package'?parent:_wbsPackageAncestor(parentId);
+  // activity/material allowed only if a package exists in the ancestry (incl. parent);
+  // package allowed only if NO package exists in the ancestry
+  const canActivity=!!pkgAnc;
+  const canMaterial=!!pkgAnc;
+  const canPackage=!pkgAnc;
+  openModal(`Add Child to "${parent.name}"`,`
+    <label>Name</label>
+    <input id="m_name" placeholder="e.g. Bore packing works - 110 mm dia" autocomplete="off">
+    <label style="margin-top:8px;">Node type</label>
+    <select id="m_ntype" onchange="document.getElementById('m_act_fields').style.display=(this.value==='activity'||this.value==='material')?'':'none';">
+      <option value="group">Group</option>
+      <option value="package" ${canPackage?'':'disabled'}>📦 Package ${canPackage?'':'— already inside a package'}</option>
+      <option value="activity" ${canActivity?'':'disabled'}>📄 Activity (labour) ${canActivity?`(under package "${_esc(pkgAnc?.name||'')}")`:'— needs a package ancestor'}</option>
+      <option value="material" ${canMaterial?'':'disabled'}>🧱 Material ${canMaterial?`(under package "${_esc(pkgAnc?.name||'')}")`:'— needs a package ancestor'}</option>
+    </select>
+    <div id="m_act_fields" style="display:none;">
+      <label style="margin-top:8px;">UOM <span style="color:#b91c1c;">*</span></label>
+      <input id="m_uom" placeholder="e.g. Sqft / Nos / Rmt / Bag" autocomplete="off">
+      <label style="margin-top:8px;">Default Rate (₹)</label>
+      <input id="m_rate" type="number" min="0" step="0.01" value="0">
+    </div>
+  `,async()=>{
+    const name=document.getElementById('m_name').value.trim();
+    const ntype=document.getElementById('m_ntype').value;
+    const uom=(document.getElementById('m_uom')?.value||'').trim();
+    const rate=Number(document.getElementById('m_rate')?.value||0);
+    if(!name){toast('Name required','error');return;}
+    const isLeaf=(ntype==='activity'||ntype==='material');
+    if(isLeaf&&!uom){toast('UOM is required for a '+(ntype==='material'?'material':'activity'),'error');return;}
+    pbShow('Saving…');
+    try{
+      let wbs_code=null;
+      if(isLeaf){
+        wbs_code=await _nextWbsCode();
+      }
+      const{error}=await sb.from('wbs_nodes').insert({
+        parent_id:parentId,name,is_leaf:isLeaf,node_type:ntype,
+        uom:isLeaf?uom:null,default_rate:isLeaf?rate:0,
+        wbs_code:isLeaf?wbs_code:null,
+        sort_order:nextSortOrder(_wbsNodes,parentId),
+        created_by:state.userName,updated_by:state.userName
+      });
+      if(error)throw error;
+      toast(ntype==='material'?'Material added':ntype==='activity'?'Activity added':'Node added','success');closeModal();await loadWBS();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+
+// ── WBS Rename ─────────────────────────────────────────────
+function wbsRename(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
+  openModal(`Rename "${node.name}"`,`
+    <label>New Name</label>
+    <input id="m_name" value="${_esc(node.name)}" autocomplete="off">
+  `,async()=>{
+    const name=document.getElementById('m_name').value.trim();
+    if(!name){toast('Name required','error');return;}
+    pbShow('Saving…');
+    try{
+      const{error}=await sb.from('wbs_nodes').update({name,updated_by:state.userName,updated_at:new Date().toISOString()}).eq('id',id);
+      if(error)throw error;
+      toast('Renamed','success');closeModal();await loadWBS();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+
+// ── WBS Set node type (replaces mark-as-leaf) ──────────────
+function wbsSetType(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
+  const cur=node.node_type||'group';
+  const children=_wbsNodes.filter(n=>n.parent_id===id);
+  const pkgAnc=_wbsPackageAncestor(node.parent_id);
+  const canActivity=!!pkgAnc&&!children.length;
+  const canMaterial=!!pkgAnc&&!children.length;
+  const canPackage=!pkgAnc&&!_wbsHasTypeDescendant(id,'package');
+  openModal(`Node Type — "${node.name}"`,`
+    <label>Type</label>
+    <select id="m_ntype" onchange="document.getElementById('m_act_fields').style.display=(this.value==='activity'||this.value==='material')?'':'none';">
+      <option value="group" ${cur==='group'?'selected':''}>Group</option>
+      <option value="package" ${cur==='package'?'selected':''} ${canPackage||cur==='package'?'':'disabled'}>📦 Package${canPackage||cur==='package'?'':' — blocked (package in ancestry or below)'}</option>
+      <option value="activity" ${cur==='activity'?'selected':''} ${canActivity||cur==='activity'?'':'disabled'}>📄 Activity (labour)${canActivity||cur==='activity'?'':(children.length?' — has children':' — needs a package ancestor')}</option>
+      <option value="material" ${cur==='material'?'selected':''} ${canMaterial||cur==='material'?'':'disabled'}>🧱 Material${canMaterial||cur==='material'?'':(children.length?' — has children':' — needs a package ancestor')}</option>
+    </select>
+    <div id="m_act_fields" style="display:${(cur==='activity'||cur==='material')?'':'none'};">
+      <label style="margin-top:8px;">UOM <span style="color:#b91c1c;">*</span></label>
+      <input id="m_uom" value="${_esc(node.uom||'')}" placeholder="e.g. Sqft / Nos / Rmt / Bag" autocomplete="off">
+      <label style="margin-top:8px;">Default Rate (₹)</label>
+      <input id="m_rate" type="number" min="0" step="0.01" value="${Number(node.default_rate||0)}">
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">Structure rules: activities (labour) and materials are leaves — each needs exactly one package ancestor and carries UOM. Packages cannot nest. Labour and material budgets are tracked separately.</div>
+  `,async()=>{
+    const ntype=document.getElementById('m_ntype').value;
+    const uom=(document.getElementById('m_uom')?.value||'').trim();
+    const rate=Number(document.getElementById('m_rate')?.value||0);
+    const isLeaf=(ntype==='activity'||ntype==='material');
+    if(isLeaf&&!uom){toast('UOM is required for a '+(ntype==='material'?'material':'activity'),'error');return;}
+    if(cur==='package'&&ntype!=='package'&&_wbsHasTypeDescendant(id,'activity')){
+      toast('Cannot change from package — activities exist below this node','error');return;
+    }
+    const rulesCount=_rules.filter(r=>r.wbs_node_id===id).length;
+    if(cur!==ntype&&rulesCount&&!confirm(`"${node.name}" has ${rulesCount} allocation rule(s). Changing type keeps them — continue?`))return;
+    pbShow('Saving…');
+    try{
+      let wbs_code=node.wbs_code;
+      if(isLeaf&&!wbs_code){
+        wbs_code=await _nextWbsCode();
+      }
+      const{error}=await sb.from('wbs_nodes').update({
+        node_type:ntype,is_leaf:isLeaf,
+        uom:isLeaf?uom:null,default_rate:isLeaf?rate:0,
+        wbs_code:isLeaf?wbs_code:null,
+        updated_by:state.userName,updated_at:new Date().toISOString()
+      }).eq('id',id);
+      if(error)throw error;
+      toast(`Type set: ${ntype}${isLeaf?` · ${wbs_code}`:''}`,'success');closeModal();await loadWBS();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+// Legacy alias — old callers route to the type modal
+async function wbsMarkLeaf(id){wbsSetType(id);}
+
+// ── WBS Move (reorder) ─────────────────────────────────────
+async function wbsMove(id,dir){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
+  const siblings=_wbsNodes.filter(n=>n.parent_id==node.parent_id).sort((a,b)=>a.sort_order-b.sort_order);
+  const idx=siblings.findIndex(n=>n.id===id);
+  const swapIdx=idx+dir;
+  if(swapIdx<0||swapIdx>=siblings.length)return;
+  const swap=siblings[swapIdx];
+  if(!confirm(`Move "${node.name}" ${dir<0?'above':'below'} "${swap.name}"?`))return;
+  pbShow('Reordering…');
+  try{
+    await Promise.all([
+      sb.from('wbs_nodes').update({sort_order:swap.sort_order,updated_at:new Date().toISOString()}).eq('id',id),
+      sb.from('wbs_nodes').update({sort_order:node.sort_order,updated_at:new Date().toISOString()}).eq('id',swap.id),
+    ]);
+    toast('Moved','success');await loadWBS();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+// ── WBS Delete ─────────────────────────────────────────────
+async function wbsDelete(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
+  const children=_wbsNodes.filter(n=>n.parent_id===id);
+  if(children.length){toast('Delete all children first.','error');return;}
+  // Check if used in rules
+  const rulesCount=_rules.filter(r=>r.wbs_node_id===id).length;
+  const confirmMsg=rulesCount
+    ?`Delete "${node.name}"? This will also remove ${rulesCount} allocation rule(s). Cannot be undone.`
+    :`Delete "${node.name}"? Cannot be undone.`;
+  if(!confirm(confirmMsg))return;
+  pbShow('Deleting…');
+  try{
+    await sb.from('wbs_location_rules').delete().eq('wbs_node_id',id);
+    const{error}=await sb.from('wbs_nodes').delete().eq('id',id);
+    if(error)throw error;
+    toast('Deleted','success');await loadWBS();
+    if(_rules.length)await loadRules();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+function renderWBSTreeFull(){renderWBSTree();}
+
+// ============================================================
+// LATERAL MOVEMENT — WBS
+// ============================================================
+
+// ← Promote: make node a sibling of its parent (move up one level)
+async function wbsPromote(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
+  if(node.parent_id==null){toast('Already at root level — cannot promote further.','warn');return;}
+  const parent=_wbsNodes.find(n=>n.id===node.parent_id);if(!parent)return;
+  if(parent.is_leaf){toast('Parent is a leaf — cannot promote.','error');return;}
+  const grandparentId=parent.parent_id; // null = becomes root
+  const grandparentName=grandparentId?_wbsNodes.find(n=>n.id===grandparentId)?.name||'root':'root level';
+  if(!confirm(`Promote "${node.name}"?\n\nCurrent parent: "${parent.name}"\nNew parent: ${grandparentId?`"${grandparentName}"`:'root level'}\n\nThis changes the WBS hierarchy. Existing transactions against this node are unaffected.`))return;
+  const newSortOrder=nextSortOrder(_wbsNodes,grandparentId);
+  pbShow('Promoting…');
+  try{
+    const{error}=await sb.from('wbs_nodes').update({
+      parent_id:grandparentId,sort_order:newSortOrder,
+      updated_by:state.userName,updated_at:new Date().toISOString()
+    }).eq('id',id);
+    if(error)throw error;
+    toast(`"${node.name}" promoted one level`,'success');
+    await loadWBS();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+// → Demote: make node a child of its nearest sibling above it
+async function wbsDemote(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
+  const siblings=_wbsNodes
+    .filter(n=>n.parent_id==node.parent_id)
+    .sort((a,b)=>a.sort_order-b.sort_order);
+  const idx=siblings.findIndex(n=>n.id===id);
+  if(idx===0){toast('No sibling above — cannot demote. Move down first or use Move to….','warn');return;}
+  const target=siblings[idx-1]; // sibling immediately above
+  if(target.is_leaf){toast(`"${target.name}" is a leaf — cannot place children inside it. Unmark it as leaf first.`,'error');return;}
+  if(!confirm(`Demote "${node.name}"?\n\nCurrent parent: "${_wbsNodes.find(n=>n.id==node.parent_id)?.name||'root'}"\nNew parent: "${target.name}"\n\nThis changes the WBS hierarchy. Existing transactions against this node are unaffected.`))return;
+  const newSortOrder=nextSortOrder(_wbsNodes,target.id);
+  pbShow('Demoting…');
+  try{
+    const{error}=await sb.from('wbs_nodes').update({
+      parent_id:target.id,sort_order:newSortOrder,
+      updated_by:state.userName,updated_at:new Date().toISOString()
+    }).eq('id',id);
+    if(error)throw error;
+    // If target was a leaf, unmark it now that it has a child
+    if(target.is_leaf){
+      await sb.from('wbs_nodes').update({is_leaf:false,wbs_code:null,updated_at:new Date().toISOString()}).eq('id',target.id);
+    }
+    toast(`"${node.name}" demoted under "${target.name}"`,'success');
+    await loadWBS();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+// ✂ Move to: pick any node as new parent via modal tree picker
+function wbsMoveTo(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
+  const allDescIds=new Set(getDescendantIds(_wbsNodes,id));
+  // Build picker options — exclude self and own descendants and leaf nodes
+  function buildOptions(parentId,depth){
+    return _wbsNodes
+      .filter(n=>n.parent_id==parentId&&n.id!==id&&!allDescIds.has(n.id))
+      .sort((a,b)=>a.sort_order-b.sort_order)
+      .map(n=>`<option value="${n.id}" ${n.is_leaf?'disabled':''}>${'　'.repeat(depth)}${n.is_leaf?'🔒 ':''}${_esc(n.name)} (${computeDotPath(_wbsNodes,n.id)})${n.is_leaf?' [leaf — cannot add children]':''}</option>`+
+               buildOptions(n.id,depth+1))
+      .join('');
+  }
+  const rootOption=`<option value="__root__">📁 [ Make root node ]</option>`;
+  openModal(`Move "${node.name}" to…`,`
+    <label>New parent</label>
+    <select id="m_newparent" style="height:180px;" size="8">
+      ${rootOption}${buildOptions(null,0)}
+    </select>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;">🔒 = leaf node — cannot receive children</div>
+  `,async()=>{
+    const sel=document.getElementById('m_newparent').value;
+    if(!sel){toast('Select a destination','error');return;}
+    const newParentId=sel==='__root__'?null:parseInt(sel);
+    if(newParentId===node.parent_id){toast('Already in this location','warn');return;}
+    const newParentName=newParentId?_wbsNodes.find(n=>n.id===newParentId)?.name||'selected node':'root level';
+    const currentParentName=node.parent_id?_wbsNodes.find(n=>n.id===node.parent_id)?.name||'root':'root level';
+    if(!confirm(`Move "${node.name}"?\n\nFrom: ${currentParentName}\nTo: ${newParentName}\n\nThis changes the WBS hierarchy. Existing transactions are unaffected.`))return;
+    const newSortOrder=nextSortOrder(_wbsNodes,newParentId);
+    pbShow('Moving…');
+    try{
+      const{error}=await sb.from('wbs_nodes').update({
+        parent_id:newParentId,sort_order:newSortOrder,
+        updated_by:state.userName,updated_at:new Date().toISOString()
+      }).eq('id',id);
+      if(error)throw error;
+      toast(`"${node.name}" moved successfully`,'success');
+      closeModal();await loadWBS();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+
+// ============================================================
+// LATERAL MOVEMENT — LOCATION
+// ============================================================
+
+// ← Promote location node
+async function locPromote(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_locNodes.find(n=>n.id===id);if(!node)return;
+  if(node.parent_id==null){toast('Already at root level — cannot promote further.','warn');return;}
+  const parent=_locNodes.find(n=>n.id===node.parent_id);if(!parent)return;
+  const grandparentId=parent.parent_id;
+  const grandparentName=grandparentId?_locNodes.find(n=>n.id===grandparentId)?.name||'root':'root level';
+  if(!confirm(`Promote "${node.name}"?\n\nCurrent parent: "${parent.name}"\nNew parent: ${grandparentId?`"${grandparentName}"`:'root level'}\n\nThis changes the location hierarchy. Existing transactions are unaffected.`))return;
+  const newSortOrder=nextSortOrder(_locNodes,grandparentId);
+  pbShow('Promoting…');
+  try{
+    const{error}=await sb.from('location_nodes').update({
+      parent_id:grandparentId,sort_order:newSortOrder,
+      updated_by:state.userName,updated_at:new Date().toISOString()
+    }).eq('id',id);
+    if(error)throw error;
+    toast(`"${node.name}" promoted one level`,'success');
+    await loadLoc();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+// → Demote location node
+async function locDemote(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_locNodes.find(n=>n.id===id);if(!node)return;
+  const siblings=_locNodes
+    .filter(n=>n.parent_id==node.parent_id)
+    .sort((a,b)=>a.sort_order-b.sort_order);
+  const idx=siblings.findIndex(n=>n.id===id);
+  if(idx===0){toast('No sibling above — cannot demote. Move down first or use Move to….','warn');return;}
+  const target=siblings[idx-1];
+  if(target.is_leaf){toast(`"${target.name}" is a leaf — cannot place children inside it.`,'error');return;}
+  if(!confirm(`Demote "${node.name}"?\n\nCurrent parent: "${_locNodes.find(n=>n.id==node.parent_id)?.name||'root'}"\nNew parent: "${target.name}"\n\nThis changes the location hierarchy. Existing transactions are unaffected.`))return;
+  const newSortOrder=nextSortOrder(_locNodes,target.id);
+  pbShow('Demoting…');
+  try{
+    const{error}=await sb.from('location_nodes').update({
+      parent_id:target.id,sort_order:newSortOrder,
+      updated_by:state.userName,updated_at:new Date().toISOString()
+    }).eq('id',id);
+    if(error)throw error;
+    if(target.is_leaf){
+      await sb.from('location_nodes').update({is_leaf:false,location_code:null,updated_at:new Date().toISOString()}).eq('id',target.id);
+    }
+    toast(`"${node.name}" demoted under "${target.name}"`,'success');
+    await loadLoc();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+// ✂ Move to: location tree picker
+function locMoveTo(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_locNodes.find(n=>n.id===id);if(!node)return;
+  const allDescIds=new Set(getDescendantIds(_locNodes,id));
+  function buildOptions(parentId,depth){
+    return _locNodes
+      .filter(n=>n.parent_id==parentId&&n.id!==id&&!allDescIds.has(n.id))
+      .sort((a,b)=>a.sort_order-b.sort_order)
+      .map(n=>`<option value="${n.id}" ${n.is_leaf?'disabled':''}>${'　'.repeat(depth)}${n.is_leaf?'🔒 ':''}${_esc(n.name)} (${computeDotPath(_locNodes,n.id)})${n.is_leaf?' [leaf]':''}</option>`+
+               buildOptions(n.id,depth+1))
+      .join('');
+  }
+  openModal(`Move "${node.name}" to…`,`
+    <label>New parent</label>
+    <select id="m_newparent" style="height:180px;" size="8">
+      <option value="__root__">📁 [ Make root node ]</option>
+      ${buildOptions(null,0)}
+    </select>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;">🔒 = leaf node — cannot receive children</div>
+  `,async()=>{
+    const sel=document.getElementById('m_newparent').value;
+    if(!sel){toast('Select a destination','error');return;}
+    const newParentId=sel==='__root__'?null:sel;
+    if(newParentId===node.parent_id){toast('Already in this location','warn');return;}
+    const newParentName=newParentId?_locNodes.find(n=>n.id===newParentId)?.name||'selected node':'root level';
+    const currentParentName=node.parent_id?_locNodes.find(n=>n.id===node.parent_id)?.name||'root':'root level';
+    if(!confirm(`Move "${node.name}"?\n\nFrom: ${currentParentName}\nTo: ${newParentName}\n\nThis changes the location hierarchy. Existing transactions are unaffected.`))return;
+    const newSortOrder=nextSortOrder(_locNodes,newParentId);
+    pbShow('Moving…');
+    try{
+      const{error}=await sb.from('location_nodes').update({
+        parent_id:newParentId,sort_order:newSortOrder,
+        updated_by:state.userName,updated_at:new Date().toISOString()
+      }).eq('id',id);
+      if(error)throw error;
+      toast(`"${node.name}" moved successfully`,'success');
+      closeModal();await loadLoc();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+
+// ============================================================
+// LOCATION TREE RENDER
+// ============================================================
+function renderLocTree(){
+  const wrap=document.getElementById('loc_tree_wrap');
+  if(!wrap)return;
+  const roots=_locNodes.filter(n=>n.parent_id==null).sort((a,b)=>a.sort_order-b.sort_order);
+  if(!roots.length){
+    wrap.innerHTML=`<div style="padding:24px;text-align:center;color:var(--muted);">${canEdit()?'No locations. Use "+ Add Root Node" to begin.':'No locations.'}</div>`;
+    return;
+  }
+  wrap.innerHTML='<div>'+roots.map(n=>renderLocNode(n,0)).join('')+'</div>';
+  updateTabCounts();
+}
+function renderLocNode(node,depth){
+  const children=_locNodes.filter(n=>n.parent_id===node.id).sort((a,b)=>a.sort_order-b.sort_order);
+  const hasChildren=children.length>0;
+  const expanded=_locExpanded.has(node.id);
+  const depthClass=node.is_leaf?'loc-leaf':`loc-d${Math.min(depth,4)}`;
+  const icon=node.is_leaf?'📍':depth===0?'📁':depth===1?'📂':'📋';
+  const dotPath=computeDotPath(_locNodes,node.id);
+  const leafCount=node.is_leaf?0:getDescendantIds(_locNodes,node.id).filter(id=>_locNodes.find(x=>x.id===id&&x.is_leaf)).length;
+  return`<div class="tree-node ${depthClass}" id="ln_${node.id}">
+    <div class="tree-row">
+      <span class="tree-toggle" onclick="toggleLocNode('${node.id}')">${hasChildren?(expanded?'▾':'▸'):node.is_leaf?'':' '}</span>
+      <span style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">
+        <span>${icon}</span>
+        <span id="ln_label_${node.id}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(node.name)}</span>
+        <span class="loc-code-badge">${_esc(dotPath)}</span>
+        ${node.is_leaf?`<span class="badge-leaf">LEAF</span>`:''}
+        ${node.is_leaf&&node.location_code?`<span style="font-family:monospace;font-size:10px;color:#a07d10;">${_esc(node.location_code)}</span>`:''}
+        ${!node.is_leaf&&leafCount?`<span class="badge-count">${leafCount} units</span>`:''}
+      </span>
+      ${canEdit()?`<div style="display:flex;gap:3px;flex-shrink:0;">
+        ${!node.is_leaf?`<button class="btn btn-primary btn-xs" onclick="locAddChild('${node.id}')">+Child</button>`:''}
+        <button class="btn btn-ghost btn-xs" onclick="locRename('${node.id}')">✏</button>
+        ${!node.is_leaf?`<button class="btn btn-secondary btn-xs" onclick="locMarkLeaf('${node.id}')">📍</button>`:''}
+        <button class="btn btn-ghost btn-xs" title="Promote — move up one level" onclick="locPromote('${node.id}')">←</button>
+        <button class="btn btn-ghost btn-xs" title="Demote — make child of sibling above" onclick="locDemote('${node.id}')">→</button>
+        <button class="btn btn-ghost btn-xs" title="Move to…" onclick="locMoveTo('${node.id}')">✂</button>
+        <button class="btn btn-ghost btn-xs" onclick="locMove('${node.id}',-1)">↑</button>
+        <button class="btn btn-ghost btn-xs" onclick="locMove('${node.id}',1)">↓</button>
+        <button class="btn btn-danger btn-xs" onclick="locDelete('${node.id}')">🗑</button>
+      </div>`:''}
+    </div>
+    <div class="tree-children" id="lnch_${node.id}" style="${expanded?'':'display:none;'}">
+      <div id="lnin_${node.id}"></div>
+      ${children.map(c=>renderLocNode(c,depth+1)).join('')}
+    </div>
+  </div>`;
+}
+function toggleLocNode(id){
+  const ch=document.getElementById('lnch_'+id);if(!ch)return;
+  const nowHidden=ch.style.display==='none';
+  ch.style.display=nowHidden?'':'none';
+  if(nowHidden)_locExpanded.add(id);else _locExpanded.delete(id);
+  const tog=document.querySelector(`#ln_${id} .tree-toggle`);
+  if(tog)tog.textContent=nowHidden?'▾':'▸';
+}
+
+// ── Loc Add Root ───────────────────────────────────────────
+function locAddRoot(){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const activeProjects=_projects.filter(p=>p.is_active);
+  openModal('Add Root Location Node',`
+    <label>Name</label>
+    <input id="m_name" placeholder="e.g. RCC Construction Stage" autocomplete="off">
+    ${activeProjects.length>1?`<label>Project</label>
+    <select id="m_proj">
+      ${activeProjects.map(p=>`<option value="${_esc(p.project_code)}">${_esc(p.project_name)}</option>`).join('')}
+    </select>`:`<input type="hidden" id="m_proj" value="${_esc(activeProjects[0]?.project_code||'')}">`}
+  `,async()=>{
+    const name=document.getElementById('m_name').value.trim();
+    const project=document.getElementById('m_proj').value||activeProjects[0]?.project_code||'';
+    if(!name){toast('Name required','error');return;}
+    if(!project){toast('No active project found. Add one in Masters.','error');return;}
+    pbShow('Saving…');
+    try{
+      const{error}=await sb.from('location_nodes').insert({
+        project,parent_id:null,name,node_type:'node',
+        sort_order:nextSortOrder(_locNodes,null),
+        is_leaf:false,created_by:state.userName,updated_by:state.userName
+      });
+      if(error)throw error;
+      toast('Root node added','success');closeModal();await loadLoc();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+
+// ── Loc Add Child ──────────────────────────────────────────
+function locAddChild(parentId){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const parent=_locNodes.find(n=>n.id===parentId);if(!parent)return;
+  if(parent.is_leaf){toast('Cannot add children to a leaf node.','error');return;}
+  openModal(`Add Child to "${parent.name}"`,`
+    <label>Name</label>
+    <input id="m_name" placeholder="e.g. Tower-A" autocomplete="off">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+      <input type="checkbox" id="m_isleaf" style="width:auto;margin:0;">
+      Mark as leaf node (assigns a location code)
+    </label>
+  `,async()=>{
+    const name=document.getElementById('m_name').value.trim();
+    const isLeaf=document.getElementById('m_isleaf').checked;
+    if(!name){toast('Name required','error');return;}
+    pbShow('Saving…');
+    try{
+      let location_code=null;
+      if(isLeaf){
+        const{data:existing}=await sb.from('location_nodes').select('id').eq('is_leaf',true);
+        location_code=`LOC-${String((existing?.length||0)+1).padStart(4,'0')}`;
+      }
+      const{error}=await sb.from('location_nodes').insert({
+        project:parent.project,parent_id:parentId,name,node_type:'node',
+        is_leaf:isLeaf,location_code,
+        sort_order:nextSortOrder(_locNodes,parentId),
+        created_by:state.userName,updated_by:state.userName
+      });
+      if(error)throw error;
+      toast('Node added','success');closeModal();await loadLoc();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+
+// ── Loc Rename ─────────────────────────────────────────────
+function locRename(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_locNodes.find(n=>n.id===id);if(!node)return;
+  openModal(`Rename "${node.name}"`,`
+    <label>New Name</label>
+    <input id="m_name" value="${_esc(node.name)}" autocomplete="off">
+  `,async()=>{
+    const name=document.getElementById('m_name').value.trim();
+    if(!name){toast('Name required','error');return;}
+    pbShow('Saving…');
+    try{
+      const{error}=await sb.from('location_nodes').update({name,updated_by:state.userName,updated_at:new Date().toISOString()}).eq('id',id);
+      if(error)throw error;
+      toast('Renamed','success');closeModal();await loadLoc();
+    }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+  });
+}
+
+// ── Loc Mark as Leaf ───────────────────────────────────────
+async function locMarkLeaf(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_locNodes.find(n=>n.id===id);if(!node)return;
+  const children=_locNodes.filter(n=>n.parent_id===id);
+  if(children.length){toast('Cannot mark as leaf — node has children. Delete children first.','error');return;}
+  if(!confirm(`Mark "${node.name}" as a leaf? This assigns a location code and prevents adding children.`))return;
+  pbShow('Saving…');
+  try{
+    const{data:existing}=await sb.from('location_nodes').select('id').eq('is_leaf',true);
+    const location_code=`LOC-${String((existing?.length||0)+1).padStart(4,'0')}`;
+    const{error}=await sb.from('location_nodes').update({is_leaf:true,location_code,updated_by:state.userName,updated_at:new Date().toISOString()}).eq('id',id);
+    if(error)throw error;
+    toast(`Marked as leaf. Code: ${location_code}`,'success');await loadLoc();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+// ── Loc Move ───────────────────────────────────────────────
+async function locMove(id,dir){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_locNodes.find(n=>n.id===id);if(!node)return;
+  const siblings=_locNodes.filter(n=>n.parent_id==node.parent_id).sort((a,b)=>a.sort_order-b.sort_order);
+  const idx=siblings.findIndex(n=>n.id===id);
+  const swapIdx=idx+dir;
+  if(swapIdx<0||swapIdx>=siblings.length)return;
+  const swap=siblings[swapIdx];
+  if(!confirm(`Move "${node.name}" ${dir<0?'above':'below'} "${swap.name}"?`))return;
+  pbShow('Reordering…');
+  try{
+    await Promise.all([
+      sb.from('location_nodes').update({sort_order:swap.sort_order,updated_at:new Date().toISOString()}).eq('id',id),
+      sb.from('location_nodes').update({sort_order:node.sort_order,updated_at:new Date().toISOString()}).eq('id',swap.id),
+    ]);
+    toast('Moved','success');await loadLoc();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+// ── Loc Delete ─────────────────────────────────────────────
+async function locDelete(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_locNodes.find(n=>n.id===id);if(!node)return;
+  const allIds=getDescendantIds(_locNodes,id);
+  const rulesCount=_rules.filter(r=>allIds.includes(r.loc_node_id)).length;
+  if(!confirm(`Delete "${node.name}" and all ${allIds.length} descendant(s)?${rulesCount?` Also removes ${rulesCount} rule(s).`:''} Cannot be undone.`))return;
+  pbShow('Deleting…');
+  try{
+    for(const did of allIds){
+      await sb.from('wbs_location_rules').delete().eq('loc_node_id',did);
+      await sb.from('location_nodes').update({is_active:false,updated_at:new Date().toISOString()}).eq('id',did);
+    }
+    toast('Deleted','success');await loadLoc();
+  }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
+}
+
+// ============================================================
+// ALLOCATION RULES — MATRIX
+// ============================================================
+let _rulesLocked   = true;
+let _rulesFilter   = 'all';
+let _relockTimer   = null;
+let _relockSeconds = 0;
+let _relockInterval= null;
+const RELOCK_SECS  = 180;
+let _ruleMode      = 'include';   // 'include' | 'exclude' — polarity of new rules on click
+
+function rulesSetMode(m){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  _ruleMode=m==='exclude'?'exclude':'include';
+  const inc=document.getElementById('rules_mode_include');
+  const exc=document.getElementById('rules_mode_exclude');
+  if(inc&&exc){
+    const on=(b,bg,fg)=>{b.style.background=bg;b.style.color=fg;};
+    if(_ruleMode==='include'){on(inc,'#1f6f43','#eafff3');on(exc,'transparent','#8fa8cc');}
+    else{on(exc,'#7a1c1c','#ffe5e5');on(inc,'transparent','#8fa8cc');}
+  }
+  toast(_ruleMode==='exclude'?'Exclude mode — clicks carve units OUT of coverage':'Include mode — clicks add coverage','info',2200);
+}
+
+function rulesToggleLock(){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  _rulesLocked=!_rulesLocked;
+  _updateLockUI();
+  if(!_rulesLocked)_startRelockTimer();
+  else {_stopRelockTimer();if(_ruleMode!=='include')rulesSetMode('include');}
+}
+function _updateLockUI(){
+  const btn=document.getElementById('rules_lock_btn');
+  const icon=document.getElementById('rules_lock_icon');
+  const label=document.getElementById('rules_lock_label');
+  const banner=document.getElementById('rules_lock_banner');
+  if(!btn)return;
+  if(_rulesLocked){
+    icon.textContent='🔒';label.textContent='Locked';
+    btn.style.color='#D4AF37';btn.style.borderColor='#D4AF37';btn.style.background='#1B2A47';
+    if(banner)banner.style.display='flex';
+  }else{
+    icon.textContent='🔓';label.textContent='Editing';
+    btn.style.color='#4ade80';btn.style.borderColor='#4ade80';btn.style.background='#1B2A47';
+    if(banner)banner.style.display='none';
+  }
+  _renderMatrixBody();
+}
+function _startRelockTimer(){
+  _stopRelockTimer();
+  _relockSeconds=RELOCK_SECS;
+  const timerEl=document.getElementById('rules_relock_timer');
+  if(timerEl)timerEl.style.display='';
+  _relockInterval=setInterval(()=>{
+    _relockSeconds--;
+    const m=Math.floor(_relockSeconds/60);
+    const s=String(_relockSeconds%60).padStart(2,'0');
+    if(timerEl)timerEl.textContent=`Auto-locks in ${m}:${s}`;
+    if(_relockSeconds<=0){
+      _rulesLocked=true;_updateLockUI();_stopRelockTimer();
+      toast('Matrix auto-locked after inactivity','info');
+    }
+  },1000);
+}
+function _stopRelockTimer(){
+  if(_relockInterval){clearInterval(_relockInterval);_relockInterval=null;}
+  const timerEl=document.getElementById('rules_relock_timer');
+  if(timerEl){timerEl.style.display='none';timerEl.textContent='';}
+}
+function _resetRelockTimer(){
+  if(!_rulesLocked&&_relockInterval)_startRelockTimer();
+}
+
+function rulesSetFilter(f){
+  _rulesFilter=f;
+  ['all','leaves','unassigned'].forEach(id=>{
+    const btn=document.getElementById('rf_'+id);
+    if(!btn)return;
+    const active=id===f;
+    btn.style.background=active?'#253d5e':'transparent';
+    btn.style.color=active?'#c2d3ec':'#8fa8cc';
+    btn.style.border=active?'1px solid #4A6FA5':'1px solid transparent';
+  });
+  _renderMatrixBody();
+}
+
+function renderRulesMatrix(){
+  _buildStageFilter();
+  _buildDepthButtons();
+  _renderMatrixHead();
+  _renderMatrixBody();
+  _updateCoverage();
+  _updateColCount();
+}
+
+// ── Column depth state ─────────────────────────────────────
+let _colDepth = 1;
+let _colStage = '__all__'; // selected stage id or '__all__'
+
+// Build stage filter dropdown from root loc nodes
+function _buildStageFilter(){
+  const sel=document.getElementById('rules_stage_filter');
+  if(!sel)return;
+  const stages=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false)
+                         .sort((a,b)=>a.sort_order-b.sort_order);
+  const current=sel.value;
+  sel.innerHTML=`<option value="__all__">All stages</option>`+
+    stages.map(s=>`<option value="${s.id}">${_esc(s.name)}</option>`).join('');
+  // Restore previous selection if still valid
+  if(stages.find(s=>s.id===current))sel.value=current;
+  else{sel.value='__all__';_colStage='__all__';}
+}
+
+function rulesSetStage(val){
+  _colStage=val;
+  // Rebuild depth buttons since max depth may differ per stage
+  _buildDepthButtons();
+  // Clamp _colDepth if new max is lower
+  const newMax=_locMaxDepth()+1;
+  if(_colDepth>newMax)_colDepth=newMax;
+  _renderMatrixHead();
+  _renderMatrixBody();
+  _renderMatrixFoot();
+  _updateColCount();
+}
+
+// Compute max depth of location tree (within selected stage if filtered)
+function _locMaxDepth(){
+  let max=0;
+  // Get valid root ids based on stage filter
+  const validRoots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false)
+    .filter(n=>_colStage==='__all__'||n.id===_colStage)
+    .map(n=>n.id);
+  const validDescIds=new Set();
+  validRoots.forEach(rid=>{getDescendantIds(_locNodes,rid).forEach(id=>validDescIds.add(id));});
+  validRoots.forEach(id=>validDescIds.add(id));
+  _locNodes.filter(n=>validDescIds.has(n.id)).forEach(n=>{
+    let d=0,cur=n;
+    while(cur.parent_id!=null){
+      const p=_locNodes.find(x=>x.id===cur.parent_id);
+      if(!p)break;
+      d++;cur=p;
+    }
+    if(d>max)max=d;
+  });
+  return max;
+}
+
+// Build depth buttons dynamically from actual tree depth
+function _buildDepthButtons(){
+  const wrap=document.getElementById('rules_depth_btns');
+  if(!wrap)return;
+  const maxDepth=_locMaxDepth(); // e.g. 3 means 4 levels: 0,1,2,3
+  const labels=['Stages','L2','L3','L4','L5','L6','L7','L8'];
+  wrap.innerHTML='';
+  for(let d=1;d<=maxDepth+1;d++){
+    // Build label: "Stages only" for d=1, "Stages + L2" for d=2, etc.
+    let label=d===1?'Stages only':
+              d===2?'Stages + L2':
+              Array.from({length:d-1},(_,i)=>`L${i+2}`).reduce((acc,l,i)=>
+                i===0?`Stages + ${l}`:`${acc} + ${l}`,'');
+    // Append leaf indicator on last level
+    const isLeafLevel=d===maxDepth+1;
+    if(isLeafLevel)label+=' (Leaves)';
+    const btn=document.createElement('button');
+    btn.id=`rd_${d}`;
+    btn.textContent=label;
+    btn.onclick=()=>rulesSetDepth(d);
+    btn.style.cssText=`font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .15s;`;
+    _applyDepthBtnStyle(btn,d===_colDepth);
+    wrap.appendChild(btn);
+  }
+}
+
+function _applyDepthBtnStyle(btn,active){
+  btn.style.background=active?'#1B2A47':'transparent';
+  btn.style.color=active?'#c2d3ec':'#8fa8cc';
+  btn.style.border=active?'1px solid #4A6FA5':'1px solid transparent';
+}
+
+function rulesSetDepth(d){
+  _colDepth=d;
+  // Update button styles
+  const wrap=document.getElementById('rules_depth_btns');
+  if(wrap)Array.from(wrap.children).forEach((btn,i)=>{
+    _applyDepthBtnStyle(btn,i+1===d);
+  });
+  _renderMatrixHead();
+  _renderMatrixBody();
+  _renderMatrixFoot();
+  _updateColCount();
+}
+
+function _updateColCount(){
+  const el=document.getElementById('rules_col_count');
+  if(!el)return;
+  const cols=_getColNodes();
+  el.textContent=`${cols.length} column${cols.length!==1?'s':''}`;
+}
+
+// Returns flat list of column nodes at chosen depth, filtered by selected stage
+function _getColNodes(){
+  let roots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false)
+                      .sort((a,b)=>a.sort_order-b.sort_order);
+  // Apply stage filter
+  if(_colStage!=='__all__') roots=roots.filter(n=>n.id===_colStage);
+  if(_colDepth===1)return roots;
+  let current=[...roots];
+  for(let lvl=2;lvl<=_colDepth;lvl++){
+    const next=[];
+    current.forEach(n=>{
+      const children=_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false)
+                               .sort((a,b)=>a.sort_order-b.sort_order);
+      if(children.length) next.push(...children);
+      else next.push(n);
+    });
+    current=next;
+  }
+  return current;
+}
+
+// Returns the root-stage ancestor of any col node (for grouping header)
+function _getStageAncestor(nodeId){
+  const map=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
+  let cur=map[nodeId];
+  while(cur&&cur.parent_id!=null){
+    const parent=map[cur.parent_id];
+    if(!parent)break;
+    cur=parent;
+  }
+  return cur;
+}
+
+function _renderMatrixHead(){
+  const head=document.getElementById('rules_matrix_head');
+  if(!head)return;
+  const cols=_getColNodes();
+  if(!cols.length){head.innerHTML='';return;}
+
+  if(_colDepth===1){
+    // Single header row
+    let th=`<tr>
+      <th style="text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:240px;position:sticky;left:0;top:0;z-index:4;">WBS Structure</th>`;
+    cols.forEach(c=>{
+      const dp=computeDotPath(_locNodes,c.id);
+      th+=`<th style="padding:6px 8px;background:#1B2A47;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:500;font-size:11px;text-align:center;min-width:120px;position:sticky;top:0;z-index:2;">
+        <div style="word-break:break-word;line-height:1.3;">${_esc(c.name)}</div>
+        <div style="font-family:monospace;font-size:9px;color:#8fa8cc;margin-top:2px;">${_esc(dp)}</div>
+      </th>`;
+    });
+    th+='</tr>';
+    head.innerHTML=th;
+    return;
+  }
+
+  // Build header rows equal to _colDepth — one row per level from root to col node
+  const numHeaderRows = _colDepth;
+
+  // Build ancestor chain for each col up to root
+  const locMap2=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
+  function getAncestorChain(nodeId){
+    // Returns [root, ..., parent, node] — full path from root to node
+    const chain=[];let cur=locMap2[nodeId];
+    while(cur){chain.unshift(cur);cur=cur.parent_id?locMap2[cur.parent_id]:null;}
+    return chain;
+  }
+
+  // For each col, get its ancestor chain
+  const colChains=cols.map(c=>({col:c,chain:getAncestorChain(c.id)}));
+
+  // Build header rows — one row per level (0=root/stage, 1=level2, 2=level3)
+  // Each row groups consecutive cols that share the same ancestor at that level
+  // WBS Structure th spans all header rows
+  let headerHtml=``;
+
+  for(let lvl=0;lvl<numHeaderRows;lvl++){
+    let row=`<tr>`;
+    if(lvl===0){
+      // First row: WBS Structure th spans all header rows
+      row+=`<th rowspan="${numHeaderRows}" style="text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1e3a5f;font-weight:500;min-width:240px;position:sticky;left:0;top:0;z-index:5;vertical-align:bottom;">WBS Structure</th>`;
+    }
+    // Group consecutive cols that share same ancestor at this level
+    let i=0;
+    while(i<colChains.length){
+      const chain=colChains[i].chain;
+      // ancestor at this level — chain[lvl] if it exists, else chain[chain.length-1]
+      const ancNode=chain[lvl]||chain[chain.length-1];
+      // Count how many consecutive cols share this ancestor
+      let span=1;
+      while(i+span<colChains.length){
+        const nextChain=colChains[i+span].chain;
+        const nextAnc=nextChain[lvl]||nextChain[nextChain.length-1];
+        if(nextAnc.id===ancNode.id)span++;
+        else break;
+      }
+      const dp=computeDotPath(_locNodes,ancNode.id);
+      const isLeafLevel=lvl===numHeaderRows-1; // bottom header row
+      const bgIdx=Math.floor(i/1)%2;
+      const bg=lvl===0?(bgIdx===0?'#1e3a5f':'#253d5e'):
+               lvl===1?(bgIdx===0?'#1e3a5f':'#253d5e'):'#1e3050';
+      const topOffset=lvl*32; // 32px per header row
+      row+=`<th colspan="${span}" style="padding:5px 7px;background:${bg};border:0.5px solid rgba(255,255,255,0.12);color:${isLeafLevel?'#c2d3ec':'#e8edf5'};font-weight:${isLeafLevel?400:500};font-size:${isLeafLevel?10:11}px;text-align:center;min-width:${isLeafLevel?90:80}px;position:sticky;top:${topOffset}px;z-index:2;">
+        <div style="word-break:break-word;line-height:1.3;">${_esc(ancNode.name)}</div>
+        <div style="font-family:monospace;font-size:8px;color:#8fa8cc;margin-top:1px;">${_esc(dp)}</div>
+      </th>`;
+      i+=span;
+    }
+    row+=`</tr>`;
+    headerHtml+=row;
+  }
+
+  head.innerHTML=headerHtml;
+  _updateColCount();
+}
+
+function _renderMatrixBody(){
+  const tbody=document.getElementById('rules_matrix_body');
+  if(!tbody)return;
+  const cols=_getColNodes();
+  if(!cols.length){
+    tbody.innerHTML=`<tr><td colspan="99" style="padding:24px;text-align:center;color:var(--muted);">No location stages. Add root nodes in Location Structure first.</td></tr>`;
+    return;
+  }
+  // Expand all non-leaf nodes by default UNLESS they are in _matrixWbsCollapsed
+  _wbsNodes.filter(n=>!n.is_leaf&&!_matrixWbsCollapsed.has(n.id))
+           .forEach(n=>_wbsExpanded.add(n.id));
+  const wbsMap=Object.fromEntries(_wbsNodes.map(n=>[n.id,n]));
+  function getWBSAncestorIds(id){
+    const ids=[];let cur=wbsMap[id];
+    while(cur&&cur.parent_id!=null){cur=wbsMap[cur.parent_id];if(cur)ids.push(cur.id);}
+    return ids;
+  }
+  const colDescendants={};
+  cols.forEach(c=>{colDescendants[c.id]=new Set(getDescendantIds(_locNodes,c.id));});
+  // Also build loc ancestors for each col node (rules may be stored at a parent stage)
+  const locMap=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
+  function getLocAncestorIds(id){
+    const ids=[];let cur=locMap[id];
+    while(cur&&cur.parent_id!=null){cur=locMap[cur.parent_id];if(cur)ids.push(cur.id);}
+    return ids;
+  }
+  const colAncestors={};
+  cols.forEach(c=>{colAncestors[c.id]=new Set(getLocAncestorIds(c.id));});
+
+  // ── Cell state resolution ─────────────────────────────────────────
+  // A rule COVERS a column when stored at the column node itself or any
+  // location ancestor. A rule at a location DESCENDANT is partial, not
+  // coverage. Exclude rules always win over includes. Mirrors
+  // fn_effective_locations / fn_is_pair_allowed in the database.
+  const _inc=_rules.filter(r=>!r.is_exclude);
+  const _exc=_rules.filter(r=>r.is_exclude);
+  function _covers(r,colId){return r.loc_node_id===colId||colAncestors[colId].has(r.loc_node_id);}
+  function _below(r,colId){return colDescendants[colId].has(r.loc_node_id);}
+
+  function cellState(node,colId){
+    const wbsAncs=getWBSAncestorIds(node.id);
+    const mine =r=>r.wbs_node_id===node.id;
+    const inh  =r=>wbsAncs.includes(r.wbs_node_id);
+    const exact=_rules.find(r=>mine(r)&&r.loc_node_id===colId)||null; // pair is unique → ≤1
+
+    const excDirect = exact&&exact.is_exclude;
+    const incDirect = exact&&!exact.is_exclude;
+    const excCover  = _exc.some(r=>(mine(r)||inh(r))&&_covers(r,colId));
+    const incCover  = _inc.some(r=>(mine(r)||inh(r))&&_covers(r,colId));
+    const incLocAnc = _inc.some(r=>mine(r)&&colAncestors[colId].has(r.loc_node_id));
+    const incWbsInh = _inc.some(r=>inh(r)&&_covers(r,colId));
+    // partial: includes stored deeper — at a loc descendant for this/ancestor
+    // WBS, or at a WBS descendant covering or below this column
+    const descIds=node.is_leaf?[]:getDescendantIds(_wbsNodes,node.id);
+    const partial = _inc.some(r=>(mine(r)||inh(r))&&_below(r,colId))
+                 || _inc.some(r=>descIds.includes(r.wbs_node_id)&&(_covers(r,colId)||_below(r,colId)));
+
+    let kind,negated=false;
+    if(excDirect)                kind='excDirect';
+    else if(excCover&&incCover){ kind=incDirect?'incDirect':incLocAnc?'incLocAnc':'incWbsInh'; negated=true; }
+    else if(excCover)            kind='excCover';
+    else if(incDirect)           kind='incDirect';
+    else if(incLocAnc)           kind='incLocAnc';
+    else if(incWbsInh)           kind='incWbsInh';
+    else if(partial)             kind='partial';
+    else                         kind='empty';
+    return{kind,negated,exact};
+  }
+  function passesFilter(node){
+    if(_rulesFilter==='leaves')return node.is_leaf;
+    if(_rulesFilter==='unassigned'){
+      const assigned=new Set(_rules.map(r=>r.wbs_node_id));
+      function anyUnassigned(nid){
+        if(!assigned.has(nid)&&!getWBSAncestorIds(nid).some(a=>assigned.has(a)))return true;
+        return _wbsNodes.filter(c=>c.parent_id===nid).some(c=>anyUnassigned(c.id));
+      }
+      return anyUnassigned(node.id);
+    }
+    return true;
+  }
+  function buildRows(parentId,depth,parentVisible){
+    return _wbsNodes.filter(n=>n.parent_id==parentId).sort((a,b)=>a.sort_order-b.sort_order).map(node=>{
+      if(!passesFilter(node)&&!_wbsNodes.filter(c=>c.parent_id===node.id).some(passesFilter))return'';
+      const dp=computeDotPath(_wbsNodes,node.id);
+      const children=_wbsNodes.filter(n=>n.parent_id===node.id);
+      const hasChildren=children.length>0;
+      const expanded=_wbsExpanded.has(node.id);
+      const rowBg=node.is_leaf?'#f0fdf4':depth===0?'#dde6f0':depth===1?'#eef1f6':depth===2?'#f8fafc':'#ffffff';
+      const rowColor=node.is_leaf?'#065f46':depth===0?'#1e3a5f':depth===1?'#0d9488':depth===2?'#1e40af':'#1e293b';
+      const tc=depth===0?'#64748b':depth===1?'#0d9488':depth===2?'#2563eb':'#94a3b8';
+      const indent=12+depth*14;
+      const labelTd=`<td style="padding:${node.is_leaf?5:7}px 12px ${node.is_leaf?5:7}px ${indent}px;background:${rowBg};border:0.5px solid var(--border);color:${rowColor};font-weight:${depth<=1?500:400};position:sticky;left:0;z-index:1;white-space:nowrap;min-width:240px;">
+        <span onclick="event.stopPropagation();_matrixToggleWBS(${node.id})" style="cursor:pointer;margin-right:5px;color:${tc};user-select:none;display:inline-block;width:10px;">${hasChildren?(expanded?'▾':'▸'):''}</span>
+        ${(node.node_type||'group')==='package'?'📦':node.is_leaf?'📍':depth===0?'📁':depth===1?'📂':'📋'} ${_esc(node.name)}
+        <span style="font-family:monospace;font-size:9px;opacity:.65;background:${depth===0?'rgba(30,58,95,0.1)':'#e4e9f2'};padding:1px 4px;border-radius:3px;margin-left:3px;">${_esc(dp)}</span>
+        ${(node.node_type||'group')==='package'?'<span class="badge-leaf" style="background:#1e3a5f;color:#dbe7f8;">PKG</span>':node.is_leaf?'<span class="badge-leaf">ACTIVITY</span>':''}
+      </td>`;
+      const dataCells=cols.map(col=>{
+        const st=cellState(node,col.id);
+        const G={
+          excDirect:{bg:'#fdecec',inner:`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#b91c1c;border-radius:3px;font-size:11px;color:#fff;">✗</span>`,
+            title:'Exclude rule stored here — click to remove'},
+          excCover:{bg:'#fbf3f3',inner:`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:0.5px solid #b91c1c;border-radius:3px;font-size:10px;color:#b91c1c;">✗</span>`,
+            title:'Excluded by a rule at an ancestor — remove it there'},
+          incDirect:{bg:'#fdf8e8',inner:`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#D4AF37;border-radius:3px;font-size:12px;color:#7a5c00;">✓</span>`,
+            title:'Direct rule stored at this exact pair — click to remove'},
+          incLocAnc:{bg:'#fffbe9',inner:`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#fffbe9;border:0.5px dashed #D4AF37;border-radius:3px;font-size:10px;color:#a07d10;">⇡</span>`,
+            title:'Covered by a rule at a location ancestor — remove it there'},
+          incWbsInh:{bg:'#faf5e4',inner:`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#f0e8c8;border:0.5px solid #D4AF37;border-radius:3px;font-size:10px;color:#a07d10;">↑</span>`,
+            title:'Inherited from a WBS parent rule'},
+          partial:{bg:'#f0f6ff',inner:`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:0.5px solid #2563eb;border-radius:3px;"><span style="width:8px;height:8px;border-radius:50%;background:#2563eb;display:block;"></span></span>`,
+            title:'Partial — rules exist deeper down. Expand to see.'},
+          empty:{bg:'',inner:`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:0.5px solid var(--border);border-radius:3px;font-size:10px;color:var(--muted);">—</span>`,
+            title:'Click to add a rule at this exact pair'}
+        }[st.kind];
+        let inner=G.inner,title=G.title;
+        if(st.negated){
+          inner=`<span style="position:relative;display:inline-flex;">${inner}<span style="position:absolute;top:-5px;right:-7px;background:#b91c1c;color:#fff;border-radius:50%;width:11px;height:11px;font-size:8px;line-height:11px;text-align:center;">✗</span></span>`;
+          title='Include coverage NEGATED by an exclude rule';
+        }
+        const clickable=canEdit()&&!_rulesLocked;
+        const click=clickable
+          ?`onclick="_matrixCellClick(${node.id},'${col.id}')"`
+          :_rulesLocked?`onclick="_flashLockWarning()"`
+          :st.kind==='partial'?`onclick="_matrixToggleWBS(${node.id})"`:'';
+        if(_rulesLocked)title='Unlock to edit · '+title;
+        return`<td style="padding:5px;border:0.5px solid var(--border);text-align:center;background:${G.bg};cursor:${clickable?'pointer':_rulesLocked?'not-allowed':'default'};" title="${_esc(title)}" ${click}>${inner}</td>`;
+      }).join('');
+      // ── KEY FIX: only render children when this node is expanded ──
+      const childHtml=hasChildren&&expanded?buildRows(node.id,depth+1,true):'';
+      return`<tr data-wbs="${node.id}">${labelTd}${dataCells}</tr>${childHtml}`;
+    }).join('');
+  }
+  const html=buildRows(null,0,true);
+  tbody.innerHTML=html||`<tr><td colspan="99" style="padding:20px;text-align:center;color:var(--muted);">No WBS nodes match filter.</td></tr>`;
+}
+
+function _renderMatrixFoot(){
+  const tfoot=document.getElementById('rules_matrix_foot');
+  if(!tfoot)return;
+  const cols=_getColNodes();
+  if(!cols.length){tfoot.innerHTML='';return;}
+  let foot=`<tr><td style="padding:6px 12px;background:var(--panel-2);border:0.5px solid var(--border);color:var(--muted);font-size:11px;position:sticky;left:0;">Coverage: ${_rules.filter(r=>!r.is_exclude).length} include · ${_rules.filter(r=>r.is_exclude).length} exclude</td>`;
+  cols.forEach(c=>{
+    const d=new Set(getDescendantIds(_locNodes,c.id));
+    const a=new Set(getLocAncestorIds(c.id));
+    const touch=r=>r.loc_node_id===c.id||d.has(r.loc_node_id)||a.has(r.loc_node_id);
+    const nInc=_rules.filter(r=>!r.is_exclude&&touch(r)).length;
+    const nExc=_rules.filter(r=>r.is_exclude&&touch(r)).length;
+    foot+=`<td style="padding:5px;border:0.5px solid var(--border);text-align:center;background:var(--panel-2);font-size:11px;color:var(--muted);">${nInc||'—'}${nExc?`<span style="color:#b91c1c;"> /${nExc}✗</span>`:''}</td>`;
+  });
+  foot+='</tr>';
+  tfoot.innerHTML=foot;
+}
+
+function _updateCoverage(){
+  const el=document.getElementById('rules_coverage');
+  if(el)el.textContent=`${_rules.length} rules · ${new Set(_rules.map(r=>r.wbs_node_id)).size} WBS nodes mapped`;
+  _renderMatrixFoot();
+}
+
+function _matrixToggleWBS(id){
+  if(_wbsExpanded.has(id)){
+    _wbsExpanded.delete(id);
+    _matrixWbsCollapsed.add(id);   // remember this was explicitly collapsed
+  }else{
+    _wbsExpanded.add(id);
+    _matrixWbsCollapsed.delete(id); // no longer collapsed
+  }
+  _renderMatrixBody();_renderMatrixFoot();
+}
+
+async function _matrixCellClick(wbsNodeId,locNodeId){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  if(_rulesLocked){_flashLockWarning();return;}
+  _resetRelockTimer();
+  const wbsNode=_wbsNodes.find(n=>n.id===wbsNodeId);
+  const locNode=_locNodes.find(n=>n.id===locNodeId);
+  if(!wbsNode||!locNode)return;
+  const exact=_rules.find(r=>r.wbs_node_id===wbsNodeId&&r.loc_node_id===locNodeId)||null;
+  const leafCount=_leafCountUnderLoc(locNodeId);
+  const wbsLeafCount=wbsNode.is_leaf?1:Math.max(1,getDescendantIds(_wbsNodes,wbsNodeId).filter(id=>{const n=_wbsNodes.find(x=>x.id===id);return n&&n.is_leaf;}).length);
+
+  try{
+    if(exact){
+      // ── Delete only what this cell actually owns ──
+      const pol=exact.is_exclude?'EXCLUDE':'include';
+      if(!confirm(`Remove ${pol} rule: "${wbsNode.name}" → "${locNode.name}"?\n\nRemoves ${pol==='EXCLUDE'?'the carve-out':'eligibility'} for ${wbsLeafCount} WBS leaf node(s) × ${leafCount} location leaf/leaves under "${locNode.name}".`))return;
+      pbShow('Removing rule…');
+      const{error}=await sb.from('wbs_location_rules').delete().eq('id',exact.id);
+      if(error)throw error;
+      toast('Rule removed','success');
+    }else{
+      const wbsAncs=_getWbsAncestorIdsG(wbsNodeId);
+      const locAncs=getLocAncestorIds(locNodeId);
+      const coveredInc=_rules.some(r=>!r.is_exclude&&(r.wbs_node_id===wbsNodeId||wbsAncs.includes(r.wbs_node_id))&&(r.loc_node_id===locNodeId||locAncs.includes(r.loc_node_id)));
+      const coveredExc=_rules.some(r=>r.is_exclude&&(r.wbs_node_id===wbsNodeId||wbsAncs.includes(r.wbs_node_id))&&(r.loc_node_id===locNodeId||locAncs.includes(r.loc_node_id)));
+      if(_ruleMode==='include'){
+        if(coveredInc){
+          const src=_rules.find(r=>!r.is_exclude&&(r.wbs_node_id===wbsNodeId||wbsAncs.includes(r.wbs_node_id))&&(r.loc_node_id===locNodeId||locAncs.includes(r.loc_node_id)));
+          const sw=_wbsNodes.find(n=>n.id===src.wbs_node_id)?.name,sl=_locNodes.find(n=>n.id===src.loc_node_id)?.name;
+          toast(`Already covered by rule "${sw}" → "${sl}" — remove it there to change coverage`,'warn',4500);return;
+        }
+        let msg=`Add rule: "${wbsNode.name}" → "${locNode.name}"?\n\nCovers ${wbsLeafCount} WBS leaf node(s) × ${leafCount} location leaf/leaves — stored at exactly this pair.`;
+        if(coveredExc)msg+=`\n\n⚠ An EXCLUDE rule at an ancestor will still negate this pair until removed.`;
+        if(!confirm(msg))return;
+      }else{
+        if(!coveredInc){toast('Nothing to exclude here — this pair has no include coverage','warn');return;}
+        if(!confirm(`Add EXCLUDE rule: "${wbsNode.name}" → "${locNode.name}"?\n\nCarves ${leafCount} location leaf/leaves under "${locNode.name}" OUT of coverage for ${wbsLeafCount} WBS leaf node(s).`))return;
+      }
+      pbShow('Adding rule…');
+      const proj=_projects.find(p=>p.is_active)?.project_code||'';
+      const{error}=await sb.from('wbs_location_rules').insert({
+        project:proj,wbs_node_id:wbsNodeId,loc_node_id:locNodeId,
+        is_exclude:_ruleMode==='exclude',created_by:state.userName
+      });
+      if(error){if(error.code==='23505')toast('A rule already exists at this exact pair','warn');else throw error;}
+      else toast(_ruleMode==='exclude'?'Exclude rule added':'Rule added','success');
+    }
+    await apiLoadRules();
+    _renderMatrixBody();_renderMatrixFoot();_updateCoverage();
+  }catch(e){toast('Error: '+e.message,'error');}
+  finally{pbDone();}
+}
+
+// Helper: count location leaves at-or-under a node
+function _leafCountUnderLoc(locNodeId){
+  const self=_locNodes.find(n=>n.id===locNodeId);
+  if(self&&self.is_leaf)return 1;
+  return getDescendantIds(_locNodes,locNodeId)
+    .filter(id=>{const n=_locNodes.find(x=>x.id===id);return n&&n.is_leaf&&n.is_active!==false;}).length;
+}
+
+// Helper: WBS ancestor ids (module scope, mirrors matrix-local version)
+function _getWbsAncestorIdsG(id){
+  const map=Object.fromEntries(_wbsNodes.map(n=>[n.id,n]));
+  const ids=[];let cur=map[id];
+  while(cur&&cur.parent_id!=null){cur=map[cur.parent_id];if(cur)ids.push(cur.id);}
+  return ids;
+}
+
+// Effective location-leaf set for a WBS node, computed client-side.
+// Must mirror fn_effective_locations exactly — _rulesVerify() checks that.
+function _effectiveLeavesJS(wbsNodeId){
+  const wbsSet=new Set([wbsNodeId,..._getWbsAncestorIdsG(wbsNodeId)]);
+  const expand=ruleLocId=>{
+    const out=new Set();
+    const walk=node=>{
+      if(!node||node.is_active===false)return; // inactive prunes the whole subtree — mirrors SQL
+      if(node.is_leaf){out.add(node.id);return;}
+      _locNodes.filter(c=>c.parent_id===node.id).forEach(walk);
+    };
+    walk(_locNodes.find(n=>n.id===ruleLocId));
+    return out;
+  };
+  const inc=new Set(),exc=new Set();
+  _rules.forEach(r=>{
+    if(!wbsSet.has(r.wbs_node_id))return;
+    expand(r.loc_node_id).forEach(id=>(r.is_exclude?exc:inc).add(id));
+  });
+  return new Set([...inc].filter(id=>!exc.has(id)));
+}
+
+// ⚖ Verify: compare JS rendering math against the DB resolution function
+// for every WBS node that has any rule coverage. Catches silent divergence.
+async function _rulesVerify(){
+  pbShow('Verifying against database…');
+  try{
+    const candidates=_wbsNodes.filter(n=>_effectiveLeavesJS(n.id).size>0);
+    if(!candidates.length){toast('No coverage to verify yet','info');return;}
+    let mismatches=0;
+    for(const n of candidates){
+      const{data,error}=await sb.rpc('fn_effective_locations',{p_wbs_node_id:n.id});
+      if(error)throw error;
+      const dbSet=new Set((data||[]).map(r=>r.loc_node_id));
+      const jsSet=_effectiveLeavesJS(n.id);
+      if(dbSet.size!==jsSet.size||[...jsSet].some(id=>!dbSet.has(id))){
+        mismatches++;console.warn('Resolution mismatch on WBS node',n.id,n.name,{js:[...jsSet],db:[...dbSet]});
+      }
+    }
+    if(mismatches)toast(`⚠ ${mismatches} node(s) diverge from fn_effective_locations — see console`,'error',6000);
+    else toast(`✓ Matrix matches database resolution for ${candidates.length} node(s)`,'success');
+  }catch(e){toast('Verify failed: '+e.message+' — is the Phase 1 SQL deployed?','error',6000);}
+  finally{pbDone();}
+}
+
+// Helper: get loc ancestor ids (needed outside _renderMatrixBody scope)
+function getLocAncestorIds(id){
+  const map=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
+  const ids=[];let cur=map[id];
+  while(cur&&cur.parent_id!=null){cur=map[cur.parent_id];if(cur)ids.push(cur.id);}
+  return ids;
+}
+
+function _flashLockWarning(){
+  const btn=document.getElementById('rules_lock_btn');
+  if(!btn)return;
+  const orig=btn.style.background;
+  btn.style.background='#7a1c1c';
+  setTimeout(()=>{btn.style.background=orig||'#1B2A47';},500);
+  toast('Matrix is locked — click Locked to enable editing','warn');
+}
+
+async function loadRules(){
+  await Promise.all([apiLoadWBS(),apiLoadLoc(),apiLoadRules()]);
+  renderRulesMatrix();
+}
+
+// Stubs for residual references
+function renderRulesWBSTree(){}
+function renderRulesSummary(){}
+function rulesSelectWBS(){}
+function rulesRemoveSingle(){}
+function rulesRemoveAll(){}
+function renderRulesLocTree(){}
+function rulesToggle(){}
+
+
+// ============================================================
+// ESTIMATION — wbs_scope grid (activity × location leaf)
+// All writes via rpc_save_wbs_scope / rpc_set_scope_status.
+// ============================================================
+let _scope=[];
+let _estLocked=true,_estStage='__all__',_estFloor='__all__';
+let _estRelockInt=null,_estRelockSecs=0;
+const EST_RELOCK_SECS=180;
+
+function _inr(v){return Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
+
+async function apiLoadScope(){
+  const{data,error}=await sb.from('wbs_scope').select('*');
+  if(error){toast('Scope load: '+error.message,'error');_scope=[];return;}
+  _scope=data||[];
+}
+async function loadEstimation(){
+  pbShow('Loading estimation…');
+  try{
+    await Promise.all([apiLoadWBS(),apiLoadLoc(),apiLoadRules(),apiLoadScope()]);
+    _estBuildFilters();renderEstimation();
+  }catch(e){toast('Error: '+e.message,'error');}
+  finally{pbDone();}
+}
+function _scopeMap(){return Object.fromEntries(_scope.map(r=>[r.wbs_node_id+'|'+r.loc_node_id,r]));}
+
+function _estBuildFilters(){
+  const sel=document.getElementById('est_stage_filter');
+  if(sel){
+    const cur=_estStage;
+    sel.innerHTML='<option value="__all__">All stages</option>'+
+      _locNodes.filter(n=>n.parent_id==null&&n.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order)
+        .map(n=>`<option value="${n.id}" ${n.id===cur?'selected':''}>${_esc(n.name)}</option>`).join('');
+  }
+  _estBuildFloorFilter();
+}
+function _estBuildFloorFilter(){
+  const sel=document.getElementById('est_floor_filter');
+  if(!sel)return;
+  let opts='<option value="__all__">Whole stage</option>';
+  if(_estStage!=='__all__'){
+    const ids=getDescendantIds(_locNodes,_estStage);
+    opts+=ids.map(id=>_locNodes.find(n=>n.id===id))
+      .filter(n=>n&&!n.is_leaf&&n.is_active!==false)
+      .map(n=>`<option value="${n.id}" ${n.id===_estFloor?'selected':''}>${_esc(computeDotPath(_locNodes,n.id))} ${_esc(n.name)}</option>`).join('');
+  }
+  sel.innerHTML=opts;
+}
+function estSetStage(v){_estStage=v;_estFloor='__all__';_estBuildFloorFilter();renderEstimation();}
+function estSetFloor(v){_estFloor=v;renderEstimation();}
+
+function _estCols(){
+  const out=[];
+  const walk=n=>{
+    if(!n||n.is_active===false)return;
+    if(n.is_leaf){out.push(n);return;}
+    _locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false)
+             .sort((a,b)=>a.sort_order-b.sort_order).forEach(walk);
+  };
+  if(_estFloor!=='__all__'){walk(_locNodes.find(n=>n.id===_estFloor));return out;}
+  let roots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order);
+  if(_estStage!=='__all__')roots=roots.filter(n=>n.id===_estStage);
+  roots.forEach(walk);
+  return out;
+}
+function _estActivityDescIds(nodeId){
+  return getDescendantIds(_wbsNodes,nodeId).filter(id=>{
+    const n=_wbsNodes.find(x=>x.id===id);return n&&_isEstimableLeaf(n);
+  });
+}
+// An estimable leaf is either a labour activity or a material line.
+function _isEstimableLeaf(n){ const t=(n.node_type||'group'); return t==='activity'||t==='material'; }
+
+function renderEstimation(){
+  const head=document.getElementById('est_head'),body=document.getElementById('est_body'),foot=document.getElementById('est_foot');
+  if(!head)return;
+  const cols=_estCols();
+  const sm=_scopeMap();
+  document.getElementById('est_col_count').textContent=`${cols.length} unit column${cols.length!==1?'s':''}`;
+  if(!cols.length){head.innerHTML='';foot.innerHTML='';body.innerHTML=`<tr><td style="padding:24px;text-align:center;color:var(--muted);">No location leaves in this filter.</td></tr>`;return;}
+
+  let th=`<tr><th style="text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:260px;position:sticky;left:0;top:0;z-index:4;">WBS / Activity</th>`;
+  cols.forEach(c=>{
+    th+=`<th style="padding:6px 8px;background:#1B2A47;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:500;font-size:11px;text-align:center;min-width:110px;position:sticky;top:0;z-index:2;" title="${_esc(_locPathJS(c.id))}">
+      <div>${_esc(c.name)}</div>
+      <div style="font-family:monospace;font-size:9px;color:#8fa8cc;">${_esc(computeDotPath(_locNodes,c.id))}</div></th>`;
+  });
+  th+=`<th style="padding:6px 8px;background:#16243d;border:0.5px solid rgba(255,255,255,0.12);color:#D4AF37;font-size:11px;text-align:right;min-width:110px;position:sticky;top:0;z-index:2;">Row Total ₹</th></tr>`;
+  head.innerHTML=th;
+
+  const eff={};
+  _wbsNodes.filter(n=>_isEstimableLeaf(n)).forEach(a=>{eff[a.id]=_effectiveLeavesJS(a.id);});
+
+  function rowsFor(parentId,depth){
+    return _wbsNodes.filter(n=>n.parent_id==parentId).sort((a,b)=>a.sort_order-b.sort_order).map(node=>{
+      const ntype=node.node_type||'group';
+      const isAct=_isEstimableLeaf(node);
+      const actIds=isAct?[node.id]:_estActivityDescIds(node.id);
+      if(!actIds.length)return'';
+      const touches=actIds.some(aid=>cols.some(c=>eff[aid]&&eff[aid].has(c.id)));
+      if(!touches)return'';
+      const indent=12+depth*14;
+      const isPkg=ntype==='package';
+      const isMat=ntype==='material';
+      const rowBg=isMat?'#fbf4ee':isAct?'#ffffff':isPkg?'#eef4ee':depth===0?'#dde6f0':'#f3f6fa';
+      let rowTotal=0;
+      const cells=cols.map(c=>{
+        if(isAct){
+          const ok=eff[node.id]&&eff[node.id].has(c.id);
+          const row=sm[node.id+'|'+c.id];
+          if(!ok){
+            if(row){
+              // STRANDED: estimate exists but rules no longer allow the pair.
+              // Visible, excluded from all rollups, resolvable deliberately.
+              return`<td onclick="estEditCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid #b91c1c;text-align:right;cursor:pointer;background:#fdf2f2;" title="⚠ STRANDED — rules no longer allow this pair. Excluded from totals. Click to delete, or re-include the location in Allocation Rules.">
+                <div style="font-size:10px;color:#b91c1c;">⚠ stranded</div>
+                <div style="font-weight:600;color:#b91c1c;text-decoration:line-through;">₹${_inr(row.est_amount)}</div></td>`;
+            }
+            return`<td style="padding:4px;border:0.5px solid var(--border);background:#f1f3f6;text-align:center;color:#c2c9d4;" title="Pair not allowed by allocation rules">·</td>`;
+          }
+          if(row){
+            rowTotal+=Number(row.est_amount||0);
+            const dot=row.scope_status==='approved'?'#16a34a':'#d97706';
+            return`<td onclick="estEditCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;cursor:pointer;background:#fffdf5;" title="${_esc((row.scope_status||'draft')+' · '+(row.scope_code||''))}">
+              <div style="font-size:10px;color:#64748b;">${_inr(row.est_qty)} ${_esc(row.uom||'')} <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span></div>
+              <div style="font-weight:600;color:#1B2A47;">₹${_inr(row.est_amount)}</div></td>`;
+          }
+          return`<td onclick="estEditCell(${node.id},'${c.id}')" style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#9aa7b8;cursor:pointer;" title="Click to estimate">+</td>`;
+        }
+        const sub=actIds.reduce((s,aid)=>{
+          if(!(eff[aid]&&eff[aid].has(c.id)))return s;   // stranded rows excluded
+          const r=sm[aid+'|'+c.id];return s+(r?Number(r.est_amount||0):0);},0);
+        rowTotal+=sub;
+        return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:${isPkg?'#e4efe4':'inherit'};color:${isPkg?'#14532d':'#8a94a3'};font-weight:${isPkg?600:400};font-size:11px;">${sub?'₹'+_inr(sub):''}</td>`;
+      }).join('');
+      const label=`<td style="padding:6px 12px 6px ${indent}px;background:${rowBg};border:0.5px solid var(--border);position:sticky;left:0;z-index:1;white-space:nowrap;min-width:260px;">
+        ${isPkg?'📦':isMat?'🧱':isAct?'📄':'📁'} ${_esc(node.name)}
+        ${isAct?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;margin-left:4px;">${_esc(node.uom||'')}</span>`:''}
+        ${isAct&&!_estLocked&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Bulk-fill across units" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
+        ${isPkg&&!_estLocked&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Approve / un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
+      </td>`;
+      const totalTd=`<td style="padding:4px 8px;border:0.5px solid var(--border);text-align:right;font-weight:${isAct?500:700};color:#1B2A47;background:${isPkg?'#e4efe4':'#fbfcfe'};">${rowTotal?'₹'+_inr(rowTotal):''}</td>`;
+      return`<tr>${label}${cells}${totalTd}</tr>`+rowsFor(node.id,depth+1);
+    }).join('');
+  }
+  const html=rowsFor(null,0);
+  body.innerHTML=html||`<tr><td colspan="${cols.length+2}" style="padding:24px;text-align:center;color:var(--muted);">No activities defined yet — add 📄 activities under 📦 packages in WBS Structure.</td></tr>`;
+
+  const _isEligible=r=>eff[r.wbs_node_id]&&eff[r.wbs_node_id].has(r.loc_node_id);
+  let grand=0;
+  let ft=`<tr><td style="padding:6px 12px;background:var(--panel-2);border:0.5px solid var(--border);font-weight:600;color:#1B2A47;position:sticky;left:0;">Unit totals</td>`;
+  cols.forEach(c=>{
+    const sum=_scope.filter(r=>r.loc_node_id===c.id&&_isEligible(r)).reduce((s,r)=>s+Number(r.est_amount||0),0);
+    grand+=sum;
+    ft+=`<td style="padding:5px 6px;border:0.5px solid var(--border);text-align:right;background:var(--panel-2);font-size:11px;font-weight:600;color:#1B2A47;">${sum?'₹'+_inr(sum):'—'}</td>`;
+  });
+  ft+=`<td style="padding:5px 8px;border:0.5px solid var(--border);text-align:right;background:#1B2A47;color:#D4AF37;font-weight:700;">₹${_inr(grand)}</td></tr>`;
+  foot.innerHTML=ft;
+
+  const eligRows=_scope.filter(_isEligible);
+  const stranded=_scope.length-eligRows.length;
+  const nApp=eligRows.filter(r=>r.scope_status==='approved').length;
+  const sumEl=document.getElementById('est_summary');
+  if(sumEl)sumEl.textContent=`${eligRows.length} estimate(s) · ${nApp} approved · grand total ₹${_inr(eligRows.reduce((s,r)=>s+Number(r.est_amount||0),0))}`+(stranded?` · ⚠ ${stranded} STRANDED (excluded by rules — not counted)`:'');
+}
+
+function _locPathJS(locId){
+  const map=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
+  const parts=[];let cur=map[locId],guard=0;
+  while(cur&&guard++<50){parts.unshift(cur.name);cur=cur.parent_id?map[cur.parent_id]:null;}
+  return parts.join(' › ');
+}
+function _wbsPathJS(wbsId){
+  const map=Object.fromEntries(_wbsNodes.map(n=>[n.id,n]));
+  const parts=[];let cur=map[wbsId],guard=0;
+  while(cur&&guard++<50){parts.unshift(cur.name);cur=cur.parent_id?map[cur.parent_id]:null;}
+  return parts.join(' › ');
+}
+
+async function _estSaveRows(rows,label){
+  pbShow(label||'Saving…');
+  try{
+    const{data,error}=await sb.rpc('rpc_save_wbs_scope',{p_rows:rows,p_user:state.userName});
+    if(error)throw error;
+    const rej=(data&&data.rejected)||[];
+    if(rej.length)toast(`${rej.length} row(s) rejected — e.g. ${rej[0].reason}`,'warn',5500);
+    if(data&&(data.saved||data.deleted))toast(`Saved ${data.saved||0}${data.deleted?` · deleted ${data.deleted}`:''}`,'success');
+    await apiLoadScope();renderEstimation();
+    return data;
+  }catch(e){toast('Error: '+e.message,'error');}
+  finally{pbDone();}
+}
+
+function estEditCell(wbsId,locId){
+  if(_estLocked){_estFlashLock();return;}
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  _estResetRelock();
+  const act=_wbsNodes.find(n=>n.id===wbsId),loc=_locNodes.find(n=>n.id===locId);
+  if(!act||!loc)return;
+  const ex=_scopeMap()[wbsId+'|'+locId];
+  if(ex&&ex.scope_status==='approved'){toast('Approved estimate — un-approve the package first','warn');return;}
+  const _eligNow=_effectiveLeavesJS(wbsId).has(locId);
+  if(ex&&!_eligNow){
+    openModal(`⚠ Stranded estimate — ${act.name}`,`
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
+      <div style="font-size:12px;color:#b91c1c;margin-bottom:8px;">Allocation rules no longer allow this pair. The estimate (₹${_inr(ex.est_amount)}, ${_esc(ex.scope_code||'')}) is excluded from all totals and cannot be edited.</div>
+      <div style="font-size:12px;">Resolve it one of two ways: <strong>delete it</strong> below, or <strong>re-include the location</strong> in Allocation Rules to make it count again.</div>
+      <button class="btn btn-danger btn-sm" style="margin-top:12px;" onclick="estDeleteCell(${wbsId},'${locId}')">🗑 Delete this estimate</button>
+    `,async()=>{closeModal();});
+    return;
+  }
+  if(!ex&&!_eligNow){toast('Pair not allowed by allocation rules','warn');return;}
+  openModal(`Estimate — ${act.name}`,`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
+    <label>Quantity (${_esc(act.uom||'')})</label>
+    <input id="m_eqty" type="number" min="0" step="0.01" value="${ex?Number(ex.est_qty||0):''}" oninput="_estPreview()">
+    <label style="margin-top:8px;">Rate (₹)</label>
+    <input id="m_erate" type="number" min="0" step="0.01" value="${ex?Number(ex.est_rate||0):Number(act.default_rate||0)}" oninput="_estPreview()">
+    <div id="m_eamt" style="margin-top:8px;font-weight:600;color:#1B2A47;"></div>
+    <label style="margin-top:8px;">Notes</label>
+    <input id="m_enotes" value="${_esc((ex&&ex.notes)||'')}" autocomplete="off">
+    ${ex?`<button class="btn btn-danger btn-sm" style="margin-top:12px;" onclick="estDeleteCell(${wbsId},'${locId}')">🗑 Delete this estimate</button>`:''}
+  `,async()=>{
+    const qty=Number(document.getElementById('m_eqty').value||0);
+    const rate=Number(document.getElementById('m_erate').value||0);
+    const notes=document.getElementById('m_enotes').value.trim()||null;
+    if(qty<=0){toast('Quantity must be > 0 (use Delete to clear)','error');return;}
+    closeModal();
+    await _estSaveRows([{wbs_node_id:wbsId,loc_node_id:locId,est_qty:qty,est_rate:rate,notes}],'Saving estimate…');
+  });
+  _estPreview();
+}
+function _estPreview(){
+  const qEl=document.getElementById('m_eqty'),rEl=document.getElementById('m_erate');
+  const el=document.getElementById('m_eamt');
+  if(el&&qEl&&rEl)el.textContent=`Amount: ₹${_inr(Number(qEl.value||0)*Number(rEl.value||0))}`;
+}
+async function estDeleteCell(wbsId,locId){
+  if(!confirm('Delete this estimate?'))return;
+  closeModal();
+  await _estSaveRows([{wbs_node_id:wbsId,loc_node_id:locId,_delete:true}],'Deleting…');
+}
+
+function estBulkFill(wbsId){
+  if(_estLocked){_estFlashLock();return;}
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  _estResetRelock();
+  const act=_wbsNodes.find(n=>n.id===wbsId);if(!act)return;
+  const eff=_effectiveLeavesJS(wbsId);
+  const cols=_estCols().filter(c=>eff.has(c.id));
+  if(!cols.length){toast('No eligible units in the current filter','warn');return;}
+  const sm=_scopeMap();
+  const rowsHtml=cols.map(c=>{
+    const ex=sm[wbsId+'|'+c.id];
+    const locked=ex&&ex.scope_status==='approved';
+    return`<label style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px;${locked?'opacity:.5;':''}">
+      <input type="checkbox" class="bf_unit" value="${c.id}" ${locked?'disabled':'checked'} style="width:auto;margin:0;">
+      ${_esc(c.name)}
+      ${ex?`<span style="font-size:10px;color:${locked?'#16a34a':'#d97706'};">${locked?'approved — skipped':`overwrites ${_inr(ex.est_qty)} ${_esc(ex.uom||'')} @ ₹${_inr(ex.est_rate)}`}</span>`:'<span style="font-size:10px;color:#94a3b8;">new</span>'}
+    </label>`;
+  }).join('');
+  openModal(`⇉ Bulk-fill — ${act.name}`,`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">${_esc(_wbsPathJS(wbsId))}</div>
+    <div style="max-height:180px;overflow-y:auto;border:0.5px solid var(--border);border-radius:4px;padding:6px 10px;margin-bottom:8px;">${rowsHtml}</div>
+    <label>Quantity per unit (${_esc(act.uom||'')})</label>
+    <input id="m_bqty" type="number" min="0" step="0.01">
+    <label style="margin-top:8px;">Rate (₹)</label>
+    <input id="m_brate" type="number" min="0" step="0.01" value="${Number(act.default_rate||0)}">
+    <div style="margin-top:8px;font-size:11px;color:#b45309;">Existing draft values listed above will be overwritten. Approved cells are skipped.</div>
+  `,async()=>{
+    const qty=Number(document.getElementById('m_bqty').value||0);
+    const rate=Number(document.getElementById('m_brate').value||0);
+    const ids=[...document.querySelectorAll('.bf_unit:checked')].map(i=>i.value);
+    if(qty<=0){toast('Quantity must be > 0','error');return;}
+    if(!ids.length){toast('Select at least one unit','error');return;}
+    if(!confirm(`Apply ${_inr(qty)} ${act.uom||''} @ ₹${_inr(rate)} to ${ids.length} unit(s)?`))return;
+    closeModal();
+    await _estSaveRows(ids.map(id=>({wbs_node_id:wbsId,loc_node_id:id,est_qty:qty,est_rate:rate})),`Filling ${ids.length} unit(s)…`);
+  });
+}
+
+function estApprovePkg(pkgId){
+  if(_estLocked){_estFlashLock();return;}
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  _estResetRelock();
+  const pkg=_wbsNodes.find(n=>n.id===pkgId);if(!pkg)return;
+  const actIds=new Set(_estActivityDescIds(pkgId));
+  const colIds=new Set(_estCols().map(c=>c.id));
+  const rows=_scope.filter(r=>actIds.has(r.wbs_node_id)&&colIds.has(r.loc_node_id));
+  const drafts=rows.filter(r=>r.scope_status!=='approved');
+  const approved=rows.filter(r=>r.scope_status==='approved');
+  if(!rows.length){toast('No estimates under this package in the current filter','warn');return;}
+  openModal(`✔ Package status — ${pkg.name}`,`
+    <div style="font-size:12px;margin-bottom:10px;">In current filter: <strong>${drafts.length}</strong> draft · <strong>${approved.length}</strong> approved · total ₹${_inr(rows.reduce((s,r)=>s+Number(r.est_amount||0),0))}</div>
+    <label style="display:flex;align-items:center;gap:8px;"><input type="radio" name="m_act" value="approve" checked style="width:auto;margin:0;"> Approve ${drafts.length} draft estimate(s) — they become immutable</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px;"><input type="radio" name="m_act" value="unapprove" style="width:auto;margin:0;"> Un-approve ${approved.length} approved estimate(s) — re-opens them for edit</label>
+  `,async()=>{
+    const sel=document.querySelector('input[name="m_act"]:checked');
+    const action=sel?sel.value:'approve';
+    const target=action==='approve'?drafts:approved;
+    const status=action==='approve'?'approved':'draft';
+    if(!target.length){toast('Nothing to change','warn');return;}
+    closeModal();
+    pbShow('Updating status…');
+    try{
+      const{data,error}=await sb.rpc('rpc_set_scope_status',{p_ids:target.map(r=>r.id),p_status:status,p_user:state.userName});
+      if(error)throw error;
+      toast(`${(data&&data.updated)||0} estimate(s) → ${status}`,'success');
+      await apiLoadScope();renderEstimation();
+    }catch(e){toast('Error: '+e.message,'error');}
+    finally{pbDone();}
+  });
+}
+
+// ── lock / auto-relock (mirrors matrix pattern) ──
+function estToggleLock(){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  _estLocked=!_estLocked;_estUpdateLockUI();
+  if(!_estLocked)_estStartRelock();else _estStopRelock();
+}
+function _estUpdateLockUI(){
+  const icon=document.getElementById('est_lock_icon'),label=document.getElementById('est_lock_label');
+  const btn=document.getElementById('est_lock_btn'),banner=document.getElementById('est_lock_banner');
+  if(!btn)return;
+  if(_estLocked){icon.textContent='🔒';label.textContent='Locked';btn.style.color='#D4AF37';btn.style.borderColor='#D4AF37';if(banner)banner.style.display='';}
+  else{icon.textContent='🔓';label.textContent='Editing';btn.style.color='#4ade80';btn.style.borderColor='#4ade80';if(banner)banner.style.display='none';}
+  renderEstimation();
+}
+function _estStartRelock(){
+  _estStopRelock();_estRelockSecs=EST_RELOCK_SECS;
+  const t=document.getElementById('est_relock_timer');if(t)t.style.display='';
+  _estRelockInt=setInterval(()=>{
+    _estRelockSecs--;
+    const t2=document.getElementById('est_relock_timer');
+    if(t2)t2.textContent=`Auto-locks in ${Math.floor(_estRelockSecs/60)}:${String(_estRelockSecs%60).padStart(2,'0')}`;
+    if(_estRelockSecs<=0){_estLocked=true;_estUpdateLockUI();_estStopRelock();toast('Estimation grid auto-locked','info');}
+  },1000);
+}
+function _estStopRelock(){
+  if(_estRelockInt){clearInterval(_estRelockInt);_estRelockInt=null;}
+  const t=document.getElementById('est_relock_timer');if(t){t.style.display='none';t.textContent='';}
+}
+function _estResetRelock(){if(!_estLocked&&_estRelockInt)_estStartRelock();}
+function _estFlashLock(){
+  const btn=document.getElementById('est_lock_btn');
+  if(btn){const o=btn.style.background;btn.style.background='#7a1c1c';setTimeout(()=>{btn.style.background=o||'#1B2A47';},500);}
+  toast('Grid is locked — click Locked to enable editing','warn');
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+let _modalCallback=null;
+function openModal(title,bodyHTML,onSave){
+  _modalCallback=onSave;
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalBody').innerHTML=bodyHTML;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+  setTimeout(()=>{const first=document.querySelector('#modalBody input:not([type=checkbox])');if(first)first.focus();},80);
+}
+function closeModal(){document.getElementById('modalOverlay').classList.add('hidden');_modalCallback=null;}
+function modalSave(){if(_modalCallback)_modalCallback();}
+// Enter key in modal submits
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!document.getElementById('modalOverlay').classList.contains('hidden')){
+    const active=document.activeElement;
+    if(active&&(active.tagName==='INPUT'||active.tagName==='SELECT'))modalSave();
+  }
+  if(e.key==='Escape'&&!document.getElementById('modalOverlay').classList.contains('hidden'))closeModal();
+});
+
+// ============================================================
+// MASTERS — DATA
+// ============================================================
+async function mastersLoad(){
+  await mastersLoadProjects();
+}
+async function mastersLoadProjects(){
+  pbShow('Loading projects…');
+  try{
+    const{data,error}=await sb.from('project_config').select('*').order('created_at');
+    if(error)throw error;
+    _projects=data||[];
+    renderMastersProjects();
+  }catch(e){toast('Error loading projects: '+e.message,'error');}
+  finally{pbDone();}
+}
+
+// ============================================================
+// MASTERS — PROJECT CONFIG RENDER & CRUD
+// ============================================================
+function renderMastersProjects(){
+  const wrap=document.getElementById('masters_proj_wrap');
+  if(!wrap)return;
+  if(!_projects.length){
+    wrap.innerHTML=`<div style="padding:16px;text-align:center;color:var(--muted);">${canEdit()?'No projects. Add one to begin.':'No projects defined.'}</div>`;
+    return;
+  }
+  let html=`<table class="tbl">
+    <thead><tr>
+      <th>Project Code</th>
+      <th>Project Name</th>
+      <th>Loc Acronym</th>
+      <th style="width:80px;">Status</th>
+      ${canEdit()?'<th style="width:140px;">Actions</th>':''}
+    </tr></thead><tbody>`;
+  _projects.forEach(p=>{
+    html+=`<tr>
+      <td><span style="font-family:monospace;font-weight:700;color:var(--accent-2);background:#dbeafe;padding:2px 8px;border-radius:4px;font-size:12px;">${_esc(p.project_code)}</span></td>
+      <td style="font-weight:500;">${_esc(p.project_name)}</td>
+      <td><span style="font-family:monospace;font-size:12px;color:var(--muted);">${_esc(p.loc_acronym||'—')}</span></td>
+      <td>
+        <span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;
+          background:${p.is_active?'#d1fae5':'#fee2e2'};
+          color:${p.is_active?'#065f46':'#991b1b'};">
+          ${p.is_active?'Active':'Inactive'}
+        </span>
+      </td>
+      ${canEdit()?`<td>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-ghost btn-xs" onclick="mastersEditProject('${p.id}')">✏ Edit</button>
+          <button class="btn ${p.is_active?'btn-warn':'btn-primary'} btn-xs" onclick="mastersToggleProject('${p.id}',${p.is_active})">
+            ${p.is_active?'Deactivate':'Activate'}
+          </button>
+        </div>
+      </td>`:''}
+    </tr>`;
+  });
+  html+=`</tbody></table>`;
+  wrap.innerHTML=html;
+}
+
+function mastersAddProject(){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  openModal('Add Project',`
+    <label>Project Code <span style="color:var(--muted);font-weight:400;">(short key used in transactions)</span></label>
+    <input id="m_code" placeholder="e.g. PoE_Ph-01" autocomplete="off">
+    <label>Project Name</label>
+    <input id="m_name" placeholder="e.g. Poetry of Earth, Phase 01" autocomplete="off">
+    <label>Location Acronym <span style="color:var(--muted);font-weight:400;">(prefix for location codes)</span></label>
+    <input id="m_acr" placeholder="e.g. POE" maxlength="6" style="text-transform:uppercase;" autocomplete="off">
+  `,async()=>{
+    const project_code=document.getElementById('m_code').value.trim();
+    const project_name=document.getElementById('m_name').value.trim();
+    const loc_acronym=document.getElementById('m_acr').value.trim().toUpperCase()||null;
+    if(!project_code||!project_name){toast('Code and name required','error');return;}
+    if(_projects.find(p=>p.project_code===project_code)){toast(`Code "${project_code}" already exists`,'error');return;}
+    pbShow('Saving…');
+    try{
+      const{error}=await sb.from('project_config').insert({
+        project_code,project_name,loc_acronym,is_active:true,created_by:state.userName
+      });
+      if(error)throw error;
+      toast('Project added','success');closeModal();await mastersLoadProjects();
+    }catch(e){toast('Error: '+e.message,'error');}
+    finally{pbDone();}
+  });
+}
+
+function mastersEditProject(id){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const p=_projects.find(x=>x.id===id);if(!p)return;
+  openModal(`Edit — ${p.project_code}`,`
+    <label>Project Code</label>
+    <input id="m_code" value="${_esc(p.project_code)}" autocomplete="off">
+    <label>Project Name</label>
+    <input id="m_name" value="${_esc(p.project_name)}" autocomplete="off">
+    <label>Location Acronym</label>
+    <input id="m_acr" value="${_esc(p.loc_acronym||'')}" maxlength="6" style="text-transform:uppercase;" autocomplete="off">
+  `,async()=>{
+    const project_code=document.getElementById('m_code').value.trim();
+    const project_name=document.getElementById('m_name').value.trim();
+    const loc_acronym=document.getElementById('m_acr').value.trim().toUpperCase()||null;
+    if(!project_code||!project_name){toast('Code and name required','error');return;}
+    if(_projects.find(x=>x.project_code===project_code&&x.id!==id)){toast(`Code "${project_code}" already used`,'error');return;}
+    pbShow('Saving…');
+    try{
+      const{error}=await sb.from('project_config').update({
+        project_code,project_name,loc_acronym,updated_at:new Date().toISOString()
+      }).eq('id',id);
+      if(error)throw error;
+      toast('Project updated','success');closeModal();await mastersLoadProjects();
+    }catch(e){toast('Error: '+e.message,'error');}
+    finally{pbDone();}
+  });
+}
+
+async function mastersToggleProject(id,currentActive){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  pbShow('Updating…');
+  try{
+    const{error}=await sb.from('project_config').update({is_active:!currentActive,updated_at:new Date().toISOString()}).eq('id',id);
+    if(error)throw error;
+    toast(!currentActive?'Project activated':'Project deactivated','success');
+    await mastersLoadProjects();
+  }catch(e){toast('Error: '+e.message,'error');}
+  finally{pbDone();}
+}
+</script>
+</body>
+</html>
