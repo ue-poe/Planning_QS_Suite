@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v10 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v12 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -1842,9 +1842,9 @@ function _renderMatrixBody(){
       const indent=12+depth*14;
       const labelTd=`<td style="padding:${node.is_leaf?5:7}px 12px ${node.is_leaf?5:7}px ${indent}px;background:${rowBg};border:0.5px solid var(--border);color:${rowColor};font-weight:${depth<=1?500:400};position:sticky;left:0;z-index:1;white-space:nowrap;min-width:240px;">
         <span onclick="event.stopPropagation();_matrixToggleWBS(${node.id})" style="cursor:pointer;margin-right:5px;color:${tc};user-select:none;display:inline-block;width:10px;">${hasChildren?(expanded?'▾':'▸'):''}</span>
-        ${(node.node_type||'group')==='package'?'📦':node.is_leaf?'📍':depth===0?'📁':depth===1?'📂':'📋'} ${_esc(node.name)}
+        ${(node.node_type||'group')==='package'?'📦':(node.node_type||'')==='material'?'🧱':(node.node_type||'')==='activity'?'📄':node.is_leaf?'📍':depth===0?'📁':depth===1?'📂':'📋'} ${_esc(node.name)}
         <span style="font-family:monospace;font-size:9px;opacity:.65;background:${depth===0?'rgba(30,58,95,0.1)':'#e4e9f2'};padding:1px 4px;border-radius:3px;margin-left:3px;">${_esc(dp)}</span>
-        ${(node.node_type||'group')==='package'?'<span class="badge-leaf" style="background:#1e3a5f;color:#dbe7f8;">PKG</span>':node.is_leaf?'<span class="badge-leaf">ACTIVITY</span>':''}
+        ${(node.node_type||'group')==='package'?'<span class="badge-leaf" style="background:#1e3a5f;color:#dbe7f8;">PKG</span>':(node.node_type||'')==='material'?'<span class="badge-leaf" style="background:#7c3a14;color:#fde9d8;">MATERIAL</span>':(node.node_type||'')==='activity'?'<span class="badge-leaf">ACTIVITY</span>':node.is_leaf?'<span class="badge-leaf">ACTIVITY</span>':''}
       </td>`;
       const dataCells=cols.map(col=>{
         const st=cellState(node,col.id);
@@ -2383,7 +2383,7 @@ async function estMaterialBuildup(wbsId,locId){
         })));
       }
     }catch(e){toast('Build-up detail save: '+e.message,'warn',5000);}
-  });
+  },{width:'760px'});
   _buRenderRows();
 }
 
@@ -2499,7 +2499,7 @@ async function estMaterialBulkFill(wbsId){
       }
     }catch(e){toast('Build-up detail save: '+e.message,'warn',5000);}
     finally{pbDone();}
-  });
+  },{width:'820px'});
   _buRenderRows();
 }
 
@@ -2615,10 +2615,12 @@ function _estFlashLock(){
 // MODAL
 // ============================================================
 let _modalCallback=null;
-function openModal(title,bodyHTML,onSave){
+function openModal(title,bodyHTML,onSave,opts){
   _modalCallback=onSave;
   document.getElementById('modalTitle').textContent=title;
   document.getElementById('modalBody').innerHTML=bodyHTML;
+  const box=document.querySelector('#modalOverlay .modal');
+  if(box){ box.style.width=(opts&&opts.width)?opts.width:'500px'; }
   document.getElementById('modalOverlay').classList.remove('hidden');
   setTimeout(()=>{const first=document.querySelector('#modalBody input:not([type=checkbox])');if(first)first.focus();},80);
 }
