@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v9 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v10 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -881,18 +881,19 @@ function wbsAddChild(parentId){
     <label>Name</label>
     <input id="m_name" placeholder="e.g. Bore packing works - 110 mm dia" autocomplete="off">
     <label style="margin-top:8px;">Node type</label>
-    <select id="m_ntype" onchange="document.getElementById('m_act_fields').style.display=(this.value==='activity'||this.value==='material')?'':'none';">
+    <select id="m_ntype" onchange="document.getElementById('m_act_fields').style.display=(this.value==='activity')?'':'none';document.getElementById('m_mat_note').style.display=(this.value==='material')?'':'none';">
       <option value="group">Group</option>
       <option value="package" ${canPackage?'':'disabled'}>📦 Package ${canPackage?'':'— already inside a package'}</option>
       <option value="activity" ${canActivity?'':'disabled'}>📄 Activity (labour) ${canActivity?`(under package "${_esc(pkgAnc?.name||'')}")`:'— needs a package ancestor'}</option>
-      <option value="material" ${canMaterial?'':'disabled'}>🧱 Material ${canMaterial?`(under package "${_esc(pkgAnc?.name||'')}")`:'— needs a package ancestor'}</option>
+      <option value="material" ${canMaterial?'':'disabled'}>🧱 Material budget ${canMaterial?`(under package "${_esc(pkgAnc?.name||'')}")`:'— needs a package ancestor'}</option>
     </select>
     <div id="m_act_fields" style="display:none;">
       <label style="margin-top:8px;">UOM <span style="color:#b91c1c;">*</span></label>
-      <input id="m_uom" placeholder="e.g. Sqft / Nos / Rmt / Bag" autocomplete="off">
+      <input id="m_uom" placeholder="e.g. Sqft / Nos / Rmt" autocomplete="off">
       <label style="margin-top:8px;">Default Rate (₹)</label>
       <input id="m_rate" type="number" min="0" step="0.01" value="0">
     </div>
+    <div id="m_mat_note" style="display:none;margin-top:8px;font-size:11px;color:var(--muted);">A material budget line holds the package's material allowance. Its amount is built up from a mini-estimate (materials × qty × rate) entered per location in the Estimation screen — no UOM or rate here.</div>
   `,async()=>{
     const name=document.getElementById('m_name').value.trim();
     const ntype=document.getElementById('m_ntype').value;
@@ -900,7 +901,8 @@ function wbsAddChild(parentId){
     const rate=Number(document.getElementById('m_rate')?.value||0);
     if(!name){toast('Name required','error');return;}
     const isLeaf=(ntype==='activity'||ntype==='material');
-    if(isLeaf&&!uom){toast('UOM is required for a '+(ntype==='material'?'material':'activity'),'error');return;}
+    const isMat=ntype==='material';
+    if(ntype==='activity'&&!uom){toast('UOM is required for an activity','error');return;}
     pbShow('Saving…');
     try{
       let wbs_code=null;
@@ -909,13 +911,13 @@ function wbsAddChild(parentId){
       }
       const{error}=await sb.from('wbs_nodes').insert({
         parent_id:parentId,name,is_leaf:isLeaf,node_type:ntype,
-        uom:isLeaf?uom:null,default_rate:isLeaf?rate:0,
+        uom:isMat?'LS':(isLeaf?uom:null),default_rate:isMat?0:(isLeaf?rate:0),
         wbs_code:isLeaf?wbs_code:null,
         sort_order:nextSortOrder(_wbsNodes,parentId),
         created_by:state.userName,updated_by:state.userName
       });
       if(error)throw error;
-      toast(ntype==='material'?'Material added':ntype==='activity'?'Activity added':'Node added','success');closeModal();await loadWBS();
+      toast(isMat?'Material budget line added':ntype==='activity'?'Activity added':'Node added','success');closeModal();await loadWBS();
     }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
   });
 }
@@ -951,25 +953,26 @@ function wbsSetType(id){
   const canPackage=!pkgAnc&&!_wbsHasTypeDescendant(id,'package');
   openModal(`Node Type — "${node.name}"`,`
     <label>Type</label>
-    <select id="m_ntype" onchange="document.getElementById('m_act_fields').style.display=(this.value==='activity'||this.value==='material')?'':'none';">
+    <select id="m_ntype" onchange="document.getElementById('m_act_fields').style.display=(this.value==='activity')?'':'none';">
       <option value="group" ${cur==='group'?'selected':''}>Group</option>
       <option value="package" ${cur==='package'?'selected':''} ${canPackage||cur==='package'?'':'disabled'}>📦 Package${canPackage||cur==='package'?'':' — blocked (package in ancestry or below)'}</option>
       <option value="activity" ${cur==='activity'?'selected':''} ${canActivity||cur==='activity'?'':'disabled'}>📄 Activity (labour)${canActivity||cur==='activity'?'':(children.length?' — has children':' — needs a package ancestor')}</option>
-      <option value="material" ${cur==='material'?'selected':''} ${canMaterial||cur==='material'?'':'disabled'}>🧱 Material${canMaterial||cur==='material'?'':(children.length?' — has children':' — needs a package ancestor')}</option>
+      <option value="material" ${cur==='material'?'selected':''} ${canMaterial||cur==='material'?'':'disabled'}>🧱 Material budget${canMaterial||cur==='material'?'':(children.length?' — has children':' — needs a package ancestor')}</option>
     </select>
-    <div id="m_act_fields" style="display:${(cur==='activity'||cur==='material')?'':'none'};">
+    <div id="m_act_fields" style="display:${cur==='activity'?'':'none'};">
       <label style="margin-top:8px;">UOM <span style="color:#b91c1c;">*</span></label>
-      <input id="m_uom" value="${_esc(node.uom||'')}" placeholder="e.g. Sqft / Nos / Rmt / Bag" autocomplete="off">
+      <input id="m_uom" value="${_esc(node.uom||'')}" placeholder="e.g. Sqft / Nos / Rmt" autocomplete="off">
       <label style="margin-top:8px;">Default Rate (₹)</label>
       <input id="m_rate" type="number" min="0" step="0.01" value="${Number(node.default_rate||0)}">
     </div>
-    <div style="margin-top:10px;font-size:11px;color:var(--muted);">Structure rules: activities (labour) and materials are leaves — each needs exactly one package ancestor and carries UOM. Packages cannot nest. Labour and material budgets are tracked separately.</div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">Activities (labour) are leaves with UOM + rate. A material budget line holds the package's material allowance, built up from a mini-estimate in the Estimation screen (no UOM/rate here). Packages cannot nest.</div>
   `,async()=>{
     const ntype=document.getElementById('m_ntype').value;
     const uom=(document.getElementById('m_uom')?.value||'').trim();
     const rate=Number(document.getElementById('m_rate')?.value||0);
     const isLeaf=(ntype==='activity'||ntype==='material');
-    if(isLeaf&&!uom){toast('UOM is required for a '+(ntype==='material'?'material':'activity'),'error');return;}
+    const isMat=ntype==='material';
+    if(ntype==='activity'&&!uom){toast('UOM is required for an activity','error');return;}
     if(cur==='package'&&ntype!=='package'&&_wbsHasTypeDescendant(id,'activity')){
       toast('Cannot change from package — activities exist below this node','error');return;
     }
@@ -983,7 +986,7 @@ function wbsSetType(id){
       }
       const{error}=await sb.from('wbs_nodes').update({
         node_type:ntype,is_leaf:isLeaf,
-        uom:isLeaf?uom:null,default_rate:isLeaf?rate:0,
+        uom:isMat?'LS':(isLeaf?uom:null),default_rate:isMat?0:(isLeaf?rate:0),
         wbs_code:isLeaf?wbs_code:null,
         updated_by:state.userName,updated_at:new Date().toISOString()
       }).eq('id',id);
