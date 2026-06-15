@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v15 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v16 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -259,6 +259,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               <div style="width:0.5px;background:var(--border);"></div>
               <button style="padding:5px 10px;background:var(--panel-2);border:none;font-size:11px;color:#1B2A47;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:4px;white-space:nowrap;" onclick="wbsCollapseAll()" title="Collapse to root level">⊟ Collapse all</button>
             </div>
+            <button class="btn btn-ghost btn-sm" onclick="exportWBS()" title="Export WBS to CSV">⬇ Export</button>
             <button class="btn btn-ghost btn-sm" onclick="loadWBS()">↻ Refresh</button>
             <button class="btn btn-primary btn-sm" id="btn-wbs-addroot" onclick="wbsAddRoot()">+ Add Root Node</button>
           </div>
@@ -284,6 +285,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               <div style="width:0.5px;background:var(--border);"></div>
               <button style="padding:5px 10px;background:var(--panel-2);border:none;font-size:11px;color:#1B2A47;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:4px;white-space:nowrap;" onclick="locCollapseAll()" title="Collapse to root level">⊟ Collapse all</button>
             </div>
+            <button class="btn btn-ghost btn-sm" onclick="exportLocation()" title="Export Location structure to CSV">⬇ Export</button>
             <button class="btn btn-ghost btn-sm" onclick="loadLoc()">↻ Refresh</button>
             <button class="btn btn-primary btn-sm" id="btn-loc-addroot" onclick="locAddRoot()">+ Add Root Node</button>
           </div>
@@ -333,6 +335,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               <span id="rules_lock_label">Locked</span>
             </button>
             <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" title="Verify matrix rendering against DB resolution function" onclick="_rulesVerify()">⚖</button>
+            <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="exportRules()" title="Export allocation rules to CSV">⬇</button>
             <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="loadRules()">↻</button>
           </div>
         </div>
@@ -415,6 +418,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:1px solid #D4AF37;background:#1B2A47;color:#D4AF37;cursor:pointer;font-size:12px;font-weight:500;">
               <span id="est_lock_icon">🔒</span><span id="est_lock_label">Locked</span>
             </button>
+            <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="exportEstimation()" title="Export estimation to CSV">⬇</button>
             <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="loadEstimation()">↻</button>
           </div>
         </div>
@@ -431,6 +435,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
             <select id="est_floor_filter" onchange="estSetFloor(this.value)"
               style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;max-width:220px;">
               <option value="__all__">Whole stage</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#8fa8cc;">Type:</span>
+            <select id="est_type_filter" onchange="estSetNodeType(this.value)"
+              style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;">
+              <option value="__all__">All types</option>
+              <option value="activity">📄 Activity</option>
+              <option value="material">🧱 Material</option>
+              <option value="hire_equipment">🏗 Hire Equip</option>
             </select>
           </div>
           <span id="est_col_count" style="font-size:11px;color:#8fa8cc;margin-left:auto;"></span>
@@ -2103,7 +2117,7 @@ function rulesToggle(){}
 // All writes via rpc_save_wbs_scope / rpc_set_scope_status.
 // ============================================================
 let _scope=[];
-let _estLocked=true,_estStage='__all__',_estFloor='__all__';
+let _estLocked=true,_estStage='__all__',_estFloor='__all__',_estNodeType='__all__';
 let _estRelockInt=null,_estRelockSecs=0;
 const EST_RELOCK_SECS=180;
 
@@ -2148,6 +2162,7 @@ function _estBuildFloorFilter(){
 }
 function estSetStage(v){_estStage=v;_estFloor='__all__';_estBuildFloorFilter();renderEstimation();}
 function estSetFloor(v){_estFloor=v;renderEstimation();}
+function estSetNodeType(v){_estNodeType=v;renderEstimation();}
 
 function _estCols(){
   const out=[];
@@ -2195,7 +2210,13 @@ function renderEstimation(){
     return _wbsNodes.filter(n=>n.parent_id==parentId).sort((a,b)=>a.sort_order-b.sort_order).map(node=>{
       const ntype=node.node_type||'group';
       const isAct=_isEstimableLeaf(node);
-      const actIds=isAct?[node.id]:_estActivityDescIds(node.id);
+      // TYPE FILTER: skip estimable leaves that don't match the selected type.
+      if(isAct&&_estNodeType!=='__all__'&&ntype!==_estNodeType)return'';
+      // For non-leaf nodes, restrict actIds to matching type so parents hide when empty.
+      const actIds=isAct?[node.id]:_estActivityDescIds(node.id).filter(id=>{
+        if(_estNodeType==='__all__')return true;
+        const an=_wbsNodes.find(x=>x.id===id);return an&&(an.node_type||'group')===_estNodeType;
+      });
       if(!actIds.length)return'';
       const touches=actIds.some(aid=>cols.some(c=>eff[aid]&&eff[aid].has(c.id)));
       if(!touches)return'';
@@ -2252,14 +2273,22 @@ function renderEstimation(){
   let grand=0;
   let ft=`<tr><td style="padding:6px 12px;background:var(--panel-2);border:0.5px solid var(--border);font-weight:600;color:#1B2A47;position:sticky;left:0;">Unit totals</td>`;
   cols.forEach(c=>{
-    const sum=_scope.filter(r=>r.loc_node_id===c.id&&_isEligible(r)).reduce((s,r)=>s+Number(r.est_amount||0),0);
+    const sum=_scope.filter(r=>{
+      if(r.loc_node_id!==c.id||!_isEligible(r))return false;
+      if(_estNodeType!=='__all__'){const wn=_wbsNodes.find(x=>x.id===r.wbs_node_id);if(!wn||(wn.node_type||'group')!==_estNodeType)return false;}
+      return true;
+    }).reduce((s,r)=>s+Number(r.est_amount||0),0);
     grand+=sum;
     ft+=`<td style="padding:5px 6px;border:0.5px solid var(--border);text-align:right;background:var(--panel-2);font-size:11px;font-weight:600;color:#1B2A47;">${sum?'₹'+_inr(sum):'—'}</td>`;
   });
   ft+=`<td style="padding:5px 8px;border:0.5px solid var(--border);text-align:right;background:#1B2A47;color:#D4AF37;font-weight:700;">₹${_inr(grand)}</td></tr>`;
   foot.innerHTML=ft;
 
-  const eligRows=_scope.filter(_isEligible);
+  const eligRows=_scope.filter(r=>{
+    if(!_isEligible(r))return false;
+    if(_estNodeType!=='__all__'){const wn=_wbsNodes.find(x=>x.id===r.wbs_node_id);if(!wn||(wn.node_type||'group')!==_estNodeType)return false;}
+    return true;
+  });
   const stranded=_scope.length-eligRows.length;
   const nApp=eligRows.filter(r=>r.scope_status==='approved').length;
   const sumEl=document.getElementById('est_summary');
@@ -2847,6 +2876,134 @@ function mastersEditProject(id){
     }catch(e){toast('Error: '+e.message,'error');}
     finally{pbDone();}
   });
+}
+
+
+// ============================================================
+// EXPORT — CSV download for WBS, Location, Rules, Estimation
+// ============================================================
+function _csvCell(v){
+  const s=v==null?'':String(v);
+  return/[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function _csvDownload(filename,rows){
+  const csv=rows.map(r=>r.map(_csvCell).join(',')).join('\r\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.style.display='none';
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+}
+function _exportDate(){return new Date().toISOString().slice(0,10).replace(/-/g,'');}
+
+function exportWBS(){
+  if(!_wbsNodes.length){toast('No WBS data loaded — open the WBS tab first','warn');return;}
+  const rows=[['Dot Path','Full Path','Name','Node Type','WBS Code','UOM','Default Rate','Is Leaf','Trade Tag']];
+  function walk(parentId){
+    _wbsNodes.filter(n=>n.parent_id==parentId).sort((a,b)=>a.sort_order-b.sort_order).forEach(n=>{
+      rows.push([
+        computeDotPath(_wbsNodes,n.id),
+        _wbsPathJS(n.id),
+        n.name,
+        n.node_type||'group',
+        n.wbs_code||'',
+        n.uom||'',
+        n.default_rate!=null?n.default_rate:'',
+        n.is_leaf?'Yes':'No',
+        n.trade_tag||''
+      ]);
+      walk(n.id);
+    });
+  }
+  walk(null);
+  _csvDownload('WBS_Structure_'+_exportDate()+'.csv',rows);
+  toast('WBS exported — '+(rows.length-1)+' rows','success');
+}
+
+function exportLocation(){
+  if(!_locNodes.length){toast('No Location data loaded — open the Location tab first','warn');return;}
+  const rows=[['Dot Path','Full Path','Name','Node Type','Location Code','Is Leaf']];
+  function walk(parentId){
+    _locNodes.filter(n=>n.parent_id==parentId).sort((a,b)=>a.sort_order-b.sort_order).forEach(n=>{
+      rows.push([
+        computeDotPath(_locNodes,n.id),
+        _locPathJS(n.id),
+        n.name,
+        n.node_type||'',
+        n.location_code||'',
+        n.is_leaf?'Yes':'No'
+      ]);
+      walk(n.id);
+    });
+  }
+  walk(null);
+  _csvDownload('Location_Structure_'+_exportDate()+'.csv',rows);
+  toast('Location exported — '+(rows.length-1)+' rows','success');
+}
+
+function exportRules(){
+  if(!_rules.length){toast('No allocation rules loaded — open the Allocation Rules tab first','warn');return;}
+  const rows=[['WBS Dot Path','WBS Full Path','WBS Name','WBS Node Type','WBS Code',
+               'Loc Dot Path','Loc Full Path','Loc Name','Loc Code','Rule Type','Created By','Created At']];
+  _rules.forEach(r=>{
+    const w=_wbsNodes.find(n=>n.id===r.wbs_node_id)||{};
+    const l=_locNodes.find(n=>n.id===r.loc_node_id)||{};
+    rows.push([
+      w.id?computeDotPath(_wbsNodes,w.id):'',
+      w.id?_wbsPathJS(w.id):'',
+      w.name||'',
+      w.node_type||'',
+      w.wbs_code||'',
+      l.id?computeDotPath(_locNodes,l.id):'',
+      l.id?_locPathJS(l.id):'',
+      l.name||'',
+      l.location_code||'',
+      r.is_exclude?'Exclude':'Include',
+      r.created_by||'',
+      r.created_at?r.created_at.slice(0,19).replace('T',' '):''
+    ]);
+  });
+  _csvDownload('Allocation_Rules_'+_exportDate()+'.csv',rows);
+  toast('Allocation rules exported — '+(rows.length-1)+' rows','success');
+}
+
+function exportEstimation(){
+  if(!_scope.length){toast('No estimation data loaded — open the Estimation tab first','warn');return;}
+  const typeLabel={activity:'Activity',material:'Material',hire_equipment:'HireEquip'};
+  const filtered=_scope.filter(r=>{
+    if(_estNodeType==='__all__')return true;
+    const wn=_wbsNodes.find(x=>x.id===r.wbs_node_id);
+    return wn&&(wn.node_type||'group')===_estNodeType;
+  });
+  if(!filtered.length){toast('No rows match the current type filter','warn');return;}
+  const rows=[['Scope Code','WBS Dot Path','WBS Full Path','Activity Name','Node Type','UOM',
+               'Loc Dot Path','Loc Full Path','Loc Name','Loc Code',
+               'Est Qty','Est Rate','Est Amount','Status','Notes']];
+  filtered.forEach(r=>{
+    const w=_wbsNodes.find(n=>n.id===r.wbs_node_id)||{};
+    const l=_locNodes.find(n=>n.id===r.loc_node_id)||{};
+    rows.push([
+      r.scope_code||'',
+      w.id?computeDotPath(_wbsNodes,w.id):'',
+      w.id?_wbsPathJS(w.id):'',
+      w.name||'',
+      w.node_type||'',
+      r.uom||w.uom||'',
+      l.id?computeDotPath(_locNodes,l.id):'',
+      l.id?_locPathJS(l.id):'',
+      l.name||'',
+      l.location_code||'',
+      r.est_qty!=null?r.est_qty:'',
+      r.est_rate!=null?r.est_rate:'',
+      r.est_amount!=null?r.est_amount:'',
+      r.scope_status||'draft',
+      r.notes||''
+    ]);
+  });
+  const suffix=_estNodeType==='__all__'?'All':(typeLabel[_estNodeType]||_estNodeType);
+  _csvDownload('Estimation_'+suffix+'_'+_exportDate()+'.csv',rows);
+  toast('Estimation exported ('+suffix+') — '+(rows.length-1)+' rows','success');
 }
 
 async function mastersToggleProject(id,currentActive){
