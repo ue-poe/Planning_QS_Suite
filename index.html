@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v12 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v15 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -771,7 +771,7 @@ function renderWBSNode(node,depth){
   const dotPath=computeDotPath(_wbsNodes,node.id);
   const ntype=node.node_type||'group';
   const depthClass=node.is_leaf?'wbs-leaf':`wbs-d${Math.min(depth,4)}`;
-  const icon=ntype==='package'?'📦':ntype==='activity'?'📄':ntype==='material'?'🧱':depth===0?'📁':depth===1?'📂':'📋';
+  const icon=ntype==='package'?'📦':ntype==='activity'?'📄':ntype==='material'?'🧱':ntype==='hire_equipment'?'🏗':'🗂';
   const leafCount=node.is_leaf?0:getDescendantIds(_wbsNodes,node.id).filter(id=>_wbsNodes.find(n=>n.id===id&&n.is_leaf)).length;
   return`<div class="tree-node ${depthClass}" id="wn_${node.id}">
     <div class="tree-row">
@@ -783,8 +783,10 @@ function renderWBSNode(node,depth){
         ${ntype==='package'?`<span class="badge-leaf" style="background:#1e3a5f;color:#dbe7f8;">PKG</span>`:''}
         ${ntype==='activity'?`<span class="badge-leaf">ACTIVITY</span>`:''}
         ${ntype==='material'?`<span class="badge-leaf" style="background:#7c3a14;color:#fde9d8;">MATERIAL</span>`:''}
-        ${(ntype==='activity'||ntype==='material')?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;">${_esc(node.uom||'?')}${node.default_rate?` · ₹${Number(node.default_rate).toLocaleString('en-IN')}`:''}</span>`:''}
-        ${(ntype==='activity'||ntype==='material')&&node.wbs_code?`<span style="font-family:monospace;font-size:10px;color:#a07d10;">${_esc(node.wbs_code)}</span>`:''}
+        ${ntype==='hire_equipment'?`<span class="badge-leaf" style="background:#5b1a6b;color:#fce8ff;">HIRE EQUIP</span>`:''}
+        ${(ntype==='activity'||ntype==='material'||ntype==='hire_equipment')?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;">${_esc(node.uom||'?')}${node.default_rate?` · ₹${Number(node.default_rate).toLocaleString('en-IN')}`:''}</span>`:''}
+        ${(ntype==='activity'||ntype==='material'||ntype==='hire_equipment')&&node.wbs_code?`<span style="font-family:monospace;font-size:10px;color:#a07d10;">${_esc(node.wbs_code)}</span>`:''}
+        ${ntype==='hire_equipment'&&node.specification?`<span title="${_esc(node.specification)}" style="font-size:10px;color:#6b21a8;background:#f3e8ff;padding:1px 5px;border-radius:3px;cursor:help;margin-left:2px;">📋 spec</span>`:''}
         ${!node.is_leaf&&leafCount?`<span class="badge-count">${leafCount} leaves</span>`:''}
       </span>
       ${canEdit()?`<div style="display:flex;gap:3px;flex-shrink:0;">
@@ -870,28 +872,40 @@ function wbsAddChild(parentId){
   const parent=_wbsNodes.find(n=>n.id===parentId);
   if(!parent)return;
   const ptype=parent.node_type||'group';
-  if(ptype==='activity'){toast('Cannot add children under an activity.','error');return;}
+  if(ptype==='activity'||ptype==='material'||ptype==='hire_equipment'){toast('Cannot add children under a leaf node.','error');return;}
   const pkgAnc=ptype==='package'?parent:_wbsPackageAncestor(parentId);
-  // activity/material allowed only if a package exists in the ancestry (incl. parent);
-  // package allowed only if NO package exists in the ancestry
-  const canActivity=!!pkgAnc;
-  const canMaterial=!!pkgAnc;
+  // Estimable leaves (activity/material/hire_equipment) must be DIRECT children of
+  // a package — the parent itself must be the package (matches the DB structure
+  // trigger, which forbids a group between package and leaf).
+  const parentIsPackage=(ptype==='package');
+  const canActivity=parentIsPackage;
+  const canMaterial=parentIsPackage;
+  const canHire=parentIsPackage;
+  // A package may be added only if there is NO package anywhere in the ancestry.
   const canPackage=!pkgAnc;
+  const leafBlockReason = parentIsPackage ? '' : (pkgAnc
+    ? '— must be a direct child of a package (no group in between)'
+    : '— needs a package as direct parent');
   openModal(`Add Child to "${parent.name}"`,`
     <label>Name</label>
     <input id="m_name" placeholder="e.g. Bore packing works - 110 mm dia" autocomplete="off">
     <label style="margin-top:8px;">Node type</label>
-    <select id="m_ntype" onchange="document.getElementById('m_act_fields').style.display=(this.value==='activity')?'':'none';document.getElementById('m_mat_note').style.display=(this.value==='material')?'':'none';">
+    <select id="m_ntype" onchange="const v=this.value;document.getElementById('m_act_fields').style.display=(v==='activity'||v==='hire_equipment')?'':'none';document.getElementById('m_mat_note').style.display=(v==='material')?'':'none';document.getElementById('m_hire_fields').style.display=(v==='hire_equipment')?'':'none';">
       <option value="group">Group</option>
       <option value="package" ${canPackage?'':'disabled'}>📦 Package ${canPackage?'':'— already inside a package'}</option>
-      <option value="activity" ${canActivity?'':'disabled'}>📄 Activity (labour) ${canActivity?`(under package "${_esc(pkgAnc?.name||'')}")`:'— needs a package ancestor'}</option>
-      <option value="material" ${canMaterial?'':'disabled'}>🧱 Material budget ${canMaterial?`(under package "${_esc(pkgAnc?.name||'')}")`:'— needs a package ancestor'}</option>
+      <option value="activity" ${canActivity?'':'disabled'}>📄 Activity (labour) ${canActivity?`(under package "${_esc(pkgAnc?.name||'')}")`:leafBlockReason}</option>
+      <option value="material" ${canMaterial?'':'disabled'}>🧱 Material budget ${canMaterial?`(under package "${_esc(pkgAnc?.name||'')}")`:leafBlockReason}</option>
+      <option value="hire_equipment" ${canHire?'':'disabled'}>🏗 Hire Equipment (plant/machinery) ${canHire?`(under package "${_esc(pkgAnc?.name||'')}")`:leafBlockReason}</option>
     </select>
     <div id="m_act_fields" style="display:none;">
       <label style="margin-top:8px;">UOM <span style="color:#b91c1c;">*</span></label>
-      <input id="m_uom" placeholder="e.g. Sqft / Nos / Rmt" autocomplete="off">
+      <input id="m_uom" placeholder="e.g. Sqft / Nos / Rmt / Hrs" autocomplete="off">
       <label style="margin-top:8px;">Default Rate (₹)</label>
       <input id="m_rate" type="number" min="0" step="0.01" value="0">
+    </div>
+    <div id="m_hire_fields" style="display:none;">
+      <label style="margin-top:8px;">Specification / Technical Details</label>
+      <textarea id="m_spec" rows="3" placeholder="e.g. Tower crane, max hook height 60 m, capacity 10T at 20 m radius…" style="width:100%;font-size:12px;padding:6px;border:1px solid var(--border);border-radius:4px;resize:vertical;"></textarea>
     </div>
     <div id="m_mat_note" style="display:none;margin-top:8px;font-size:11px;color:var(--muted);">A material budget line holds the package's material allowance. Its amount is built up from a mini-estimate (materials × qty × rate) entered per location in the Estimation screen — no UOM or rate here.</div>
   `,async()=>{
@@ -899,10 +913,12 @@ function wbsAddChild(parentId){
     const ntype=document.getElementById('m_ntype').value;
     const uom=(document.getElementById('m_uom')?.value||'').trim();
     const rate=Number(document.getElementById('m_rate')?.value||0);
+    const isHire=ntype==='hire_equipment';
+    const spec=isHire?(document.getElementById('m_spec')?.value||'').trim()||null:null;
     if(!name){toast('Name required','error');return;}
-    const isLeaf=(ntype==='activity'||ntype==='material');
+    const isLeaf=(ntype==='activity'||ntype==='material'||ntype==='hire_equipment');
     const isMat=ntype==='material';
-    if(ntype==='activity'&&!uom){toast('UOM is required for an activity','error');return;}
+    if((ntype==='activity'||isHire)&&!uom){toast('UOM is required','error');return;}
     pbShow('Saving…');
     try{
       let wbs_code=null;
@@ -913,11 +929,12 @@ function wbsAddChild(parentId){
         parent_id:parentId,name,is_leaf:isLeaf,node_type:ntype,
         uom:isMat?'LS':(isLeaf?uom:null),default_rate:isMat?0:(isLeaf?rate:0),
         wbs_code:isLeaf?wbs_code:null,
+        specification:spec,
         sort_order:nextSortOrder(_wbsNodes,parentId),
         created_by:state.userName,updated_by:state.userName
       });
       if(error)throw error;
-      toast(isMat?'Material budget line added':ntype==='activity'?'Activity added':'Node added','success');closeModal();await loadWBS();
+      toast(isMat?'Material budget line added':isHire?'Hire equipment node added':ntype==='activity'?'Activity added':'Node added','success');closeModal();await loadWBS();
     }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
   });
 }
@@ -947,34 +964,47 @@ function wbsSetType(id){
   const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
   const cur=node.node_type||'group';
   const children=_wbsNodes.filter(n=>n.parent_id===id);
+  const parent=node.parent_id!=null?_wbsNodes.find(n=>n.id===node.parent_id):null;
+  const parentIsPackage=!!parent&&(parent.node_type||'group')==='package';
   const pkgAnc=_wbsPackageAncestor(node.parent_id);
-  const canActivity=!!pkgAnc&&!children.length;
-  const canMaterial=!!pkgAnc&&!children.length;
+  // Estimable leaves must be a DIRECT child of a package (matches DB trigger).
+  const canActivity=parentIsPackage&&!children.length;
+  const canMaterial=parentIsPackage&&!children.length;
+  const canHire=parentIsPackage&&!children.length;
   const canPackage=!pkgAnc&&!_wbsHasTypeDescendant(id,'package');
+  const _leafReason=children.length?' — has children':(parentIsPackage?'':(pkgAnc?' — must be direct child of a package':' — needs a package as direct parent'));
   openModal(`Node Type — "${node.name}"`,`
     <label>Type</label>
-    <select id="m_ntype" onchange="document.getElementById('m_act_fields').style.display=(this.value==='activity')?'':'none';">
+    <select id="m_ntype" onchange="const v=this.value;document.getElementById('m_act_fields').style.display=(v==='activity'||v==='hire_equipment')?'':'none';document.getElementById('m_hire_fields').style.display=(v==='hire_equipment')?'':'none';">
       <option value="group" ${cur==='group'?'selected':''}>Group</option>
       <option value="package" ${cur==='package'?'selected':''} ${canPackage||cur==='package'?'':'disabled'}>📦 Package${canPackage||cur==='package'?'':' — blocked (package in ancestry or below)'}</option>
-      <option value="activity" ${cur==='activity'?'selected':''} ${canActivity||cur==='activity'?'':'disabled'}>📄 Activity (labour)${canActivity||cur==='activity'?'':(children.length?' — has children':' — needs a package ancestor')}</option>
-      <option value="material" ${cur==='material'?'selected':''} ${canMaterial||cur==='material'?'':'disabled'}>🧱 Material budget${canMaterial||cur==='material'?'':(children.length?' — has children':' — needs a package ancestor')}</option>
+      <option value="activity" ${cur==='activity'?'selected':''} ${canActivity||cur==='activity'?'':'disabled'}>📄 Activity (labour)${canActivity||cur==='activity'?'':_leafReason}</option>
+      <option value="material" ${cur==='material'?'selected':''} ${canMaterial||cur==='material'?'':'disabled'}>🧱 Material budget${canMaterial||cur==='material'?'':_leafReason}</option>
+      <option value="hire_equipment" ${cur==='hire_equipment'?'selected':''} ${canHire||cur==='hire_equipment'?'':'disabled'}>🏗 Hire Equipment${canHire||cur==='hire_equipment'?'':_leafReason}</option>
     </select>
-    <div id="m_act_fields" style="display:${cur==='activity'?'':'none'};">
+    <div id="m_act_fields" style="display:${(cur==='activity'||cur==='hire_equipment')?'':'none'};">
       <label style="margin-top:8px;">UOM <span style="color:#b91c1c;">*</span></label>
-      <input id="m_uom" value="${_esc(node.uom||'')}" placeholder="e.g. Sqft / Nos / Rmt" autocomplete="off">
+      <input id="m_uom" value="${_esc(node.uom||'')}" placeholder="e.g. Sqft / Nos / Rmt / Hrs" autocomplete="off">
       <label style="margin-top:8px;">Default Rate (₹)</label>
       <input id="m_rate" type="number" min="0" step="0.01" value="${Number(node.default_rate||0)}">
     </div>
-    <div style="margin-top:10px;font-size:11px;color:var(--muted);">Activities (labour) are leaves with UOM + rate. A material budget line holds the package's material allowance, built up from a mini-estimate in the Estimation screen (no UOM/rate here). Packages cannot nest.</div>
+    <div id="m_hire_fields" style="display:${cur==='hire_equipment'?'':'none'};">
+      <label style="margin-top:8px;">Specification / Technical Details</label>
+      <textarea id="m_spec" rows="3" placeholder="e.g. Tower crane, max hook height 60 m, capacity 10T at 20 m radius…" style="width:100%;font-size:12px;padding:6px;border:1px solid var(--border);border-radius:4px;resize:vertical;">${_esc(node.specification||'')}</textarea>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">Activities (labour) and Hire Equipment are leaves with UOM + rate. A material budget line holds the package's material allowance, built up in the Estimation screen. Packages cannot nest.</div>
   `,async()=>{
     const ntype=document.getElementById('m_ntype').value;
     const uom=(document.getElementById('m_uom')?.value||'').trim();
     const rate=Number(document.getElementById('m_rate')?.value||0);
-    const isLeaf=(ntype==='activity'||ntype==='material');
+    const isHire=ntype==='hire_equipment';
+    const spec=isHire?(document.getElementById('m_spec')?.value||'').trim()||null:null;
+    const isLeaf=(ntype==='activity'||ntype==='material'||ntype==='hire_equipment');
     const isMat=ntype==='material';
-    if(ntype==='activity'&&!uom){toast('UOM is required for an activity','error');return;}
-    if(cur==='package'&&ntype!=='package'&&_wbsHasTypeDescendant(id,'activity')){
-      toast('Cannot change from package — activities exist below this node','error');return;
+    if((ntype==='activity'||isHire)&&!uom){toast('UOM is required','error');return;}
+    if(cur==='package'&&ntype!=='package'&&
+       (_wbsHasTypeDescendant(id,'activity')||_wbsHasTypeDescendant(id,'hire_equipment')||_wbsHasTypeDescendant(id,'material'))){
+      toast('Cannot change from package — estimable leaf nodes exist below this node','error');return;
     }
     const rulesCount=_rules.filter(r=>r.wbs_node_id===id).length;
     if(cur!==ntype&&rulesCount&&!confirm(`"${node.name}" has ${rulesCount} allocation rule(s). Changing type keeps them — continue?`))return;
@@ -988,6 +1018,7 @@ function wbsSetType(id){
         node_type:ntype,is_leaf:isLeaf,
         uom:isMat?'LS':(isLeaf?uom:null),default_rate:isMat?0:(isLeaf?rate:0),
         wbs_code:isLeaf?wbs_code:null,
+        specification:isHire?spec:null,
         updated_by:state.userName,updated_at:new Date().toISOString()
       }).eq('id',id);
       if(error)throw error;
@@ -1842,9 +1873,9 @@ function _renderMatrixBody(){
       const indent=12+depth*14;
       const labelTd=`<td style="padding:${node.is_leaf?5:7}px 12px ${node.is_leaf?5:7}px ${indent}px;background:${rowBg};border:0.5px solid var(--border);color:${rowColor};font-weight:${depth<=1?500:400};position:sticky;left:0;z-index:1;white-space:nowrap;min-width:240px;">
         <span onclick="event.stopPropagation();_matrixToggleWBS(${node.id})" style="cursor:pointer;margin-right:5px;color:${tc};user-select:none;display:inline-block;width:10px;">${hasChildren?(expanded?'▾':'▸'):''}</span>
-        ${(node.node_type||'group')==='package'?'📦':(node.node_type||'')==='material'?'🧱':(node.node_type||'')==='activity'?'📄':node.is_leaf?'📍':depth===0?'📁':depth===1?'📂':'📋'} ${_esc(node.name)}
+        ${(node.node_type||'group')==='package'?'📦':(node.node_type||'')==='material'?'🧱':(node.node_type||'')==='hire_equipment'?'🏗':(node.node_type||'')==='activity'?'📄':node.is_leaf?'📍':'🗂'} ${_esc(node.name)}
         <span style="font-family:monospace;font-size:9px;opacity:.65;background:${depth===0?'rgba(30,58,95,0.1)':'#e4e9f2'};padding:1px 4px;border-radius:3px;margin-left:3px;">${_esc(dp)}</span>
-        ${(node.node_type||'group')==='package'?'<span class="badge-leaf" style="background:#1e3a5f;color:#dbe7f8;">PKG</span>':(node.node_type||'')==='material'?'<span class="badge-leaf" style="background:#7c3a14;color:#fde9d8;">MATERIAL</span>':(node.node_type||'')==='activity'?'<span class="badge-leaf">ACTIVITY</span>':node.is_leaf?'<span class="badge-leaf">ACTIVITY</span>':''}
+        ${(node.node_type||'group')==='package'?'<span class="badge-leaf" style="background:#1e3a5f;color:#dbe7f8;">PKG</span>':(node.node_type||'')==='material'?'<span class="badge-leaf" style="background:#7c3a14;color:#fde9d8;">MATERIAL</span>':(node.node_type||'')==='hire_equipment'?'<span class="badge-leaf" style="background:#5b1a6b;color:#fce8ff;">HIRE EQUIP</span>':(node.node_type||'')==='activity'?'<span class="badge-leaf">ACTIVITY</span>':node.is_leaf?'<span class="badge-leaf">ACTIVITY</span>':''}
       </td>`;
       const dataCells=cols.map(col=>{
         const st=cellState(node,col.id);
@@ -2137,8 +2168,8 @@ function _estActivityDescIds(nodeId){
     const n=_wbsNodes.find(x=>x.id===id);return n&&_isEstimableLeaf(n);
   });
 }
-// An estimable leaf is either a labour activity or a material line.
-function _isEstimableLeaf(n){ const t=(n.node_type||'group'); return t==='activity'||t==='material'; }
+// An estimable leaf is a labour activity, a material line, or a hire-equipment node.
+function _isEstimableLeaf(n){ const t=(n.node_type||'group'); return t==='activity'||t==='material'||t==='hire_equipment'; }
 
 function renderEstimation(){
   const head=document.getElementById('est_head'),body=document.getElementById('est_body'),foot=document.getElementById('est_foot');
@@ -2171,7 +2202,8 @@ function renderEstimation(){
       const indent=12+depth*14;
       const isPkg=ntype==='package';
       const isMat=ntype==='material';
-      const rowBg=isMat?'#fbf4ee':isAct?'#ffffff':isPkg?'#eef4ee':depth===0?'#dde6f0':'#f3f6fa';
+      const isHire=ntype==='hire_equipment';
+      const rowBg=isHire?'#f5f0ff':isMat?'#fbf4ee':isAct?'#ffffff':isPkg?'#eef4ee':depth===0?'#dde6f0':'#f3f6fa';
       let rowTotal=0;
       const cells=cols.map(c=>{
         if(isAct){
@@ -2203,9 +2235,10 @@ function renderEstimation(){
         return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:${isPkg?'#e4efe4':'inherit'};color:${isPkg?'#14532d':'#8a94a3'};font-weight:${isPkg?600:400};font-size:11px;">${sub?'₹'+_inr(sub):''}</td>`;
       }).join('');
       const label=`<td style="padding:6px 12px 6px ${indent}px;background:${rowBg};border:0.5px solid var(--border);position:sticky;left:0;z-index:1;white-space:nowrap;min-width:260px;">
-        ${isPkg?'📦':isMat?'🧱':isAct?'📄':'📁'} ${_esc(node.name)}
-        ${isAct?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;margin-left:4px;">${_esc(node.uom||'')}</span>`:''}
-        ${isAct&&!_estLocked&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Bulk-fill across units" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
+        ${isPkg?'📦':isHire?'🏗':isMat?'🧱':isAct?'📄':'🗂'} ${_esc(node.name)}
+        ${(isAct&&!isMat)?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;margin-left:4px;">${_esc(node.uom||'')}</span>`:''}
+        ${(isAct&&!isMat)&&!_estLocked&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Bulk-fill across units" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
+        ${isMat?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
         ${isPkg&&!_estLocked&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Approve / un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
       </td>`;
       const totalTd=`<td style="padding:4px 8px;border:0.5px solid var(--border);text-align:right;font-weight:${isAct?500:700};color:#1B2A47;background:${isPkg?'#e4efe4':'#fbfcfe'};">${rowTotal?'₹'+_inr(rowTotal):''}</td>`;
@@ -2503,6 +2536,65 @@ async function estMaterialBulkFill(wbsId){
   _buRenderRows();
 }
 
+// Material take-off rollup: for a material node, sum each material's qty and
+// amount across the build-up rows of every unit currently in view. Grouped by
+// (material_code, uom) — quantities only sum within the same material+unit.
+async function estMaterialBreakup(wbsId){
+  const node=_wbsNodes.find(n=>n.id===wbsId);if(!node)return;
+  const eff=_effectiveLeavesJS(wbsId);
+  const cols=_estCols().filter(c=>eff.has(c.id));
+  const colIds=new Set(cols.map(c=>c.id));
+  const sm=_scopeMap();
+  // scope ids for this material node across the visible units
+  const scopeIds=cols.map(c=>sm[wbsId+'|'+c.id]).filter(x=>x&&x.id).map(x=>x.id);
+  if(!scopeIds.length){
+    openModal(`📋 Material Take-off — ${_esc(node.name)}`,
+      `<div style="font-size:12px;color:var(--muted);">No material build-up entered yet for the units in view.</div>`,async()=>{closeModal();},{readOnly:true});
+    return;
+  }
+  pbShow('Rolling up materials…');
+  let rows=[];
+  try{
+    const {data}=await sb.from('wbs_material_buildup').select('*').in('scope_id',scopeIds);
+    rows=data||[];
+  }catch(e){toast('Load failed: '+e.message,'error');pbDone();return;}
+  pbDone();
+  // group by material_code (fallback name) + uom
+  const agg={};
+  rows.forEach(r=>{
+    const key=(r.material_code||r.material_name||'?')+'|'+(r.uom||'');
+    if(!agg[key])agg[key]={name:r.material_name,code:r.material_code,uom:r.uom||'',qty:0,amount:0,rate:r.rate};
+    agg[key].qty+=Number(r.qty)||0;
+    agg[key].amount+=Number(r.amount)||0;
+  });
+  const list=Object.values(agg).sort((a,b)=>b.amount-a.amount);
+  const grandAmt=list.reduce((s,x)=>s+x.amount,0);
+  const bodyRows=list.map(m=>`<tr>
+    <td style="padding:5px 8px;border-bottom:1px solid #eee;">${_esc(m.name)}${m.code?`<span style="font-size:10px;color:var(--muted);"> · ${_esc(m.code)}</span>`:''}</td>
+    <td style="text-align:center;border-bottom:1px solid #eee;">${_esc(m.uom)}</td>
+    <td style="text-align:right;padding-right:10px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;font-weight:600;">${_inr(m.qty)}</td>
+    <td style="text-align:right;padding-right:8px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;">₹${_inr(m.amount)}</td>
+  </tr>`).join('');
+  openModal(`📋 Material Take-off — ${_esc(node.name)}`,`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>Rolled across ${scopeIds.length} unit(s) in the current view. Quantities sum per material (same UOM); they are not combined across different materials.</div>
+    <div style="max-height:380px;overflow:auto;border:1px solid var(--border);border-radius:6px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:var(--panel-2);position:sticky;top:0;">
+          <th style="text-align:left;padding:6px 8px;">Material</th>
+          <th style="width:70px;">UOM</th>
+          <th style="width:120px;text-align:right;padding-right:10px;">Total Qty</th>
+          <th style="width:130px;text-align:right;padding-right:8px;">Total Amount</th>
+        </tr></thead>
+        <tbody>${bodyRows||'<tr><td colspan="4" style="padding:10px;color:var(--muted);">No materials.</td></tr>'}</tbody>
+        <tfoot><tr style="font-weight:700;background:#f3f6fa;">
+          <td colspan="3" style="text-align:right;padding:6px 10px;">Grand total</td>
+          <td style="text-align:right;padding-right:8px;">₹${_inr(grandAmt)}</td>
+        </tr></tfoot>
+      </table>
+    </div>
+  `,async()=>{closeModal();},{width:'640px',readOnly:true});
+}
+
 function estBulkFill(wbsId){
   if(_estLocked){_estFlashLock();return;}
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
@@ -2621,6 +2713,12 @@ function openModal(title,bodyHTML,onSave,opts){
   document.getElementById('modalBody').innerHTML=bodyHTML;
   const box=document.querySelector('#modalOverlay .modal');
   if(box){ box.style.width=(opts&&opts.width)?opts.width:'500px'; }
+  // read-only modals (e.g. take-off rollup) have nothing to save — hide Save,
+  // relabel Cancel as Close.
+  const saveBtn=document.getElementById('modalSaveBtn');
+  const cancelBtn=document.querySelector('#modalOverlay .modal .btn-ghost');
+  if(saveBtn) saveBtn.style.display=(opts&&opts.readOnly)?'none':'';
+  if(cancelBtn) cancelBtn.textContent=(opts&&opts.readOnly)?'Close':'Cancel';
   document.getElementById('modalOverlay').classList.remove('hidden');
   setTimeout(()=>{const first=document.querySelector('#modalBody input:not([type=checkbox])');if(first)first.focus();},80);
 }
