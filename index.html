@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v16 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v17 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -414,6 +414,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
             <span id="est_summary" style="font-size:11px;color:#8fa8cc;"></span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <button id="est_select_btn" onclick="estToggleSelectMode()"
+              style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">
+              ☑ Select
+            </button>
             <button id="est_lock_btn" onclick="estToggleLock()"
               style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:1px solid #D4AF37;background:#1B2A47;color:#D4AF37;cursor:pointer;font-size:12px;font-weight:500;">
               <span id="est_lock_icon">🔒</span><span id="est_lock_label">Locked</span>
@@ -447,6 +451,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               <option value="hire_equipment">🏗 Hire Equip</option>
             </select>
           </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#8fa8cc;">Show:</span>
+            <select id="est_fill_filter" onchange="estSetFillFilter(this.value)"
+              style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;">
+              <option value="all">All</option>
+              <option value="unfilled">Unfilled</option>
+              <option value="partial">Partial</option>
+              <option value="complete">Complete</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;background:#1B2A47;border:1px solid #4A6FA5;border-radius:4px;padding:2px 6px;">
+            <span style="font-size:13px;color:#8fa8cc;">🔍</span>
+            <input id="est_search_input" type="text" placeholder="Search WBS…" oninput="estSetSearch(this.value)"
+              style="background:transparent;border:none;outline:none;font-size:11px;color:#c2d3ec;width:120px;" autocomplete="off">
+          </div>
           <span id="est_col_count" style="font-size:11px;color:#8fa8cc;margin-left:auto;"></span>
         </div>
         <div id="est_lock_banner" style="background:#fdf8e8;border-bottom:1px solid #D4AF37;padding:7px 14px;">
@@ -459,11 +478,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
             <tfoot id="est_foot"></tfoot>
           </table>
         </div>
+        <div id="est_bulk_bar" style="display:none;"></div>
         <div style="padding:8px 14px;background:var(--panel-2);border-top:0.5px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
           <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;"></span> Draft</span>
           <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;"></span> Approved (immutable)</span>
           <span style="font-size:11px;color:var(--muted);">Grey cell — pair not allowed by rules</span>
-          <span style="font-size:11px;color:var(--muted);">⇉ bulk-fill across units · ✔ approve package</span>
+          <span style="font-size:11px;color:var(--muted);">⇉ bulk-fill · ✔ approve · ☑ select mode → bulk delete · pill = filled/eligible</span>
           <span id="est_relock_timer" style="font-size:11px;color:#D4AF37;margin-left:auto;display:none;"></span>
         </div>
       </div>
@@ -1069,19 +1089,38 @@ async function wbsDelete(id){
   const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
   const children=_wbsNodes.filter(n=>n.parent_id===id);
   if(children.length){toast('Delete all children first.','error');return;}
-  const rulesCount=_rules.filter(r=>r.wbs_node_id===id).length;
-  // Check wbs_scope rows — must be deleted before wbs_nodes (FK constraint)
-  const{data:scopeRows,error:scopeErr}=await sb.from('wbs_scope').select('id').eq('wbs_node_id',id);
-  if(scopeErr){toast('Error checking scope: '+scopeErr.message,'error');return;}
-  const scopeCount=(scopeRows||[]).length;
-  const parts=[];
-  if(scopeCount)parts.push(`${scopeCount} estimate(s)`);
-  if(rulesCount)parts.push(`${rulesCount} allocation rule(s)`);
-  const extra=parts.length?` This will also remove ${parts.join(' and ')}.`:'';
-  if(!confirm(`Delete "${node.name}"?${extra} Cannot be undone.`))return;
-  pbShow('Deleting…');
+  pbShow('Checking references…');
   try{
-    // Delete in FK order: buildup → scope → rules → node
+    // ── 1. Block if any financial transaction tables reference this node ──────
+    // These are live transactions — never auto-delete them.
+    const txChecks=await Promise.all([
+      sb.from('pu_mis_items').select('id',{count:'exact',head:true}).eq('wbs_node_id',id),
+      sb.from('wo_order_items').select('id',{count:'exact',head:true}).eq('wbs_node_id',id),
+      sb.from('wo_bill_items').select('id',{count:'exact',head:true}).eq('wbs_node_id',id),
+      sb.from('wo_certification_items').select('id',{count:'exact',head:true}).eq('wbs_node_id',id),
+      sb.from('ho_bill_items').select('id',{count:'exact',head:true}).eq('wbs_node_id',id),
+      sb.from('ho_certification_items').select('id',{count:'exact',head:true}).eq('wbs_node_id',id),
+    ]);
+    const txLabels=['MIS issue items','WO order items','WO bill items','WO certification items','HO bill items','HO certification items'];
+    const blocked=txChecks.map((r,i)=>({label:txLabels[i],count:r.count||0})).filter(r=>r.count>0);
+    if(blocked.length){
+      pbDone();
+      toast(`Cannot delete "${node.name}" — referenced by: ${blocked.map(b=>`${b.count} ${b.label}`).join(', ')}. Remove those transactions first.`,'error',9000);
+      return;
+    }
+    // ── 2. Check planning data (scope + rules) — these can be auto-deleted ───
+    const rulesCount=_rules.filter(r=>r.wbs_node_id===id).length;
+    const{data:scopeRows,error:scopeErr}=await sb.from('wbs_scope').select('id').eq('wbs_node_id',id);
+    if(scopeErr)throw scopeErr;
+    const scopeCount=(scopeRows||[]).length;
+    const parts=[];
+    if(scopeCount)parts.push(`${scopeCount} estimate(s)`);
+    if(rulesCount)parts.push(`${rulesCount} allocation rule(s)`);
+    const extra=parts.length?` This will also remove ${parts.join(' and ')}.`:'';
+    pbDone();
+    if(!confirm(`Delete "${node.name}"?${extra} Cannot be undone.`))return;
+    pbShow('Deleting…');
+    // ── 3. Delete in FK order: buildup → scope → rules → node ───────────────
     if(scopeCount){
       const scopeIds=scopeRows.map(r=>r.id);
       await sb.from('wbs_material_buildup').delete().in('scope_id',scopeIds);
@@ -1092,7 +1131,7 @@ async function wbsDelete(id){
     const{error}=await sb.from('wbs_nodes').delete().eq('id',id);
     if(error)throw error;
     toast('Deleted','success');
-    _scope=_scope.filter(r=>r.wbs_node_id!==id); // sync in-memory scope
+    _scope=_scope.filter(r=>r.wbs_node_id!==id);
     await loadWBS();
     if(_rules.length)await loadRules();
   }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
@@ -2131,6 +2170,7 @@ function rulesToggle(){}
 // ============================================================
 let _scope=[];
 let _estLocked=true,_estStage='__all__',_estFloor='__all__',_estNodeType='__all__';
+let _estFillFilter='all',_estSearch='',_estSelectMode=false,_estSelected=new Set();
 let _estRelockInt=null,_estRelockSecs=0;
 const EST_RELOCK_SECS=180;
 
@@ -2186,6 +2226,37 @@ function _estBuildFloorFilter(){
 function estSetStage(v){_estStage=v;_estFloor='__all__';_estBuildFloorFilter();renderEstimation();}
 function estSetFloor(v){_estFloor=v;renderEstimation();}
 function estSetNodeType(v){_estNodeType=v;renderEstimation();}
+function estSetFillFilter(v){_estFillFilter=v;renderEstimation();}
+function estSetSearch(v){_estSearch=v.trim().toLowerCase();renderEstimation();}
+function estToggleSelectMode(){
+  if(_estLocked){_estFlashLock();return;}
+  _estSelectMode=!_estSelectMode;_estSelected.clear();renderEstimation();
+}
+function estSelectRow(wbsId,checked){
+  const visLocs=new Set(_estCols().map(c=>c.id));
+  _scope.filter(r=>r.wbs_node_id==wbsId&&r.scope_status!=='approved'&&visLocs.has(r.loc_node_id))
+    .forEach(r=>{const k=r.wbs_node_id+'|'+r.loc_node_id;if(checked)_estSelected.add(k);else _estSelected.delete(k);});
+  renderEstimation();
+}
+function estSelectCol(locId,checked){
+  _scope.filter(r=>r.loc_node_id===locId&&r.scope_status!=='approved')
+    .forEach(r=>{const k=r.wbs_node_id+'|'+r.loc_node_id;if(checked)_estSelected.add(k);else _estSelected.delete(k);});
+  renderEstimation();
+}
+function estToggleCell(wbsId,locId){
+  const k=wbsId+'|'+locId;if(_estSelected.has(k))_estSelected.delete(k);else _estSelected.add(k);
+  renderEstimation();
+}
+async function estBulkDelete(){
+  const keys=[..._estSelected];if(!keys.length)return;
+  const sm=_scopeMap();
+  const total=keys.reduce((s,k)=>s+Number((sm[k]||{}).est_amount||0),0);
+  if(!confirm(`Delete ${keys.length} estimate(s) totalling ₹${_inr(total)}?\n\nThis cannot be undone.`))return;
+  const rows=keys.map(k=>{const[w,l]=k.split('|');return{wbs_node_id:Number(w),loc_node_id:l,_delete:true};});
+  _estSelected.clear();_estSelectMode=false;
+  await _estSaveRows(rows,`Deleting ${rows.length} estimate(s)…`);
+}
+
 
 function _estCols(){
   const out=[];
@@ -2214,16 +2285,32 @@ function renderEstimation(){
   if(!head)return;
   const cols=_estCols();
   const sm=_scopeMap();
+
   document.getElementById('est_col_count').textContent=`${cols.length} unit column${cols.length!==1?'s':''}`;
   if(!cols.length){head.innerHTML='';foot.innerHTML='';body.innerHTML=`<tr><td style="padding:24px;text-align:center;color:var(--muted);">No location leaves in this filter.</td></tr>`;return;}
 
-  let th=`<tr><th style="text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:260px;position:sticky;left:0;top:0;z-index:4;">WBS / Activity</th>`;
-  cols.forEach(c=>{
-    th+=`<th style="padding:6px 8px;background:#1B2A47;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:500;font-size:11px;text-align:center;min-width:110px;position:sticky;top:0;z-index:2;" title="${_esc(_locPathJS(c.id))}">
-      <div>${_esc(c.name)}</div>
-      <div style="font-family:monospace;font-size:9px;color:#8fa8cc;">${_esc(computeDotPath(_locNodes,c.id))}</div></th>`;
-  });
-  th+=`<th style="padding:6px 8px;background:#16243d;border:0.5px solid rgba(255,255,255,0.12);color:#D4AF37;font-size:11px;text-align:right;min-width:110px;position:sticky;top:0;z-index:2;">Row Total ₹</th></tr>`;
+  const _wbsThS='text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:260px;position:sticky;left:0;top:0;z-index:4;';
+  const _colThS='padding:6px 8px;background:#1B2A47;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:500;font-size:11px;text-align:center;min-width:110px;position:sticky;top:0;z-index:2;';
+  const _totThS='padding:6px 8px;background:#16243d;border:0.5px solid rgba(255,255,255,0.12);color:#D4AF37;font-size:11px;text-align:right;min-width:110px;position:sticky;top:0;z-index:2;';
+  const _selColCb=(cid)=>_estSelectMode
+    ?`<div style="margin-bottom:2px;"><input type="checkbox" onclick="event.stopPropagation();estSelectCol('${cid}',this.checked)" style="width:13px;height:13px;accent-color:#3b82f6;cursor:pointer;" title="Select all draft cells in column"></div>`
+    :'';
+  const _locMapA=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
+  const _colAncs=(c)=>{const ancs=[];let cur=_locMapA[c.parent_id];while(cur){ancs.unshift(cur);cur=cur.parent_id?_locMapA[cur.parent_id]:null;}return ancs;};
+  const _ancColors=['#6b8ab5','#7ea0c9','#93b8e0','#a8c8f0'];
+  const _colTh=(c)=>{
+    const selCb=_selColCb(c.id);
+    if(_estFloor==='__all__'){
+      return`<th style="${_colThS}" title="${_esc(_locPathJS(c.id))}">${selCb}<div>${_esc(c.name)}</div><div style="font-family:monospace;font-size:9px;color:#8fa8cc;">${_esc(computeDotPath(_locNodes,c.id))}</div></th>`;
+    }
+    const ancs=_colAncs(c);
+    const ancHtml=ancs.map((a,i)=>`<div style="font-size:9px;color:${_ancColors[Math.min(i,3)]};padding-left:${i*8}px;line-height:1.6;white-space:nowrap;">${i>0?'&#8627; ':''}${_esc(a.name)}</div>`).join('');
+    const pad=ancs.length*8;
+    return`<th style="${_colThS}text-align:left;min-width:130px;" title="${_esc(_locPathJS(c.id))}">${selCb}${ancHtml}<div style="font-size:11px;font-weight:500;color:#e8edf5;padding-left:${pad}px;padding-top:2px;white-space:nowrap;">${_esc(c.name)}</div><div style="font-family:monospace;font-size:9px;color:#8fa8cc;padding-left:${pad}px;">${_esc(computeDotPath(_locNodes,c.id))}</div></th>`;
+  };
+  let th=`<tr><th style="${_wbsThS}">WBS / Activity</th>`;
+  cols.forEach(c=>{th+=_colTh(c);});
+  th+=`<th style="${_totThS}">Row Total ₹</th></tr>`;
   head.innerHTML=th;
 
   const eff={};
@@ -2233,12 +2320,23 @@ function renderEstimation(){
     return _wbsNodes.filter(n=>n.parent_id==parentId).sort((a,b)=>a.sort_order-b.sort_order).map(node=>{
       const ntype=node.node_type||'group';
       const isAct=_isEstimableLeaf(node);
-      // TYPE FILTER: skip estimable leaves that don't match the selected type.
+      // TYPE FILTER
       if(isAct&&_estNodeType!=='__all__'&&ntype!==_estNodeType)return'';
-      // For non-leaf nodes, restrict actIds to matching type so parents hide when empty.
+      // SEARCH FILTER: hide WBS leaves not matching search (loc search handled via cols)
+      if(_estSearch&&isAct&&!node.name.toLowerCase().includes(_estSearch))return'';
+      // FILL FILTER: show only rows matching their fill state across visible cols
+      if(_estFillFilter!=='all'&&isAct){
+        const _elig=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)).length;
+        const _fill=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)&&sm[node.id+'|'+c.id]).length;
+        if(_estFillFilter==='unfilled'&&_fill>0)return'';
+        if(_estFillFilter==='partial'&&(_fill===0||_elig===0||_fill>=_elig))return'';
+        if(_estFillFilter==='complete'&&(_elig===0||_fill<_elig))return'';
+      }
       const actIds=isAct?[node.id]:_estActivityDescIds(node.id).filter(id=>{
-        if(_estNodeType==='__all__')return true;
-        const an=_wbsNodes.find(x=>x.id===id);return an&&(an.node_type||'group')===_estNodeType;
+        const an=_wbsNodes.find(x=>x.id===id);if(!an)return false;
+        if(_estNodeType!=='__all__'&&(an.node_type||'group')!==_estNodeType)return false;
+        if(_estSearch&&!an.name.toLowerCase().includes(_estSearch))return false;
+        return true;
       });
       if(!actIds.length)return'';
       const touches=actIds.some(aid=>cols.some(c=>eff[aid]&&eff[aid].has(c.id)));
@@ -2253,10 +2351,21 @@ function renderEstimation(){
         if(isAct){
           const ok=eff[node.id]&&eff[node.id].has(c.id);
           const row=sm[node.id+'|'+c.id];
+          // ── SELECT MODE CELLS ─────────────────────────────────────────
+          if(_estSelectMode){
+            if(!ok)return`<td style="padding:4px;border:0.5px solid var(--border);background:#f1f3f6;text-align:center;color:#c2c9d4;">·</td>`;
+            if(row){
+              if(row.scope_status==='approved')return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:#f0fdf4;cursor:not-allowed;" title="Approved — cannot delete"><div style="font-size:10px;color:#15803d;">${_inr(row.est_qty)} ${_esc(row.uom||'')} ✓</div><div style="font-weight:600;color:#15803d;">₹${_inr(row.est_amount)}</div></td>`;
+              const sk=`${node.id}|${c.id}`;const sel=_estSelected.has(sk);
+              rowTotal+=Number(row.est_amount||0);
+              return`<td onclick="estToggleCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid ${sel?'#3b82f6':'var(--border)'};text-align:right;cursor:pointer;background:${sel?'#dbeafe':'#fffdf5'};${sel?'outline:2px solid #3b82f6;outline-offset:-2px;':''}" title="${sel?'Click to deselect':'Click to select'}"><div style="font-size:10px;color:${sel?'#1d4ed8':'#64748b'};">${sel?'✓ ':''} ${_inr(row.est_qty)} ${_esc(row.uom||'')}</div><div style="font-weight:600;color:${sel?'#1d4ed8':'#1B2A47'};">₹${_inr(row.est_amount)}</div></td>`;
+            }
+            return`<td style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#c2c9d4;background:#fafafa;">+</td>`;
+          }
+          // ── NORMAL CELLS ──────────────────────────────────────────────
           if(!ok){
             if(row){
               // STRANDED: estimate exists but rules no longer allow the pair.
-              // Visible, excluded from all rollups, resolvable deliberately.
               return`<td onclick="estEditCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid #b91c1c;text-align:right;cursor:pointer;background:#fdf2f2;" title="⚠ STRANDED — rules no longer allow this pair. Excluded from totals. Click to delete, or re-include the location in Allocation Rules.">
                 <div style="font-size:10px;color:#b91c1c;">⚠ stranded</div>
                 <div style="font-weight:600;color:#b91c1c;text-decoration:line-through;">₹${_inr(row.est_amount)}</div></td>`;
@@ -2278,12 +2387,21 @@ function renderEstimation(){
         rowTotal+=sub;
         return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:${isPkg?'#e4efe4':'inherit'};color:${isPkg?'#14532d':'#8a94a3'};font-weight:${isPkg?600:400};font-size:11px;">${sub?'₹'+_inr(sub):''}</td>`;
       }).join('');
+      // Coverage pill
+      let coveragePill='';
+      if(isAct){
+        const elig=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)).length;
+        const fill=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)&&sm[node.id+'|'+c.id]).length;
+        if(elig>0){const pct=fill/elig;const pbg=pct===1?'#d1fae5':pct>=0.5?'#fef3c7':fill>0?'#fee2e2':'#f1f5f9';const ptx=pct===1?'#065f46':pct>=0.5?'#92400e':fill>0?'#991b1b':'#64748b';coveragePill=`<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:${pbg};color:${ptx};margin-left:5px;">${fill}/${elig}</span>`;}
+      }
+      const rowCb=(_estSelectMode&&isAct)?`<input type="checkbox" onchange="estSelectRow(${node.id},this.checked)" style="width:13px;height:13px;accent-color:#3b82f6;cursor:pointer;margin-right:4px;vertical-align:middle;" title="Select all draft cells in row">`:'';
       const label=`<td style="padding:6px 12px 6px ${indent}px;background:${rowBg};border:0.5px solid var(--border);position:sticky;left:0;z-index:1;white-space:nowrap;min-width:260px;">
-        ${isPkg?'📦':isHire?'🏗':isMat?'🧱':isAct?'📄':'🗂'} ${_esc(node.name)}
+        ${rowCb}${isPkg?'📦':isHire?'🏗':isMat?'🧱':isAct?'📄':'🗂'} ${_esc(node.name)}
         ${(isAct&&!isMat)?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;margin-left:4px;">${_esc(node.uom||'')}</span>`:''}
-        ${(isAct&&!isMat)&&!_estLocked&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Bulk-fill across units" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
+        ${coveragePill}
+        ${(isAct&&!isMat)&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Bulk-fill across units" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
         ${isMat?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
-        ${isPkg&&!_estLocked&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Approve / un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
+        ${isPkg&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Approve / un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
       </td>`;
       const totalTd=`<td style="padding:4px 8px;border:0.5px solid var(--border);text-align:right;font-weight:${isAct?500:700};color:#1B2A47;background:${isPkg?'#e4efe4':'#fbfcfe'};">${rowTotal?'₹'+_inr(rowTotal):''}</td>`;
       return`<tr>${label}${cells}${totalTd}</tr>`+rowsFor(node.id,depth+1);
@@ -2307,6 +2425,26 @@ function renderEstimation(){
   ft+=`<td style="padding:5px 8px;border:0.5px solid var(--border);text-align:right;background:#1B2A47;color:#D4AF37;font-weight:700;">₹${_inr(grand)}</td></tr>`;
   foot.innerHTML=ft;
 
+  // Update select mode button
+  const _selBtn=document.getElementById('est_select_btn');
+  if(_selBtn){_selBtn.style.borderColor=_estSelectMode?'#3b82f6':'#334155';_selBtn.style.color=_estSelectMode?'#93c5fd':'#8fa8cc';_selBtn.textContent=_estSelectMode?'✓ Selecting':'☑ Select';}
+  // Update bulk action bar
+  const _bar=document.getElementById('est_bulk_bar');
+  if(_bar){
+    if(_estSelectMode){
+      const _n=_estSelected.size;
+      const _tot=[..._estSelected].reduce((s,k)=>s+Number((sm[k]||{}).est_amount||0),0);
+      _bar.style.display='';
+      _bar.innerHTML=`<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#1e3a5f;border-top:2px solid #3b82f6;">
+        <span style="display:flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;background:${_n?'#3b82f6':'#334155'};color:#fff;font-size:11px;font-weight:600;">${_n}</span>
+        <span style="font-size:13px;color:#c2d3ec;">${_n} estimate${_n!==1?'s':''} selected${_n?' &nbsp;·&nbsp; ₹'+_inr(_tot):''}</span>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button onclick="_estSelected.clear();renderEstimation();" style="font-size:12px;padding:5px 12px;background:transparent;border:0.5px solid #4A6FA5;color:#8fa8cc;border-radius:4px;cursor:pointer;">Clear</button>
+          <button onclick="estBulkDelete()" ${_n===0?'disabled':''} style="font-size:12px;padding:5px 14px;background:${_n?'#dc2626':'#4b1c1c'};border:none;color:${_n?'#fff':'#9ca3af'};border-radius:4px;cursor:${_n?'pointer':'not-allowed'};font-weight:500;">🗑 Delete ${_n} estimate${_n!==1?'s':''}</button>
+        </div>
+      </div>`;
+    } else {_bar.style.display='none';}
+  }
   const eligRows=_scope.filter(r=>{
     if(!_isEligible(r))return false;
     if(_estNodeType!=='__all__'){const wn=_wbsNodes.find(x=>x.id===r.wbs_node_id);if(!wn||(wn.node_type||'group')!==_estNodeType)return false;}
@@ -2340,6 +2478,23 @@ async function _estSaveRows(rows,label){
     if(rej.length)toast(`${rej.length} row(s) rejected — e.g. ${rej[0].reason}`,'warn',5500);
     if(data&&(data.saved||data.deleted))toast(`Saved ${data.saved||0}${data.deleted?` · deleted ${data.deleted}`:''}`,'success');
     await apiLoadScope();renderEstimation();
+    // ── Post-save verification ──────────────────────────────────────────────
+    // The RPC correctly UPDATEs existing pairs but can silently fail to INSERT
+    // new ones (returns saved:N without committing). Detect any pairs that are
+    // still absent from _scope after reload and retry them one at a time, which
+    // mirrors the single-cell-edit path that reliably creates new rows.
+    const newPairs=rows.filter(r=>!r._delete&&!(r.wbs_node_id+'|'+r.loc_node_id in
+      Object.fromEntries(_scope.map(s=>[s.wbs_node_id+'|'+s.loc_node_id,true]))));
+    if(newPairs.length){
+      toast(`⚠ ${newPairs.length} new pair(s) not saved by bulk call — retrying individually…`,'warn',4000);
+      let retried=0;
+      for(const r of newPairs){
+        pbShow(`Retrying ${++retried}/${newPairs.length}…`);
+        const{error:re}=await sb.rpc('rpc_save_wbs_scope',{p_rows:[r],p_user:state.userName});
+        if(re)toast(`Retry failed: ${re.message}`,'error');
+      }
+      await apiLoadScope();renderEstimation();
+    }
     return data;
   }catch(e){toast('Error: '+e.message,'error');}
   finally{pbDone();}
@@ -2698,7 +2853,9 @@ function estApprovePkg(pkgId){
   const drafts=rows.filter(r=>r.scope_status!=='approved');
   const approved=rows.filter(r=>r.scope_status==='approved');
   if(!rows.length){toast('No estimates under this package in the current filter','warn');return;}
+  const _narrowWarn=_estFloor!=='__all__'?`<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:8px 10px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;"><span style="font-size:16px;flex-shrink:0;">⚠</span><div style="flex:1;"><div style="font-size:12px;color:#92400e;font-weight:500;margin-bottom:3px;">'Narrow to' filter is active — only ${rows.length} of all eligible estimates are in scope.</div><div style="font-size:11px;color:#a16207;">Approving now affects only these ${rows.length} rows. To approve all units in this stage, switch to Whole stage first.</div></div><button onclick="estSetFloor('__all__');closeModal();setTimeout(()=>estApprovePkg(${pkgId}),80);" style="flex-shrink:0;font-size:11px;padding:3px 8px;background:transparent;border:0.5px solid #a16207;color:#a16207;border-radius:4px;cursor:pointer;white-space:nowrap;">Set to Whole stage</button></div>`:'';
   openModal(`✔ Package status — ${pkg.name}`,`
+    ${_narrowWarn}
     <div style="font-size:12px;margin-bottom:10px;">In current filter: <strong>${drafts.length}</strong> draft · <strong>${approved.length}</strong> approved · total ₹${_inr(rows.reduce((s,r)=>s+Number(r.est_amount||0),0))}</div>
     <label style="display:flex;align-items:center;gap:8px;"><input type="radio" name="m_act" value="approve" checked style="width:auto;margin:0;"> Approve ${drafts.length} draft estimate(s) — they become immutable</label>
     <label style="display:flex;align-items:center;gap:8px;margin-top:6px;"><input type="radio" name="m_act" value="unapprove" style="width:auto;margin:0;"> Un-approve ${approved.length} approved estimate(s) — re-opens them for edit</label>
@@ -2730,7 +2887,8 @@ function _estUpdateLockUI(){
   const icon=document.getElementById('est_lock_icon'),label=document.getElementById('est_lock_label');
   const btn=document.getElementById('est_lock_btn'),banner=document.getElementById('est_lock_banner');
   if(!btn)return;
-  if(_estLocked){icon.textContent='🔒';label.textContent='Locked';btn.style.color='#D4AF37';btn.style.borderColor='#D4AF37';if(banner)banner.style.display='';}
+  if(_estLocked){icon.textContent='🔒';label.textContent='Locked';btn.style.color='#D4AF37';btn.style.borderColor='#D4AF37';if(banner)banner.style.display='';
+    _estSelectMode=false;_estSelected.clear();}
   else{icon.textContent='🔓';label.textContent='Editing';btn.style.color='#4ade80';btn.style.borderColor='#4ade80';if(banner)banner.style.display='none';}
   renderEstimation();
 }
