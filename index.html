@@ -1069,18 +1069,31 @@ async function wbsDelete(id){
   const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
   const children=_wbsNodes.filter(n=>n.parent_id===id);
   if(children.length){toast('Delete all children first.','error');return;}
-  // Check if used in rules
   const rulesCount=_rules.filter(r=>r.wbs_node_id===id).length;
-  const confirmMsg=rulesCount
-    ?`Delete "${node.name}"? This will also remove ${rulesCount} allocation rule(s). Cannot be undone.`
-    :`Delete "${node.name}"? Cannot be undone.`;
-  if(!confirm(confirmMsg))return;
+  // Check wbs_scope rows — must be deleted before wbs_nodes (FK constraint)
+  const{data:scopeRows,error:scopeErr}=await sb.from('wbs_scope').select('id').eq('wbs_node_id',id);
+  if(scopeErr){toast('Error checking scope: '+scopeErr.message,'error');return;}
+  const scopeCount=(scopeRows||[]).length;
+  const parts=[];
+  if(scopeCount)parts.push(`${scopeCount} estimate(s)`);
+  if(rulesCount)parts.push(`${rulesCount} allocation rule(s)`);
+  const extra=parts.length?` This will also remove ${parts.join(' and ')}.`:'';
+  if(!confirm(`Delete "${node.name}"?${extra} Cannot be undone.`))return;
   pbShow('Deleting…');
   try{
+    // Delete in FK order: buildup → scope → rules → node
+    if(scopeCount){
+      const scopeIds=scopeRows.map(r=>r.id);
+      await sb.from('wbs_material_buildup').delete().in('scope_id',scopeIds);
+      const{error:se}=await sb.from('wbs_scope').delete().eq('wbs_node_id',id);
+      if(se)throw se;
+    }
     await sb.from('wbs_location_rules').delete().eq('wbs_node_id',id);
     const{error}=await sb.from('wbs_nodes').delete().eq('id',id);
     if(error)throw error;
-    toast('Deleted','success');await loadWBS();
+    toast('Deleted','success');
+    _scope=_scope.filter(r=>r.wbs_node_id!==id); // sync in-memory scope
+    await loadWBS();
     if(_rules.length)await loadRules();
   }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
 }
@@ -2124,9 +2137,19 @@ const EST_RELOCK_SECS=180;
 function _inr(v){return Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
 
 async function apiLoadScope(){
-  const{data,error}=await sb.from('wbs_scope').select('*');
-  if(error){toast('Scope load: '+error.message,'error');_scope=[];return;}
-  _scope=data||[];
+  // Paginate to avoid PostgREST PGRST_DB_MAX_ROWS cap (default 1000 on free plan).
+  // Without this, rows beyond the cap are silently dropped — saves appear to succeed
+  // but quantities never reflect and approvals only affect the loaded subset.
+  const pageSize=1000;
+  let all=[],from=0;
+  while(true){
+    const{data,error}=await sb.from('wbs_scope').select('*').range(from,from+pageSize-1);
+    if(error){toast('Scope load: '+error.message,'error');_scope=[];return;}
+    all=all.concat(data||[]);
+    if(!data||data.length<pageSize)break;
+    from+=pageSize;
+  }
+  _scope=all;
 }
 async function loadEstimation(){
   pbShow('Loading estimation…');
