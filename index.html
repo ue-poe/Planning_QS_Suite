@@ -535,7 +535,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
     <h3 id="modalTitle">Add Node</h3>
     <div id="modalBody"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-ghost btn-sm" id="modalCancelBtn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary btn-sm" id="modalSaveBtn" onclick="modalSave()">Save</button>
     </div>
   </div>
@@ -2399,7 +2399,7 @@ function renderEstimation(){
         ${rowCb}${isPkg?'📦':isHire?'🏗':isMat?'🧱':isAct?'📄':'🗂'} ${_esc(node.name)}
         ${(isAct&&!isMat)?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;margin-left:4px;">${_esc(node.uom||'')}</span>`:''}
         ${coveragePill}
-        ${(isAct&&!isMat)&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Bulk-fill across units" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
+        ${isAct&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="${isMat?'Bulk-fill build-up sheet across units':'Bulk-fill across units'}" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
         ${isMat?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
         ${isPkg&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Approve / un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
       </td>`;
@@ -2588,7 +2588,7 @@ async function estMaterialBuildup(wbsId,locId){
   if(!_buildupRows.length) _buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});
   openModal(`🧱 Material Build-up — ${_esc(node.name)}`,`
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
-    <div style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:6px;">
+    <div id="bu_scrollwrap" style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:6px;" onscroll="_buHideSuggest()">
       <table style="width:100%;border-collapse:collapse;font-size:12px;" id="bu_table">
         <thead><tr style="background:var(--panel-2);">
           <th style="text-align:left;padding:5px 8px;">Material</th>
@@ -2630,10 +2630,9 @@ async function estMaterialBuildup(wbsId,locId){
 function _buRenderRows(){
   const body=document.getElementById('bu_body'); if(!body)return;
   body.innerHTML=_buildupRows.map((r,i)=>`<tr>
-    <td style="padding:3px 6px;position:relative;">
+    <td style="padding:3px 6px;">
       <input id="bu_mat_${i}" value="${_esc(r.material_name||'')}" placeholder="type material…" autocomplete="off"
-        style="width:100%;font-size:12px;" oninput="_buMatType(${i})" onblur="setTimeout(()=>{const d=document.getElementById('bu_res_${i}');if(d)d.style.display='none';},200)">
-      <div id="bu_res_${i}" style="display:none;position:absolute;top:100%;left:0;z-index:50;background:#fff;border:1px solid var(--border);border-radius:5px;max-height:180px;overflow:auto;min-width:260px;box-shadow:0 4px 14px rgba(0,0,0,.14);"></div>
+        style="width:100%;font-size:12px;" oninput="_buMatType(${i})" onblur="setTimeout(_buHideSuggest,200)">
     </td>
     <td style="text-align:center;"><input id="bu_uom_${i}" value="${_esc(r.uom||'')}" style="width:50px;font-size:11px;" readonly></td>
     <td><input id="bu_qty_${i}" type="number" min="0" step="0.001" value="${r.qty||''}" style="width:74px;font-size:12px;" oninput="_buSet(${i},'qty',this.value)"></td>
@@ -2648,18 +2647,46 @@ function _buDelRow(i){_buildupRows.splice(i,1);if(!_buildupRows.length)_buildupR
 function _buSet(i,k,v){if(_buildupRows[i]){_buildupRows[i][k]=Number(v)||0;const a=document.getElementById('bu_amt_'+i);if(a)a.textContent='₹'+_inr((_buildupRows[i].qty||0)*(_buildupRows[i].rate||0));_buUpdateTotal();}}
 function _buRowsTotal(){return _buildupRows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.rate)||0),0);}
 function _buUpdateTotal(){const el=document.getElementById('bu_total');if(el)el.textContent=_inr(_buRowsTotal());}
+// Shared suggestion box: position:fixed + appended to <body> so it escapes
+// the modal's scrollable table wrapper (overflow:auto clips any absolutely
+// positioned descendant regardless of z-index — fixed positioning on body
+// is the only reliable escape).
+function _buSuggBox(){
+  let dd=document.getElementById('_buSuggBox');
+  if(!dd){
+    dd=document.createElement('div');
+    dd.id='_buSuggBox';
+    dd.style.position='fixed';
+    dd.style.zIndex='99999';
+    dd.style.background='#fff';
+    dd.style.border='1px solid var(--border)';
+    dd.style.borderRadius='5px';
+    dd.style.maxHeight='220px';
+    dd.style.overflow='auto';
+    dd.style.boxShadow='0 4px 14px rgba(0,0,0,.18)';
+    dd.style.display='none';
+    document.body.appendChild(dd);
+  }
+  return dd;
+}
+function _buHideSuggest(){const d=document.getElementById('_buSuggBox');if(d)d.style.display='none';}
 function _buMatType(i){
-  const inp=document.getElementById('bu_mat_'+i), res=document.getElementById('bu_res_'+i);
-  if(!inp||!res)return;
+  const inp=document.getElementById('bu_mat_'+i);
+  if(!inp)return;
   _buildupRows[i].material_name=inp.value;
   const q=inp.value.toLowerCase().trim();
-  if(!q){res.style.display='none';return;}
+  const dd=_buSuggBox();
+  if(!q){dd.style.display='none';return;}
   const hits=(_matMaster||[]).filter(m=>(m.material_name||'').toLowerCase().includes(q)||(m.material_code||'').toLowerCase().includes(q)).slice(0,12);
-  if(!hits.length){res.style.display='none';return;}
-  res.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_buPick(${i},'${_esc(m.material_code)}')">
+  if(!hits.length){dd.style.display='none';return;}
+  dd.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_buPick(${i},'${_esc(m.material_code)}')">
     <div style="font-size:12px;">${_esc(m.material_name)}</div>
     <div style="font-size:10px;color:var(--muted);">${_esc(m.material_code||'')} · ${_esc(m.uom||'')}${m.estimated_rate?` · ₹${_inr(m.estimated_rate)}`:''}</div></div>`).join('');
-  res.style.display='';
+  const r=inp.getBoundingClientRect();
+  dd.style.left=Math.round(r.left)+'px';
+  dd.style.top=Math.round(r.bottom+2)+'px';
+  dd.style.minWidth=Math.max(r.width,260)+'px';
+  dd.style.display='';
 }
 function _buPick(i,code){
   const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code));if(!m)return;
@@ -2667,6 +2694,7 @@ function _buPick(i,code){
   _buildupRows[i].material_name=m.material_name;
   _buildupRows[i].uom=m.uom||'';
   if(!_buildupRows[i].rate&&m.estimated_rate)_buildupRows[i].rate=Number(m.estimated_rate);
+  _buHideSuggest();
   _buRenderRows();
 }
 
@@ -2926,13 +2954,13 @@ function openModal(title,bodyHTML,onSave,opts){
   // read-only modals (e.g. take-off rollup) have nothing to save — hide Save,
   // relabel Cancel as Close.
   const saveBtn=document.getElementById('modalSaveBtn');
-  const cancelBtn=document.querySelector('#modalOverlay .modal .btn-ghost');
+  const cancelBtn=document.getElementById('modalCancelBtn');
   if(saveBtn) saveBtn.style.display=(opts&&opts.readOnly)?'none':'';
   if(cancelBtn) cancelBtn.textContent=(opts&&opts.readOnly)?'Close':'Cancel';
   document.getElementById('modalOverlay').classList.remove('hidden');
   setTimeout(()=>{const first=document.querySelector('#modalBody input:not([type=checkbox])');if(first)first.focus();},80);
 }
-function closeModal(){document.getElementById('modalOverlay').classList.add('hidden');_modalCallback=null;}
+function closeModal(){document.getElementById('modalOverlay').classList.add('hidden');_modalCallback=null;_buHideSuggest();}
 function modalSave(){if(_modalCallback)_modalCallback();}
 // Enter key in modal submits
 document.addEventListener('keydown',e=>{
