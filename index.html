@@ -550,7 +550,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}
 });
-const ALLOWED_ROLES = ['Admin','Planning/ QS'];
+const ALLOWED_ROLES = ['Admin','Planning/ QS','Project Manager'];
 const state = {user:null,role:null,roles:[],userName:null,userId:null};
 
 // ============================================================
@@ -587,6 +587,7 @@ function _parseRoles(raw){
 }
 function isAdmin(){return state.roles.includes('Admin');}
 function canEdit(){return state.roles.includes('Admin')||state.roles.includes('Planning/ QS');}
+function canApprove(){return state.roles.includes('Admin')||state.roles.includes('Project Manager');}
 
 // ============================================================
 // AUTH
@@ -627,13 +628,13 @@ async function onSignedIn(user){
   if(!profile){await sb.auth.signOut();document.getElementById('authError').textContent='No profile. Ask admin.';return;}
   if(!profile.is_active){await sb.auth.signOut();document.getElementById('authError').textContent='Account deactivated.';return;}
   const roles=_parseRoles(profile.role);
-  if(!roles.some(r=>ALLOWED_ROLES.includes(r))){await sb.auth.signOut();document.getElementById('authError').textContent='Access denied. Admin or Planning/QS only.';return;}
+  if(!roles.some(r=>ALLOWED_ROLES.includes(r))){await sb.auth.signOut();document.getElementById('authError').textContent='Access denied. Admin, Planning/QS, or Project Manager only.';return;}
   state.userId=user.id;state.user=user.email;state.roles=roles;state.role=roles.join(' · ');state.userName=profile.full_name;
   document.getElementById('authGate').style.display='none';
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('currentUser').textContent=profile.full_name;
   document.getElementById('currentRole').textContent=roles.join(' · ');
-  const hint=canEdit()?`${state.roles.join(' · ')} — full edit access`:'View only';
+  const hint=canEdit()?`${state.roles.join(' · ')} — full edit access`:canApprove()?`${state.roles.join(' · ')} — approval access`:'View only';
   document.getElementById('wbs-role-hint').textContent=hint;
   document.getElementById('loc-role-hint').textContent=hint;
   document.getElementById('rules-role-hint').textContent=hint;
@@ -642,6 +643,7 @@ async function onSignedIn(user){
     document.getElementById('btn-wbs-addroot').style.display='none';
     document.getElementById('btn-loc-addroot').style.display='none';
     document.getElementById('btn-masters-addproj').style.display='none';
+    const _selBtnInit=document.getElementById('est_select_btn');if(_selBtnInit)_selBtnInit.style.display='none';
   }
   await initApp();
 }
@@ -2230,6 +2232,7 @@ function estSetFillFilter(v){_estFillFilter=v;renderEstimation();}
 function estSetSearch(v){_estSearch=v.trim().toLowerCase();renderEstimation();}
 function estToggleSelectMode(){
   if(_estLocked){_estFlashLock();return;}
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   _estSelectMode=!_estSelectMode;_estSelected.clear();renderEstimation();
 }
 function estSelectRow(wbsId,checked){
@@ -2248,6 +2251,7 @@ function estToggleCell(wbsId,locId){
   renderEstimation();
 }
 async function estBulkDelete(){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   const keys=[..._estSelected];if(!keys.length)return;
   const sm=_scopeMap();
   const total=keys.reduce((s,k)=>s+Number((sm[k]||{}).est_amount||0),0);
@@ -2401,7 +2405,7 @@ function renderEstimation(){
         ${coveragePill}
         ${isAct&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="${isMat?'Bulk-fill build-up sheet across units':'Bulk-fill across units'}" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
         ${isMat?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
-        ${isPkg&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Approve / un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
+        ${isPkg&&!_estLocked&&!_estSelectMode&&canApprove()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Approve / un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
       </td>`;
       const totalTd=`<td style="padding:4px 8px;border:0.5px solid var(--border);text-align:right;font-weight:${isAct?500:700};color:#1B2A47;background:${isPkg?'#e4efe4':'#fbfcfe'};">${rowTotal?'₹'+_inr(rowTotal):''}</td>`;
       return`<tr>${label}${cells}${totalTd}</tr>`+rowsFor(node.id,depth+1);
@@ -2547,6 +2551,7 @@ function _estPreview(){
   if(el&&qEl&&rEl)el.textContent=`Amount: ₹${_inr(Number(qEl.value||0)*Number(rEl.value||0))}`;
 }
 async function estDeleteCell(wbsId,locId){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   if(!confirm('Delete this estimate?'))return;
   closeModal();
   await _estSaveRows([{wbs_node_id:wbsId,loc_node_id:locId,_delete:true}],'Deleting…');
@@ -2583,20 +2588,22 @@ async function estMaterialBuildup(wbsId,locId){
   _buildupRows=[];
   if(ex&&ex.id){
     const {data}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',ex.id).order('sno');
-    _buildupRows=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty),rate:Number(r.rate)}));
+    _buildupRows=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty),wastage_pct:Number(r.wastage_pct||0),rate:Number(r.rate)}));
   }
-  if(!_buildupRows.length) _buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});
+  if(!_buildupRows.length) _buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,wastage_pct:0,rate:0});
   openModal(`🧱 Material Build-up — ${_esc(node.name)}`,`
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
     <div id="bu_scrollwrap" style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:6px;" onscroll="_buHideSuggest()">
       <table style="width:100%;border-collapse:collapse;font-size:12px;" id="bu_table">
         <thead><tr style="background:var(--panel-2);">
           <th style="text-align:left;padding:5px 8px;">Material</th>
-          <th style="width:55px;">UOM</th>
-          <th style="width:80px;">Qty</th>
-          <th style="width:90px;">Rate ₹</th>
-          <th style="width:100px;text-align:right;padding-right:8px;">Amount</th>
-          <th style="width:28px;"></th>
+          <th style="width:50px;">UOM</th>
+          <th style="width:75px;">Measured qty</th>
+          <th style="width:65px;background:var(--color-background-info, #eef4ff);">Wastage %</th>
+          <th style="width:85px;">Total qty</th>
+          <th style="width:85px;">Rate ₹</th>
+          <th style="width:95px;text-align:right;padding-right:8px;">Amount</th>
+          <th style="width:24px;"></th>
         </tr></thead>
         <tbody id="bu_body"></tbody>
       </table>
@@ -2605,6 +2612,7 @@ async function estMaterialBuildup(wbsId,locId){
       <button class="btn btn-ghost btn-sm" onclick="_buAddRow()">+ Add material</button>
       <div style="font-weight:700;color:#1B2A47;">Total: ₹<span id="bu_total">0</span></div>
     </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);">Total qty = Measured qty × (1 + Wastage % ⁄ 100), capped at 25%. Amount is computed on Total qty.</div>
   `,async()=>{
     const total=_buRowsTotal();
     const clean=_buildupRows.filter(r=>r.material_name&&r.qty>0);
@@ -2619,14 +2627,17 @@ async function estMaterialBuildup(wbsId,locId){
         await sb.from('wbs_material_buildup').delete().eq('scope_id',sc.id);
         await sb.from('wbs_material_buildup').insert(clean.map((r,i)=>({
           scope_id:sc.id, sno:i+1, material_code:r.material_code, material_name:r.material_name,
-          uom:r.uom||null, qty:r.qty, rate:r.rate, amount:r.qty*r.rate
+          uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct), qty_total:_buQtyTotal(r),
+          rate:r.rate, amount:_buQtyTotal(r)*r.rate
         })));
       }
     }catch(e){toast('Build-up detail save: '+e.message,'warn',5000);}
-  },{width:'760px'});
+  },{width:'920px'});
   _buRenderRows();
 }
 
+function _buClampWastage(v){const n=Number(v)||0;return Math.min(25,Math.max(0,n));}
+function _buQtyTotal(r){return(Number(r.qty)||0)*(1+_buClampWastage(r.wastage_pct)/100);}
 function _buRenderRows(){
   const body=document.getElementById('bu_body'); if(!body)return;
   body.innerHTML=_buildupRows.map((r,i)=>`<tr>
@@ -2634,18 +2645,27 @@ function _buRenderRows(){
       <input id="bu_mat_${i}" value="${_esc(r.material_name||'')}" placeholder="type material…" autocomplete="off"
         style="width:100%;font-size:12px;" oninput="_buMatType(${i})" onblur="setTimeout(_buHideSuggest,200)">
     </td>
-    <td style="text-align:center;"><input id="bu_uom_${i}" value="${_esc(r.uom||'')}" style="width:50px;font-size:11px;" readonly></td>
-    <td><input id="bu_qty_${i}" type="number" min="0" step="0.001" value="${r.qty||''}" style="width:74px;font-size:12px;" oninput="_buSet(${i},'qty',this.value)"></td>
-    <td><input id="bu_rate_${i}" type="number" min="0" step="0.01" value="${r.rate||''}" style="width:84px;font-size:12px;" oninput="_buSet(${i},'rate',this.value)"></td>
-    <td style="text-align:right;padding-right:8px;font-variant-numeric:tabular-nums;" id="bu_amt_${i}">₹${_inr((r.qty||0)*(r.rate||0))}</td>
+    <td style="text-align:center;"><input id="bu_uom_${i}" value="${_esc(r.uom||'')}" style="width:46px;font-size:11px;" readonly></td>
+    <td><input id="bu_qty_${i}" type="number" min="0" step="0.001" value="${r.qty||''}" style="width:68px;font-size:12px;" oninput="_buSet(${i},'qty',this.value)"></td>
+    <td><input id="bu_wst_${i}" type="number" min="0" max="25" step="0.5" value="${r.wastage_pct||''}" placeholder="0" title="0–25% wastage allowance" style="width:58px;font-size:12px;" oninput="_buSet(${i},'wastage_pct',this.value)"></td>
+    <td style="text-align:right;padding-right:6px;font-variant-numeric:tabular-nums;color:var(--muted);" id="bu_tqty_${i}">${_inr(_buQtyTotal(r))}</td>
+    <td><input id="bu_rate_${i}" type="number" min="0" step="0.01" value="${r.rate||''}" style="width:78px;font-size:12px;" oninput="_buSet(${i},'rate',this.value)"></td>
+    <td style="text-align:right;padding-right:8px;font-variant-numeric:tabular-nums;" id="bu_amt_${i}">₹${_inr(_buQtyTotal(r)*(r.rate||0))}</td>
     <td style="text-align:center;"><button class="btn btn-ghost btn-xs" onclick="_buDelRow(${i})">✕</button></td>
   </tr>`).join('');
   _buUpdateTotal();
 }
-function _buAddRow(){_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});_buRenderRows();}
-function _buDelRow(i){_buildupRows.splice(i,1);if(!_buildupRows.length)_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});_buRenderRows();}
-function _buSet(i,k,v){if(_buildupRows[i]){_buildupRows[i][k]=Number(v)||0;const a=document.getElementById('bu_amt_'+i);if(a)a.textContent='₹'+_inr((_buildupRows[i].qty||0)*(_buildupRows[i].rate||0));_buUpdateTotal();}}
-function _buRowsTotal(){return _buildupRows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.rate)||0),0);}
+function _buAddRow(){_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,wastage_pct:0,rate:0});_buRenderRows();}
+function _buDelRow(i){_buildupRows.splice(i,1);if(!_buildupRows.length)_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,wastage_pct:0,rate:0});_buRenderRows();}
+function _buSet(i,k,v){
+  if(!_buildupRows[i])return;
+  _buildupRows[i][k]=k==='wastage_pct'?_buClampWastage(v):(Number(v)||0);
+  const r=_buildupRows[i];
+  const t=document.getElementById('bu_tqty_'+i);if(t)t.textContent=_inr(_buQtyTotal(r));
+  const a=document.getElementById('bu_amt_'+i);if(a)a.textContent='₹'+_inr(_buQtyTotal(r)*(r.rate||0));
+  _buUpdateTotal();
+}
+function _buRowsTotal(){return _buildupRows.reduce((s,r)=>s+_buQtyTotal(r)*(Number(r.rate)||0),0);}
 function _buUpdateTotal(){const el=document.getElementById('bu_total');if(el)el.textContent=_inr(_buRowsTotal());}
 // Shared suggestion box: position:fixed + appended to <body> so it escapes
 // the modal's scrollable table wrapper (overflow:auto clips any absolutely
@@ -2712,9 +2732,9 @@ async function estMaterialBulkFill(wbsId){
   const seed=cols.map(c=>sm[wbsId+'|'+c.id]).find(x=>x&&x.id);
   if(seed){
     const {data}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',seed.id).order('sno');
-    _buildupRows=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty),rate:Number(r.rate)}));
+    _buildupRows=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty),wastage_pct:Number(r.wastage_pct||0),rate:Number(r.rate)}));
   }
-  if(!_buildupRows.length)_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,rate:0});
+  if(!_buildupRows.length)_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,wastage_pct:0,rate:0});
   const unitRows=cols.map(c=>{
     const ex=sm[wbsId+'|'+c.id];
     const locked=ex&&ex.scope_status==='approved';
@@ -2730,9 +2750,10 @@ async function estMaterialBulkFill(wbsId){
     <div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:6px;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:var(--panel-2);">
-          <th style="text-align:left;padding:5px 8px;">Material</th><th style="width:55px;">UOM</th>
-          <th style="width:80px;">Qty</th><th style="width:90px;">Rate ₹</th>
-          <th style="width:100px;text-align:right;padding-right:8px;">Amount</th><th style="width:28px;"></th>
+          <th style="text-align:left;padding:5px 8px;">Material</th><th style="width:50px;">UOM</th>
+          <th style="width:75px;">Measured qty</th><th style="width:65px;background:var(--color-background-info, #eef4ff);">Wastage %</th>
+          <th style="width:85px;">Total qty</th><th style="width:85px;">Rate ₹</th>
+          <th style="width:95px;text-align:right;padding-right:8px;">Amount</th><th style="width:24px;"></th>
         </tr></thead>
         <tbody id="bu_body"></tbody>
       </table>
@@ -2741,6 +2762,7 @@ async function estMaterialBulkFill(wbsId){
       <button class="btn btn-ghost btn-sm" onclick="_buAddRow()">+ Add material</button>
       <div style="font-weight:700;color:#1B2A47;">Per-unit total: ₹<span id="bu_total">0</span></div>
     </div>
+    <div style="margin-top:4px;font-size:11px;color:var(--muted);">Total qty = Measured qty × (1 + Wastage % ⁄ 100), capped at 25%. Amount is computed on Total qty.</div>
     <div style="font-size:12px;font-weight:600;margin:10px 0 4px;">2 · Units to fill</div>
     <div style="max-height:150px;overflow-y:auto;border:0.5px solid var(--border);border-radius:4px;padding:6px 10px;">${unitRows}</div>
     <div style="margin-top:8px;font-size:11px;color:#b45309;">The same build-up is written to each selected unit. Existing drafts are overwritten; approved cells are skipped.</div>
@@ -2762,12 +2784,13 @@ async function estMaterialBulkFill(wbsId){
         await sb.from('wbs_material_buildup').delete().eq('scope_id',sc.id);
         await sb.from('wbs_material_buildup').insert(clean.map((r,i)=>({
           scope_id:sc.id, sno:i+1, material_code:r.material_code, material_name:r.material_name,
-          uom:r.uom||null, qty:r.qty, rate:r.rate, amount:r.qty*r.rate
+          uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct), qty_total:_buQtyTotal(r),
+          rate:r.rate, amount:_buQtyTotal(r)*r.rate
         })));
       }
     }catch(e){toast('Build-up detail save: '+e.message,'warn',5000);}
     finally{pbDone();}
-  },{width:'820px'});
+  },{width:'960px'});
   _buRenderRows();
 }
 
@@ -2799,7 +2822,7 @@ async function estMaterialBreakup(wbsId){
   rows.forEach(r=>{
     const key=(r.material_code||r.material_name||'?')+'|'+(r.uom||'');
     if(!agg[key])agg[key]={name:r.material_name,code:r.material_code,uom:r.uom||'',qty:0,amount:0,rate:r.rate};
-    agg[key].qty+=Number(r.qty)||0;
+    agg[key].qty+=Number(r.qty_total!=null?r.qty_total:r.qty)||0;
     agg[key].amount+=Number(r.amount)||0;
   });
   const list=Object.values(agg).sort((a,b)=>b.amount-a.amount);
@@ -2872,7 +2895,7 @@ function estBulkFill(wbsId){
 
 function estApprovePkg(pkgId){
   if(_estLocked){_estFlashLock();return;}
-  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  if(!canApprove()){toast('Admin or Project Manager only','error');return;}
   _estResetRelock();
   const pkg=_wbsNodes.find(n=>n.id===pkgId);if(!pkg)return;
   const actIds=new Set(_estActivityDescIds(pkgId));
@@ -2907,7 +2930,7 @@ function estApprovePkg(pkgId){
 
 // ── lock / auto-relock (mirrors matrix pattern) ──
 function estToggleLock(){
-  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  if(!canEdit()&&!canApprove()){toast('Admin, Planning/QS, or Project Manager only','error');return;}
   _estLocked=!_estLocked;_estUpdateLockUI();
   if(!_estLocked)_estStartRelock();else _estStopRelock();
 }
