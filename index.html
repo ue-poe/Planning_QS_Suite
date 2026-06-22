@@ -418,12 +418,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">
               ☑ Select
             </button>
+            <button onclick="estExpandAll()" title="Expand all WBS rows"
+              style="padding:5px 10px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">⊞ Expand all</button>
+            <button onclick="estCollapseAll()" title="Collapse all WBS rows"
+              style="padding:5px 10px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">⊟ Collapse all</button>
             <button id="est_lock_btn" onclick="estToggleLock()"
               style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:1px solid #D4AF37;background:#1B2A47;color:#D4AF37;cursor:pointer;font-size:12px;font-weight:500;">
               <span id="est_lock_icon">🔒</span><span id="est_lock_label">Locked</span>
             </button>
+            <button id="est_submit_btn" onclick="estOpenSubmit()" title="Submit draft estimates for PM approval"
+              style="display:none;align-items:center;gap:6px;padding:5px 14px;border-radius:4px;border:none;background:#0d9488;color:#fff;cursor:pointer;font-size:12px;font-weight:600;">
+              📤 Submit for Approval <span id="est_draft_count" style="background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;"></span>
+            </button>
+            <button id="est_queue_btn" onclick="estOpenQueue()" title="Approval queue — review pending submissions"
+              style="display:none;align-items:center;gap:6px;padding:5px 14px;border-radius:4px;border:none;background:#D4AF37;color:#3a2e00;cursor:pointer;font-size:12px;font-weight:600;">
+              🗂️ Approval Queue <span id="est_queue_count" style="background:rgba(0,0,0,.15);border-radius:10px;padding:0 6px;font-size:11px;"></span>
+            </button>
             <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="exportEstimation()" title="Export estimation to CSV">⬇</button>
             <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="loadEstimation()">↻</button>
+            <button id="est_my_sub_link" onclick="estOpenMySubmissions()" title="View and withdraw your pending submissions"
+              style="display:none;padding:5px 10px;border-radius:4px;border:0.5px solid #4A6FA5;background:transparent;color:#8fa8cc;cursor:pointer;font-size:11px;white-space:nowrap;">
+              📋 My submissions
+            </button>
+            <button onclick="estOpenHistory()" title="Full submission history — all estimates submitted, approved, rejected"
+              style="padding:5px 10px;border-radius:4px;border:0.5px solid #4A6FA5;background:transparent;color:#8fa8cc;cursor:pointer;font-size:11px;white-space:nowrap;">
+              🕓 History
+            </button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;padding:7px 14px;background:#253d5e;border-bottom:1px solid #1B2A47;flex-wrap:wrap;">
@@ -461,6 +481,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               <option value="complete">Complete</option>
             </select>
           </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#8fa8cc;">Status:</span>
+            <select id="est_status_filter" onchange="estSetStatusFilter(this.value)"
+              style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;">
+              <option value="all">All</option>
+              <option value="draft">🟠 Draft</option>
+              <option value="pending">🔵 Pending</option>
+              <option value="approved">🟢 Approved</option>
+              <option value="local_draft">🟡 Unsent edits</option>
+              <option value="stranded">⚠ Stranded</option>
+            </select>
+          </div>
           <div style="display:flex;align-items:center;gap:4px;background:#1B2A47;border:1px solid #4A6FA5;border-radius:4px;padding:2px 6px;">
             <span style="font-size:13px;color:#8fa8cc;">🔍</span>
             <input id="est_search_input" type="text" placeholder="Search WBS…" oninput="estSetSearch(this.value)"
@@ -469,10 +501,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
           <span id="est_col_count" style="font-size:11px;color:#8fa8cc;margin-left:auto;"></span>
         </div>
         <div id="est_lock_banner" style="background:#fdf8e8;border-bottom:1px solid #D4AF37;padding:7px 14px;">
-          <span style="font-size:12px;color:#7a5c00;">🔒 Grid is locked. Click <strong>Locked</strong> to enable editing. Auto-relocks after 3 minutes of inactivity.</span>
+          <span style="font-size:12px;color:#7a5c00;">🔒 Grid is locked — viewing is always available. Click <strong>Locked</strong> to enable editing. Auto-relocks after 3 minutes of inactivity.</span>
+        </div>
+        <div id="est_status_strip" style="display:none;background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:6px 14px;font-size:12px;color:#1e40af;align-items:center;gap:16px;flex-wrap:wrap;">
+          <span>🗂️ <b id="ss_local_drafts">0</b> unsent local edit(s)</span>
+          <span>🕓 <b id="ss_pending">0</b> pending PM approval</span>
+          <span id="ss_rejected_seg" style="display:none;">❌ <b id="ss_rejected">0</b> rejected — <a href="#" onclick="estOpenMySubmissions();return false;" style="color:#dc2626;">review</a></span>
         </div>
         <div style="overflow-x:auto;overflow-y:auto;max-height:65vh;">
-          <table id="est_table" style="width:100%;border-collapse:collapse;font-size:12px;">
+          <table id="est_table" style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
             <thead id="est_head"></thead>
             <tbody id="est_body"></tbody>
             <tfoot id="est_foot"></tfoot>
@@ -480,10 +517,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
         </div>
         <div id="est_bulk_bar" style="display:none;"></div>
         <div style="padding:8px 14px;background:var(--panel-2);border-top:0.5px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;"></span> Draft</span>
+          <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;"></span> Draft (local, unsent)</span>
+          <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563eb;"></span> Pending PM approval</span>
           <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;"></span> Approved (immutable)</span>
           <span style="font-size:11px;color:var(--muted);">Grey cell — pair not allowed by rules</span>
-          <span style="font-size:11px;color:var(--muted);">⇉ bulk-fill · ✔ approve · ☑ select mode → bulk delete · pill = filled/eligible</span>
+          <span style="font-size:11px;color:var(--muted);">⇉ bulk-fill · ✔ un-approve · ☑ select mode → bulk delete · pill = filled/eligible</span>
           <span id="est_relock_timer" style="font-size:11px;color:#D4AF37;margin-left:auto;display:none;"></span>
         </div>
       </div>
@@ -529,10 +567,146 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 <!-- Toast -->
 <div class="toast" id="toastEl"></div>
 
+<!-- ══════════════════════════════════════════════════════════════════
+     ESTIMATION CELL VIEW POPUP — opens on every cell click, all roles.
+     Edit/Add buttons inside gate on canEdit() + _estLocked.
+     Click-outside intentionally disabled; use ✕ to close.
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="estViewOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4500;display:none;align-items:center;justify-content:center;">
+  <div id="estViewBox" style="background:#fff;border-radius:10px;width:640px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1B2A47;" id="evm_title"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6;" id="evm_path"></div>
+      </div>
+      <button type="button" onclick="estCloseView()" style="background:transparent;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 6px;flex-shrink:0;">✕</button>
+    </div>
+    <div style="padding:18px 20px;">
+      <div id="evm_statuspill" style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:4px 12px;border-radius:20px;margin-bottom:14px;"></div>
+      <div id="evm_rejected_reason" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#b91c1c;"></div>
+      <div style="font-size:28px;font-weight:700;color:#1B2A47;margin-bottom:4px;" id="evm_amt"></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;" id="evm_meta"></div>
+      <div id="evm_warn" style="display:none;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#9a3412;"></div>
+      <div id="evm_detail"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:#fafbfd;" id="evm_footer"></div>
+  </div>
+</div>
+
+<!-- Submit for Approval confirm overlay -->
+<div id="estSubmitOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4500;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:760px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1B2A47;">Submit for Approval</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="sub_subtitle">Select which drafts to send to the Project Manager</div>
+      </div>
+      <button type="button" onclick="estCloseSubmit()" style="background:transparent;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <!-- toolbar: select-all + view toggle -->
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="subSelectAll" style="width:auto;" onchange="subToggleAll(this.checked)">
+        Select all
+      </label>
+      <span style="font-size:12px;color:var(--muted);" id="sub_sel_info">0 of 0 selected</span>
+      <div style="margin-left:auto;display:flex;gap:4px;">
+        <button id="subExpandAll" onclick="_subExpandAll()" style="padding:3px 8px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;background:transparent;color:var(--muted);" title="Expand all groups">⊞</button>
+        <button id="subCollapseAll" onclick="_subCollapseAll()" style="padding:3px 8px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;background:transparent;color:var(--muted);" title="Collapse all groups">⊟</button>
+        <button id="subGrpBtn" onclick="setSubView('grouped')" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border);font-size:11.5px;cursor:pointer;background:#1B2A47;color:#fff;">⊞ Grouped</button>
+        <button id="subFlatBtn" onclick="setSubView('flat')" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border);font-size:11.5px;cursor:pointer;background:transparent;color:var(--muted);">≡ Flat list</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px 20px;" id="sub_body"></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:13px 20px;border-top:1px solid var(--border);background:#fafbfd;flex-shrink:0;">
+      <button class="btn btn-ghost btn-sm" onclick="estCloseSubmit()">Cancel</button>
+      <button id="subDiscardBtn" style="padding:5px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #dc2626;background:transparent;color:#dc2626;" onclick="estDiscardSelected()">🗑 Discard selected</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-primary" id="sub_confirm_btn" onclick="estConfirmSubmit()" disabled>Submit 0 estimate(s)</button>
+    </div>
+  </div>
+</div>
+
+<!-- PM Approval Queue overlay -->
+<div id="estQueueOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4500;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:760px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1B2A47;">Estimate Approval Queue</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="queue_subtitle"></div>
+      </div>
+      <button type="button" onclick="estCloseQueue()" style="background:transparent;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <!-- queue toolbar -->
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="qSelAll" style="width:auto;" onchange="qToggleAll(this.checked)">
+        Select all
+      </label>
+      <span style="font-size:12px;color:var(--muted);" id="q_sel_count">0 selected</span>
+      <div style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap;">
+        <button onclick="_queueExpandAll()" style="padding:3px 8px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;background:transparent;color:var(--muted);" title="Expand all groups">⊞</button>
+        <button onclick="_queueCollapseAll()" style="padding:3px 8px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;background:transparent;color:var(--muted);" title="Collapse all groups">⊟</button>
+        <button id="qGrpBtn" onclick="setQView('grouped')" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border);font-size:11.5px;cursor:pointer;background:#1B2A47;color:#fff;">⊞ Grouped</button>
+        <button id="qFlatBtn" onclick="setQView('flat')" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border);font-size:11.5px;cursor:pointer;background:transparent;color:var(--muted);">≡ Flat list</button>
+        <button onclick="_queueBulkAction('reject')" style="padding:4px 12px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:#dc2626;color:#fff;">✕ Reject</button>
+        <button onclick="_queueBulkAction('approve')" style="padding:4px 12px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:#0d9488;color:#fff;">✓ Approve</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px 20px;" id="queue_body"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:13px 20px;border-top:1px solid var(--border);background:#fafbfd;flex-shrink:0;">
+      <button class="btn btn-ghost" onclick="estCloseQueue()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reject reason overlay -->
+<div id="estRejectOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.65);z-index:4600;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:440px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.35);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1B2A47;">Reject Estimate(s)</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="rej_subtitle"></div>
+      </div>
+      <button type="button" onclick="estCloseReject()" style="background:transparent;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <div style="padding:18px 20px;">
+      <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">Reason (required — shown to submitter)</label>
+      <textarea id="rej_reason" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;" placeholder="e.g. Rate looks high vs last RFQ — please re-check"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:#fafbfd;">
+      <button class="btn btn-ghost" onclick="estCloseReject()">Cancel</button>
+      <button style="padding:7px 16px;border-radius:5px;font-size:12.5px;font-weight:600;cursor:pointer;border:none;background:#dc2626;color:#fff;" onclick="estConfirmReject()">Reject</button>
+    </div>
+  </div>
+</div>
+
+<!-- My Submissions / Full History overlay (QS view) -->
+<div id="estMySubOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4500;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:720px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1B2A47;" id="mysub_title">My Submissions</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Pending estimates you submitted — withdraw any you need to revise first</div>
+      </div>
+      <button type="button" onclick="estCloseMySubmissions()" style="background:transparent;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px 20px;" id="mysub_body"></div>
+    <div style="display:flex;gap:8px;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--border);background:#fafbfd;flex-shrink:0;">
+      <button id="mysub_withdraw_all_btn" style="display:none;padding:7px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #dc2626;background:transparent;color:#dc2626;" onclick="estBulkWithdraw()">↩ Withdraw selected</button>
+      <button class="btn btn-ghost" style="margin-left:auto;" onclick="estCloseMySubmissions()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
 <!-- Modal (reusable) -->
-<div class="modal-overlay hidden" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+<div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal" id="modalBox">
-    <h3 id="modalTitle">Add Node</h3>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+      <h3 id="modalTitle" style="margin:0;">Add Node</h3>
+      <button type="button" onclick="closeModal()" title="Close" style="background:transparent;border:none;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;flex-shrink:0;">✕</button>
+    </div>
     <div id="modalBody"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn btn-ghost btn-sm" id="modalCancelBtn" onclick="closeModal()">Cancel</button>
@@ -2172,7 +2346,8 @@ function rulesToggle(){}
 // ============================================================
 let _scope=[];
 let _estLocked=true,_estStage='__all__',_estFloor='__all__',_estNodeType='__all__';
-let _estFillFilter='all',_estSearch='',_estSelectMode=false,_estSelected=new Set();
+let _estFillFilter='all',_estSearch='',_estSelectMode=false,_estSelected=new Set(),_estStatusFilter='all';
+const _estCollapsed=new Set(); // non-leaf WBS nodes explicitly collapsed in the estimation grid
 let _estRelockInt=null,_estRelockSecs=0;
 const EST_RELOCK_SECS=180;
 
@@ -2197,11 +2372,14 @@ async function loadEstimation(){
   pbShow('Loading estimation…');
   try{
     await Promise.all([apiLoadWBS(),apiLoadLoc(),apiLoadRules(),apiLoadScope()]);
-    _estBuildFilters();renderEstimation();
+    _estBuildFilters();
+    await _estLoadSubmissionMeta();  // populates _estPendingSet, _estRejectedMap, status strip
+    _estUpdateSubmitUI();            // show/hide Submit+Queue buttons
+    renderEstimation();
   }catch(e){toast('Error: '+e.message,'error');}
   finally{pbDone();}
 }
-function _scopeMap(){return Object.fromEntries(_scope.map(r=>[r.wbs_node_id+'|'+r.loc_node_id,r]));}
+function _scopeMap(){return Object.fromEntries(_scope.map(r=>[String(r.wbs_node_id)+'|'+String(r.loc_node_id),r]));}
 
 function _estBuildFilters(){
   const sel=document.getElementById('est_stage_filter');
@@ -2230,6 +2408,17 @@ function estSetFloor(v){_estFloor=v;renderEstimation();}
 function estSetNodeType(v){_estNodeType=v;renderEstimation();}
 function estSetFillFilter(v){_estFillFilter=v;renderEstimation();}
 function estSetSearch(v){_estSearch=v.trim().toLowerCase();renderEstimation();}
+function estSetStatusFilter(v){_estStatusFilter=v;renderEstimation();}
+function _estToggleRow(id){
+  if(_estCollapsed.has(id))_estCollapsed.delete(id);else _estCollapsed.add(id);
+  renderEstimation();
+}
+function estExpandAll(){_estCollapsed.clear();renderEstimation();}
+function estCollapseAll(){
+  // Collapse all non-leaf, non-activity WBS nodes (packages, groups, categories)
+  _wbsNodes.filter(n=>!_isEstimableLeaf(n)).forEach(n=>_estCollapsed.add(n.id));
+  renderEstimation();
+}
 function estToggleSelectMode(){
   if(_estLocked){_estFlashLock();return;}
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
@@ -2238,27 +2427,44 @@ function estToggleSelectMode(){
 function estSelectRow(wbsId,checked){
   const visLocs=new Set(_estCols().map(c=>c.id));
   _scope.filter(r=>r.wbs_node_id==wbsId&&r.scope_status!=='approved'&&visLocs.has(r.loc_node_id))
-    .forEach(r=>{const k=r.wbs_node_id+'|'+r.loc_node_id;if(checked)_estSelected.add(k);else _estSelected.delete(k);});
+    .forEach(r=>{const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);if(checked)_estSelected.add(k);else _estSelected.delete(k);});
   renderEstimation();
 }
 function estSelectCol(locId,checked){
   _scope.filter(r=>r.loc_node_id===locId&&r.scope_status!=='approved')
-    .forEach(r=>{const k=r.wbs_node_id+'|'+r.loc_node_id;if(checked)_estSelected.add(k);else _estSelected.delete(k);});
+    .forEach(r=>{const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);if(checked)_estSelected.add(k);else _estSelected.delete(k);});
   renderEstimation();
 }
 function estToggleCell(wbsId,locId){
-  const k=wbsId+'|'+locId;if(_estSelected.has(k))_estSelected.delete(k);else _estSelected.add(k);
+  const k=String(wbsId)+'|'+String(locId);
+  if(_estSelected.has(k))_estSelected.delete(k);else _estSelected.add(k);
   renderEstimation();
 }
 async function estBulkDelete(){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   const keys=[..._estSelected];if(!keys.length)return;
   const sm=_scopeMap();
-  const total=keys.reduce((s,k)=>s+Number((sm[k]||{}).est_amount||0),0);
-  if(!confirm(`Delete ${keys.length} estimate(s) totalling ₹${_inr(total)}?\n\nThis cannot be undone.`))return;
-  const rows=keys.map(k=>{const[w,l]=k.split('|');return{wbs_node_id:Number(w),loc_node_id:l,_delete:true};});
+  // Exclude any pending-submission rows from bulk delete — those must be
+  // withdrawn first, then the QS edits the draft to _delete:true and submits.
+  const pendingKeys=keys.filter(k=>_estPendingSet.has(k));
+  const deleteKeys=keys.filter(k=>!_estPendingSet.has(k));
+  if(pendingKeys.length&&!deleteKeys.length){toast(`All selected estimates have pending submissions — withdraw them first to delete`,'warn',4500);return;}
+  if(pendingKeys.length)toast(`${pendingKeys.length} pending row(s) skipped — withdraw submissions first`,'warn',4000);
+  const total=deleteKeys.reduce((s,k)=>s+Number((sm[k]||{}).est_amount||0),0);
+  if(!confirm(`Delete ${deleteKeys.length} estimate(s) totalling ₹${_inr(total)}?\n\nThis cannot be undone.`))return;
+  const rows=deleteKeys.map(k=>{const[w,l]=k.split('|');return{wbs_node_id:Number(w),loc_node_id:l,_delete:true};});
   _estSelected.clear();_estSelectMode=false;
-  await _estSaveRows(rows,`Deleting ${rows.length} estimate(s)…`);
+  // Bulk delete writes directly to DB via rpc_save_wbs_scope — these are
+  // live rows being removed, not drafts going through the approval queue.
+  pbShow(`Deleting ${rows.length} estimate(s)…`);
+  try{
+    const{data,error}=await sb.rpc('rpc_save_wbs_scope',{p_rows:rows,p_user:state.userName});
+    if(error)throw error;
+    const d=(data&&data.deleted)||0;
+    toast(`${d} estimate(s) deleted`,'success');
+    await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
+  }catch(e){toast('Delete failed: '+e.message,'error');}
+  finally{pbDone();}
 }
 
 
@@ -2288,12 +2494,12 @@ function renderEstimation(){
   const head=document.getElementById('est_head'),body=document.getElementById('est_body'),foot=document.getElementById('est_foot');
   if(!head)return;
   const cols=_estCols();
-  const sm=_scopeMap();
+  const sm=_estDraftScopeMap();   // ← merged: live scope + local drafts
 
   document.getElementById('est_col_count').textContent=`${cols.length} unit column${cols.length!==1?'s':''}`;
   if(!cols.length){head.innerHTML='';foot.innerHTML='';body.innerHTML=`<tr><td style="padding:24px;text-align:center;color:var(--muted);">No location leaves in this filter.</td></tr>`;return;}
 
-  const _wbsThS='text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:260px;position:sticky;left:0;top:0;z-index:4;';
+  const _wbsThS='text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:200px;max-width:280px;width:280px;position:sticky;left:0;top:0;z-index:4;white-space:normal;word-break:break-word;';
   const _colThS='padding:6px 8px;background:#1B2A47;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:500;font-size:11px;text-align:center;min-width:110px;position:sticky;top:0;z-index:2;';
   const _totThS='padding:6px 8px;background:#16243d;border:0.5px solid rgba(255,255,255,0.12);color:#D4AF37;font-size:11px;text-align:right;min-width:110px;position:sticky;top:0;z-index:2;';
   const _selColCb=(cid)=>_estSelectMode
@@ -2316,6 +2522,16 @@ function renderEstimation(){
   cols.forEach(c=>{th+=_colTh(c);});
   th+=`<th style="${_totThS}">Row Total ₹</th></tr>`;
   head.innerHTML=th;
+  // Inject colgroup to pin label column to 280px under table-layout:fixed.
+  // Data columns and totals column share the remaining width equally.
+  const tbl=document.getElementById('est_table');
+  const existingCg=tbl.querySelector('colgroup');
+  if(existingCg)existingCg.remove();
+  const cg=document.createElement('colgroup');
+  cg.innerHTML=`<col style="width:280px;min-width:200px;max-width:280px;">`
+    +cols.map(()=>`<col style="min-width:110px;">`).join('')
+    +`<col style="min-width:110px;">`;
+  tbl.insertBefore(cg,tbl.firstChild);
 
   const eff={};
   _wbsNodes.filter(n=>_isEstimableLeaf(n)).forEach(a=>{eff[a.id]=_effectiveLeavesJS(a.id);});
@@ -2331,10 +2547,32 @@ function renderEstimation(){
       // FILL FILTER: show only rows matching their fill state across visible cols
       if(_estFillFilter!=='all'&&isAct){
         const _elig=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)).length;
-        const _fill=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)&&sm[node.id+'|'+c.id]).length;
+        const _fill=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)&&sm[String(node.id)+'|'+c.id]).length;
         if(_estFillFilter==='unfilled'&&_fill>0)return'';
         if(_estFillFilter==='partial'&&(_fill===0||_elig===0||_fill>=_elig))return'';
         if(_estFillFilter==='complete'&&(_elig===0||_fill<_elig))return'';
+      }
+      // STATUS FILTER helper — defined FIRST so it can be called by both the
+      // leaf filter below and the package/touches check further down.
+      const _cellMatchesStatus=(aid,cid)=>{
+        if(_estStatusFilter==='all')return true;
+        if(!(eff[aid]&&eff[aid].has(cid))){
+          return _estStatusFilter==='stranded'&&!!sm[String(aid)+'|'+String(cid)];
+        }
+        const r=sm[String(aid)+'|'+String(cid)];
+        if(!r)return false;
+        const isPending=_estPendingSet.has(String(aid)+'|'+String(cid));
+        if(_estStatusFilter==='draft')return r.scope_status==='draft'&&!isPending&&!r._isLocalDraft;
+        if(_estStatusFilter==='pending')return isPending;
+        if(_estStatusFilter==='approved')return r.scope_status==='approved';
+        if(_estStatusFilter==='local_draft')return !!r._isLocalDraft;
+        if(_estStatusFilter==='stranded')return false;
+        return false;
+      };
+      // STATUS FILTER on leaf rows: hide leaf if no cell in view matches.
+      if(_estStatusFilter!=='all'&&isAct){
+        const hasMatch=cols.some(c=>_cellMatchesStatus(node.id,c.id));
+        if(!hasMatch)return'';
       }
       const actIds=isAct?[node.id]:_estActivityDescIds(node.id).filter(id=>{
         const an=_wbsNodes.find(x=>x.id===id);if(!an)return false;
@@ -2343,7 +2581,10 @@ function renderEstimation(){
         return true;
       });
       if(!actIds.length)return'';
-      const touches=actIds.some(aid=>cols.some(c=>eff[aid]&&eff[aid].has(c.id)));
+      // STATUS FILTER propagation: package/group rows only render if at least
+      // one descendant activity has a cell matching the status filter.
+      const touches=actIds.some(aid=>cols.some(c=>_cellMatchesStatus(aid,c.id)))
+        || (_estStatusFilter==='stranded'&&actIds.some(aid=>cols.some(c=>!!(sm[String(aid)+'|'+String(c.id)])&&!(eff[aid]&&eff[aid].has(c.id)))));
       if(!touches)return'';
       const indent=12+depth*14;
       const isPkg=ntype==='package';
@@ -2360,7 +2601,7 @@ function renderEstimation(){
             if(!ok)return`<td style="padding:4px;border:0.5px solid var(--border);background:#f1f3f6;text-align:center;color:#c2c9d4;">·</td>`;
             if(row){
               if(row.scope_status==='approved')return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:#f0fdf4;cursor:not-allowed;" title="Approved — cannot delete"><div style="font-size:10px;color:#15803d;">${_inr(row.est_qty)} ${_esc(row.uom||'')} ✓</div><div style="font-weight:600;color:#15803d;">₹${_inr(row.est_amount)}</div></td>`;
-              const sk=`${node.id}|${c.id}`;const sel=_estSelected.has(sk);
+              const sk=`${String(node.id)}|${String(c.id)}`;const sel=_estSelected.has(sk);
               rowTotal+=Number(row.est_amount||0);
               return`<td onclick="estToggleCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid ${sel?'#3b82f6':'var(--border)'};text-align:right;cursor:pointer;background:${sel?'#dbeafe':'#fffdf5'};${sel?'outline:2px solid #3b82f6;outline-offset:-2px;':''}" title="${sel?'Click to deselect':'Click to select'}"><div style="font-size:10px;color:${sel?'#1d4ed8':'#64748b'};">${sel?'✓ ':''} ${_inr(row.est_qty)} ${_esc(row.uom||'')}</div><div style="font-weight:600;color:${sel?'#1d4ed8':'#1B2A47'};">₹${_inr(row.est_amount)}</div></td>`;
             }
@@ -2370,7 +2611,7 @@ function renderEstimation(){
           if(!ok){
             if(row){
               // STRANDED: estimate exists but rules no longer allow the pair.
-              return`<td onclick="estEditCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid #b91c1c;text-align:right;cursor:pointer;background:#fdf2f2;" title="⚠ STRANDED — rules no longer allow this pair. Excluded from totals. Click to delete, or re-include the location in Allocation Rules.">
+              return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid #b91c1c;text-align:right;cursor:pointer;background:#fdf2f2;" title="⚠ STRANDED — rules no longer allow this pair. Excluded from totals. Click to view/delete.">
                 <div style="font-size:10px;color:#b91c1c;">⚠ stranded</div>
                 <div style="font-weight:600;color:#b91c1c;text-decoration:line-through;">₹${_inr(row.est_amount)}</div></td>`;
             }
@@ -2378,12 +2619,16 @@ function renderEstimation(){
           }
           if(row){
             rowTotal+=Number(row.est_amount||0);
-            const dot=row.scope_status==='approved'?'#16a34a':'#d97706';
-            return`<td onclick="estEditCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;cursor:pointer;background:#fffdf5;" title="${_esc((row.scope_status||'draft')+' · '+(row.scope_code||''))}">
+            const isPending=_estPendingSet.has(String(node.id)+'|'+String(c.id));
+            const isLocalDraft=row._isLocalDraft;
+            const dot=row.scope_status==='approved'?'#16a34a':isPending?'#2563eb':isLocalDraft?'#f59e0b':'#d97706';
+            const bg=row.scope_status==='approved'?'#f0fdf4':isPending?'#eff6ff':isLocalDraft?'#fffdf0':'#fffdf5';
+            const title=isPending?'Pending PM approval':isLocalDraft?'Local draft — unsent':row.scope_status==='approved'?'Approved':'Draft';
+            return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;cursor:pointer;background:${bg};" title="${_esc(title+' · '+(row.scope_code||''))}">
               <div style="font-size:10px;color:#64748b;">${_inr(row.est_qty)} ${_esc(row.uom||'')} <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span></div>
               <div style="font-weight:600;color:#1B2A47;">₹${_inr(row.est_amount)}</div></td>`;
           }
-          return`<td onclick="estEditCell(${node.id},'${c.id}')" style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#9aa7b8;cursor:pointer;" title="Click to estimate">+</td>`;
+          return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#9aa7b8;cursor:pointer;" title="Click to view / estimate">+</td>`;
         }
         const sub=actIds.reduce((s,aid)=>{
           if(!(eff[aid]&&eff[aid].has(c.id)))return s;   // stranded rows excluded
@@ -2399,16 +2644,36 @@ function renderEstimation(){
         if(elig>0){const pct=fill/elig;const pbg=pct===1?'#d1fae5':pct>=0.5?'#fef3c7':fill>0?'#fee2e2':'#f1f5f9';const ptx=pct===1?'#065f46':pct>=0.5?'#92400e':fill>0?'#991b1b':'#64748b';coveragePill=`<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:${pbg};color:${ptx};margin-left:5px;">${fill}/${elig}</span>`;}
       }
       const rowCb=(_estSelectMode&&isAct)?`<input type="checkbox" onchange="estSelectRow(${node.id},this.checked)" style="width:13px;height:13px;accent-color:#3b82f6;cursor:pointer;margin-right:4px;vertical-align:middle;" title="Select all draft cells in row">`:'';
-      const label=`<td style="padding:6px 12px 6px ${indent}px;background:${rowBg};border:0.5px solid var(--border);position:sticky;left:0;z-index:1;white-space:nowrap;min-width:260px;">
-        ${rowCb}${isPkg?'📦':isHire?'🏗':isMat?'🧱':isAct?'📄':'🗂'} ${_esc(node.name)}
-        ${(isAct&&!isMat)?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;margin-left:4px;">${_esc(node.uom||'')}</span>`:''}
-        ${coveragePill}
-        ${isAct&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="${isMat?'Bulk-fill build-up sheet across units':'Bulk-fill across units'}" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
-        ${isMat?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
-        ${isPkg&&!_estLocked&&!_estSelectMode&&canApprove()?`<button class="btn btn-ghost btn-xs" style="margin-left:6px;" title="Approve / un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
+      const hasChildren=!isAct&&_wbsNodes.some(n=>n.parent_id===node.id);
+      const isCollapsed=_estCollapsed.has(node.id);
+      const chevron=!isAct&&hasChildren
+        ?`<span onclick="event.stopPropagation();_estToggleRow(${node.id})" style="cursor:pointer;margin-right:4px;color:#64748b;user-select:none;display:inline-block;width:12px;font-size:10px;" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▸':'▾'}</span>`
+        :`<span style="display:inline-block;width:12px;margin-right:4px;"></span>`;
+      // Flex layout: fixed-width prefix (indent + chevron + icon) + wrapping text zone.
+      // This ensures wrapped lines align under the first character of the name,
+      // not back to the left edge of the cell.
+      const _pfxW=indent+14; // chevron(12) + gap(2) + icon inherited from indent
+      const label=`<td style="padding:4px 6px;background:${rowBg};border:0.5px solid var(--border);position:sticky;left:0;z-index:1;min-width:200px;max-width:280px;width:280px;" title="${_esc(node.name)}">
+        <div style="display:flex;align-items:flex-start;gap:0;">
+          <div style="flex-shrink:0;width:${_pfxW}px;display:flex;align-items:center;gap:2px;padding-top:2px;">
+            ${chevron}${rowCb}<span>${isPkg?'📦':isHire?'🏗':isMat?'🧱':isAct?'📄':'🗂'}</span>
+          </div>
+          <div style="flex:1;min-width:0;word-break:break-word;white-space:normal;font-size:12px;">
+            ${_esc(node.name)}
+            ${(isAct&&!isMat)?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;margin-left:3px;white-space:nowrap;">${_esc(node.uom||'')}</span>`:''}
+            ${coveragePill}
+            <span style="display:inline-flex;gap:3px;vertical-align:middle;">
+              ${isAct&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" title="${isMat?'Bulk-fill build-up sheet across units':'Bulk-fill across units'}" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
+              ${isMat?`<button class="btn btn-ghost btn-xs" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
+              ${(isAct&&!isMat)?`<button class="btn btn-ghost btn-xs" title="${isHire?'Hire equipment summary — qty and amount across units in view':'Activity summary — qty and amount across units in view'}" onclick="event.stopPropagation();estActivitySummary(${node.id})">📋</button>`:''}
+              ${isPkg&&!_estLocked&&!_estSelectMode&&canApprove()?`<button class="btn btn-ghost btn-xs" title="Un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
+            </span>
+          </div>
+        </div>
       </td>`;
       const totalTd=`<td style="padding:4px 8px;border:0.5px solid var(--border);text-align:right;font-weight:${isAct?500:700};color:#1B2A47;background:${isPkg?'#e4efe4':'#fbfcfe'};">${rowTotal?'₹'+_inr(rowTotal):''}</td>`;
-      return`<tr>${label}${cells}${totalTd}</tr>`+rowsFor(node.id,depth+1);
+      // Skip children entirely when this node is collapsed
+      return`<tr>${label}${cells}${totalTd}</tr>`+(isCollapsed?'':rowsFor(node.id,depth+1));
     }).join('');
   }
   const html=rowsFor(null,0);
@@ -2473,35 +2738,379 @@ function _wbsPathJS(wbsId){
   return parts.join(' › ');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// LOCAL DRAFT STORE — replaces direct wbs_scope writes.
+// Key: wbsId+'|'+locId  Value: {wbs_node_id,loc_node_id,est_qty,est_rate,notes,
+//   _delete(bool),buildup_rows(array|null),_isNew(bool),_oldQty,_oldRate,_oldAmt}
+// Nothing touches wbs_scope directly until PM approves via rpc_approve_scope_submissions.
+// ════════════════════════════════════════════════════════════════════
+let _localDrafts=new Map();
+
 async function _estSaveRows(rows,label){
+  // Write-through cache: writes to DB immediately via rpc_save_scope_draft,
+  // then updates _localDrafts to reflect the new state.
+  // _localDrafts is always a mirror of this user's DB draft rows.
   pbShow(label||'Saving…');
   try{
-    const{data,error}=await sb.rpc('rpc_save_wbs_scope',{p_rows:rows,p_user:state.userName});
-    if(error)throw error;
-    const rej=(data&&data.rejected)||[];
-    if(rej.length)toast(`${rej.length} row(s) rejected — e.g. ${rej[0].reason}`,'warn',5500);
-    if(data&&(data.saved||data.deleted))toast(`Saved ${data.saved||0}${data.deleted?` · deleted ${data.deleted}`:''}`,'success');
-    await apiLoadScope();renderEstimation();
-    // ── Post-save verification ──────────────────────────────────────────────
-    // The RPC correctly UPDATEs existing pairs but can silently fail to INSERT
-    // new ones (returns saved:N without committing). Detect any pairs that are
-    // still absent from _scope after reload and retry them one at a time, which
-    // mirrors the single-cell-edit path that reliably creates new rows.
-    const newPairs=rows.filter(r=>!r._delete&&!(r.wbs_node_id+'|'+r.loc_node_id in
-      Object.fromEntries(_scope.map(s=>[s.wbs_node_id+'|'+s.loc_node_id,true]))));
-    if(newPairs.length){
-      toast(`⚠ ${newPairs.length} new pair(s) not saved by bulk call — retrying individually…`,'warn',4000);
-      let retried=0;
-      for(const r of newPairs){
-        pbShow(`Retrying ${++retried}/${newPairs.length}…`);
-        const{error:re}=await sb.rpc('rpc_save_wbs_scope',{p_rows:[r],p_user:state.userName});
-        if(re)toast(`Retry failed: ${re.message}`,'error');
+    for(const r of rows){
+      const key=String(r.wbs_node_id)+'|'+String(r.loc_node_id);
+      if(r._delete){
+        const{error}=await sb.rpc('rpc_discard_scope_drafts',{
+          p_user:state.userName,
+          p_pairs:[{wbs_node_id:r.wbs_node_id,loc_node_id:r.loc_node_id}]
+        });
+        if(error){console.error('[_estSaveRows] discard error:',error);throw error;}
+        _localDrafts.delete(key);
+      } else {
+        const p_row={
+          wbs_node_id:r.wbs_node_id, loc_node_id:r.loc_node_id,
+          new_qty:r.est_qty, new_rate:r.est_rate,
+          new_notes:r.notes||null,
+          buildup_rows:r.buildup_rows||null
+        };
+        const{data,error}=await sb.rpc('rpc_save_scope_draft',{p_row:p_row,p_user:state.userName});
+        if(error){console.error('[_estSaveRows] RPC error:',error);throw error;}
+        if(data&&data.action==='conflict'){
+          toast(data.reason,'warn',6000);
+          continue;
+        }
+        const ex=_scopeMap()[key];
+        _localDrafts.set(key,{
+          wbs_node_id:r.wbs_node_id, loc_node_id:r.loc_node_id,
+          est_qty:r.est_qty, est_rate:r.est_rate, notes:r.notes||null,
+          buildup_rows:r.buildup_rows||null,
+          _isNew:!ex,
+          _oldQty:ex?Number(ex.est_qty):null,
+          _oldRate:ex?Number(ex.est_rate):null,
+          _oldAmt:ex?Number(ex.est_amount):null
+        });
       }
-      await apiLoadScope();renderEstimation();
     }
-    return data;
-  }catch(e){toast('Error: '+e.message,'error');}
+  }catch(e){console.error('[_estSaveRows] caught error:',e);toast('Save failed: '+e.message,'error');}
   finally{pbDone();}
+  _estUpdateSubmitUI();
+  renderEstimation();
+}
+
+function _estDraftScopeMap(){
+  // Merge live _scope with _localDrafts for rendering.
+  // Draft values shadow live values for the same pair.
+  const sm=_scopeMap();
+  const merged={...sm};
+  _localDrafts.forEach((d,key)=>{
+    // key is already String(wbsId)+'|'+String(locId) from _estSaveRows
+    merged[key]={
+      ...(sm[key]||{}),
+      wbs_node_id:d.wbs_node_id, loc_node_id:d.loc_node_id,
+      est_qty:d.est_qty, est_rate:d.est_rate,
+      est_amount:d.est_qty*d.est_rate,
+      notes:d.notes,
+      scope_status:'_local_draft',  // sentinel: renders with orange dot, not DB status
+      _isLocalDraft:true, _isNew:d._isNew
+    };
+  });
+  return merged;
+}
+
+function _estUpdateSubmitUI(){
+  const n=_localDrafts.size;
+  const submitBtn=document.getElementById('est_submit_btn');
+  const countEl=document.getElementById('est_draft_count');
+  // Always visible for canEdit() — count badge shows 0 when no drafts
+  if(submitBtn) submitBtn.style.display=canEdit()?'flex':'none';
+  if(countEl) countEl.textContent=n?`(${n} draft${n!==1?'s':''})`:'' ;
+
+  const qBtn=document.getElementById('est_queue_btn');
+  if(qBtn) qBtn.style.display=canApprove()?'flex':'none';
+
+  // status strip counts + My Submissions link
+  _estRefreshStatusStrip();
+}
+
+async function _estRefreshStatusStrip(){
+  const strip=document.getElementById('est_status_strip');
+  if(!strip)return;
+  // Pull pending/approved/rejected counts from DB for this user
+  try{
+    const {data}=await sb.from('wbs_scope_submissions')
+      .select('id,status')
+      .eq('submitted_by',state.userName)
+      .in('status',['pending','rejected']);
+    const pending=(data||[]).filter(r=>r.status==='pending').length;
+    const rejected=(data||[]).filter(r=>r.status==='rejected').length;
+    const localN=_localDrafts.size;
+    const el_ld=document.getElementById('ss_local_drafts');
+    const el_p=document.getElementById('ss_pending');
+    const el_rj=document.getElementById('ss_rejected');
+    const el_rjseg=document.getElementById('ss_rejected_seg');
+    const mySubLink=document.getElementById('est_my_sub_link');
+    if(el_ld)el_ld.textContent=localN;
+    if(el_p)el_p.textContent=pending;
+    if(el_rj)el_rj.textContent=rejected;
+    if(el_rjseg)el_rjseg.style.display=rejected>0?'':'none';
+    // My submissions button: visible for any canEdit() user always
+    if(mySubLink)mySubLink.style.display=canEdit()?'':'none';
+    // Show strip only when there's something worth showing
+    strip.style.display=(localN>0||pending>0||rejected>0)?'flex':'none';
+  }catch(e){/* non-fatal */}
+
+  // Queue count for PM
+  if(canApprove()){
+    try{
+      const {count}=await sb.from('wbs_scope_submissions').select('id',{count:'exact',head:true}).eq('status','pending');
+      const el=document.getElementById('est_queue_count');
+      if(el)el.textContent=count?`(${count})`:'';
+    }catch(e){}
+  }
+}
+
+
+
+// ════════════════════════════════════════════════════════════════════
+// CELL VIEW POPUP — opens on every cell click, all roles.
+// Edit/Add buttons inside respect _estLocked + canEdit().
+// ════════════════════════════════════════════════════════════════════
+function estViewCell(wbsId,locId){
+  const act=_wbsNodes.find(n=>n.id===wbsId), loc=_locNodes.find(n=>n.id===locId);
+  if(!act||!loc)return;
+  const draftKey=String(wbsId)+'|'+String(locId);
+  const draft=_localDrafts.get(draftKey)||null;
+  const ex=_scopeMap()[draftKey]||null;
+  const _eligNow=_effectiveLeavesJS(wbsId).has(locId);
+
+  // Stranded: show existing stranded flow (unchanged)
+  if(ex&&!_eligNow&&!draft){
+    if(!canEdit()){toast('This estimate is stranded (allocation rules changed) — Admin/QS can remove it','warn');return;}
+    estEditCell(wbsId,locId); return; // delegate to stranded dialog
+  }
+  if(!ex&&!draft&&!_eligNow){toast('Pair not allowed by allocation rules','warn');return;}
+
+  // Resolve what to display
+  const isMaterial=(act.node_type||'')==='material';
+  const isHire=(act.node_type||'')==='hire_equipment';
+
+  // Status and amounts from draft (if exists) else from live scope
+  let dispStatus, dispQty, dispRate, dispAmt, dispNotes, dispMeta, buildupRows=null;
+  if(draft){
+    dispStatus='_local_draft';
+    dispQty=draft.est_qty; dispRate=draft.est_rate; dispAmt=draft.est_qty*draft.est_rate;
+    dispNotes=draft.notes; buildupRows=draft.buildup_rows||null;
+    dispMeta=`${_inr(dispQty)} ${_esc(act.uom||'')} · rate ₹${_inr(dispRate)} · local unsent edit`;
+  } else if(ex){
+    dispStatus=ex.scope_status||'draft';
+    dispQty=Number(ex.est_qty); dispRate=Number(ex.est_rate); dispAmt=Number(ex.est_amount);
+    dispNotes=ex.notes; buildupRows=null; // load lazily below for material
+    dispMeta=`${_inr(dispQty)} ${_esc(act.uom||'')} · rate ₹${_inr(dispRate)}`;
+  } else {
+    dispStatus='empty';
+  }
+
+  // Check if there's a pending submission (from DB lookup would be ideal but
+  // we don't have async here — we flag pending from the status strip data if available)
+  // For the view popup we show what we have from _scope (status field includes 'pending' if
+  // the RPC returned it from a previous submit). This is covered by _estPendingSet below.
+  if(_estPendingSet&&_estPendingSet.has(draftKey)) dispStatus='pending';
+  if(_estRejectedMap&&_estRejectedMap.has(draftKey)){
+    dispStatus='rejected';
+  }
+
+  // Build the popup
+  const overlay=document.getElementById('estViewOverlay');
+  document.getElementById('evm_title').textContent=act.name;
+  document.getElementById('evm_path').innerHTML=
+    `<b>WBS:</b> ${_esc(_wbsPathJS(wbsId))}<br><b>Location:</b> ${_esc(_locPathJS(locId))}`;
+
+  const pill=document.getElementById('evm_statuspill');
+  const pillMap={
+    '_local_draft':['#fef3c7','#92400e','🟠 Local draft — not yet submitted'],
+    'draft':['#fef3c7','#92400e','🟠 Draft'],
+    'pending':['#dbeafe','#1e40af','🕓 Pending PM approval'],
+    'approved':['#dcfce7','#15803d','✅ Approved — immutable'],
+    'rejected':['#fee2e2','#b91c1c','❌ Rejected'],
+    'empty':['#f1f5f9','#64748b','· No estimate yet']
+  };
+  const [pbg,ptx,ptxt]=pillMap[dispStatus]||pillMap['draft'];
+  pill.style.cssText=`display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:4px 12px;border-radius:20px;margin-bottom:14px;background:${pbg};color:${ptx};`;
+  pill.textContent=ptxt;
+
+  const rejWarn=document.getElementById('evm_rejected_reason');
+  const rejReason=_estRejectedMap&&_estRejectedMap.get(draftKey);
+  if(dispStatus==='rejected'&&rejReason){
+    rejWarn.style.display='';rejWarn.textContent='Rejected reason: '+rejReason;
+  } else { rejWarn.style.display='none'; }
+
+  document.getElementById('evm_amt').textContent=dispStatus==='empty'?'No estimate yet':'₹'+_inr(dispAmt);
+  document.getElementById('evm_meta').textContent=dispStatus==='empty'?'':dispMeta;
+
+  const warn=document.getElementById('evm_warn');
+  if(dispStatus==='pending'){
+    warn.style.display='';warn.textContent='This estimate is locked while the Project Manager reviews it — withdraw your submission to edit it again.';
+  } else { warn.style.display='none'; }
+
+  // Detail section — branch by node type
+  const detail=document.getElementById('evm_detail');
+  if(dispStatus==='empty'){
+    detail.innerHTML='';
+  } else if(isMaterial){
+    // For material, render buildup synchronously if we have rows in draft,
+    // otherwise fetch from DB. Show a loading state then fill.
+    if(buildupRows&&buildupRows.length){
+      detail.innerHTML=_evmBuildupHtml(buildupRows,act);
+    } else if(ex&&ex.id){
+      detail.innerHTML='<div style="font-size:12px;color:var(--muted);">Loading build-up…</div>';
+      sb.from('wbs_material_buildup').select('*').eq('scope_id',ex.id).order('sno').then(({data})=>{
+        const rows=data||[];
+        if(rows.length)detail.innerHTML=_evmBuildupHtml(rows,act);
+        else detail.innerHTML='<div style="font-size:12px;color:var(--muted);">No build-up lines yet.</div>';
+      });
+    } else { detail.innerHTML='<div style="font-size:12px;color:var(--muted);">No build-up lines yet.</div>'; }
+  } else {
+    // Activity or hire_equipment — qty × rate table
+    const typeLabel=isHire?'Hire Equipment':'Activity';
+    const qtyLabel=isHire?'Hire duration':'Measured quantity';
+    const rateLabel=`Rate per ${_esc(act.uom||'unit')}`;
+    detail.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">${typeLabel} — qty × rate</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+      <thead><tr style="background:#f1f5f9;">
+        <th style="padding:6px 8px;text-align:left;font-weight:600;color:var(--muted);font-size:10.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">${qtyLabel}</th>
+        <th style="padding:6px 8px;text-align:right;font-weight:600;color:var(--muted);font-size:10.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">${rateLabel}</th>
+        <th style="padding:6px 8px;text-align:right;font-weight:600;color:var(--muted);font-size:10.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">Amount</th>
+      </tr></thead>
+      <tbody><tr>
+        <td style="padding:8px;">${_inr(dispQty)} ${_esc(act.uom||'')}</td>
+        <td style="padding:8px;text-align:right;">₹${_inr(dispRate)}</td>
+        <td style="padding:8px;text-align:right;font-weight:700;">₹${_inr(dispAmt)}</td>
+      </tr></tbody>
+      <tfoot><tr style="border-top:2px solid var(--border);">
+        <td colspan="2" style="padding:8px;font-weight:700;color:#1B2A47;">Total</td>
+        <td style="padding:8px;text-align:right;font-weight:700;color:#1B2A47;">₹${_inr(dispAmt)}</td>
+      </tr></tfoot>
+    </table>
+    ${dispNotes?`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12.5px;"><span style="color:var(--muted);">Notes</span><span style="font-weight:600;">${_esc(dispNotes)}</span></div>`:''}`;
+  }
+
+  // Footer buttons
+  const footer=document.getElementById('evm_footer');
+  let btns=`<button class="btn btn-ghost" onclick="estCloseView()">Close</button>`;
+  if(canEdit()){
+    if(dispStatus==='empty'||dispStatus==='_local_draft'||dispStatus==='draft'||dispStatus==='rejected'){
+      if(_estLocked){
+        btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">Unlock grid to edit</span>`;
+      } else {
+        const btnLabel=dispStatus==='empty'?'Add Estimate':'Edit Estimate';
+        if(isMaterial){
+          btns+=`<button class="btn btn-primary" onclick="estCloseView();estMaterialBuildup(${wbsId},'${locId}')">${btnLabel} (build-up)</button>`;
+        } else {
+          btns+=`<button class="btn btn-primary" onclick="estCloseView();estEditCellDirect(${wbsId},'${locId}')">${btnLabel}</button>`;
+        }
+      }
+    } else if(dispStatus==='pending'){
+      btns=`<button style="padding:7px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #dc2626;background:transparent;color:#dc2626;" onclick="estCloseView();estWithdrawOne('${draftKey}')">↩ Withdraw submission</button>`+btns;
+    } else if(dispStatus==='approved'){
+      btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">Approved — PM can un-approve via package ✔ button</span>`;
+    }
+  }
+  footer.innerHTML=btns;
+
+  overlay.style.display='flex';
+}
+
+function _evmBuildupHtml(rows,act){
+  const hdr=`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Material build-up — ${rows.length} line item(s)</div>`;
+  const thS='padding:6px 8px;font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border);background:#f1f5f9;';
+  const trs=rows.map(r=>{
+    const tqty=r.qty_total!=null?Number(r.qty_total):(Number(r.qty||0)*(1+(Number(r.wastage_pct||0)/100)));
+    const amt=r.amount!=null?Number(r.amount):tqty*(Number(r.rate||0));
+    return`<tr>
+      <td style="padding:7px 8px;border-bottom:1px solid #f1f5f9;">${_esc(r.material_name||'')}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">${_esc(r.uom||'')}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">${_inr(r.qty)}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">${Number(r.wastage_pct||0)}%</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">${_inr(tqty)}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">₹${_inr(r.rate)}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">₹${_inr(amt)}</td>
+    </tr>`;
+  }).join('');
+  const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);
+  return hdr+`<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr>
+      <th style="${thS}text-align:left;">Material</th>
+      <th style="${thS}text-align:right;">UOM</th>
+      <th style="${thS}text-align:right;">Qty</th>
+      <th style="${thS}text-align:right;">Wastage</th>
+      <th style="${thS}text-align:right;">Total qty</th>
+      <th style="${thS}text-align:right;">Rate ₹</th>
+      <th style="${thS}text-align:right;">Amount</th>
+    </tr></thead>
+    <tbody>${trs}</tbody>
+    <tfoot><tr style="border-top:2px solid var(--border);">
+      <td colspan="6" style="padding:8px;font-weight:700;color:#1B2A47;">Total</td>
+      <td style="padding:8px;text-align:right;font-weight:700;color:#1B2A47;">₹${_inr(total)}</td>
+    </tr></tfoot>
+  </table>`;
+}
+
+function estCloseView(){
+  document.getElementById('estViewOverlay').style.display='none';
+}
+
+// Sets of pending/rejected pairs for quick render-time lookup
+// (populated by _estLoadSubmissionMeta on tab enter and after any submit/withdraw)
+let _estPendingSet=new Set();  // Set of 'wbsId|locId' strings
+let _estRejectedMap=new Map(); // Map of 'wbsId|locId' → rejection reason string
+
+async function _estLoadSubmissionMeta(){
+  try{
+    const {data:draftData, error:draftErr}=await sb.from('wbs_scope_submissions')
+      .select('id,wbs_node_id,loc_node_id,status,new_qty,new_rate,new_notes,buildup_rows,change_type,old_qty,old_rate,old_amount')
+      .eq('status','draft')
+      .eq('submitted_by',state.userName)
+      .limit(2000);
+    if(draftErr)throw draftErr;
+
+    const {data:metaData, error:metaErr}=await sb.from('wbs_scope_submissions')
+      .select('wbs_node_id,loc_node_id,status,decision_reason,submitted_by')
+      .in('status',['pending','rejected'])
+      .limit(5000);
+    if(metaErr)throw metaErr;
+
+    // Rebuild all three caches from DB data
+    _localDrafts=new Map();
+    (draftData||[]).forEach(r=>{
+      const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);
+      const ex=_scopeMap()[k];
+      _localDrafts.set(k,{
+        wbs_node_id:r.wbs_node_id, loc_node_id:r.loc_node_id,
+        est_qty:Number(r.new_qty||0), est_rate:Number(r.new_rate||0),
+        notes:r.new_notes||null,
+        buildup_rows:r.buildup_rows||null,
+        _isNew:r.change_type==='new',
+        _oldQty:r.old_qty!=null?Number(r.old_qty):null,
+        _oldRate:r.old_rate!=null?Number(r.old_rate):null,
+        _oldAmt:r.old_amount!=null?Number(r.old_amount):null
+      });
+    });
+
+    _estPendingSet=new Set();
+    _estRejectedMap=new Map();
+    (metaData||[]).forEach(r=>{
+      const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);
+      if(r.status==='pending') _estPendingSet.add(k);
+      if(r.status==='rejected'&&!_estRejectedMap.has(k))
+        _estRejectedMap.set(k,r.decision_reason||'No reason given');
+    });
+    _estUpdateSubmitUI();
+    renderEstimation();
+  }catch(e){
+    console.error('_estLoadSubmissionMeta failed:',e);
+    toast('Could not load submission status: '+e.message,'warn',4000);
+  }
+}
+
+// Thin wrapper called by cell onclick for non-material activity/hire direct edit
+function estEditCellDirect(wbsId,locId){
+  // Delegates to original estEditCell logic (activity/hire path only — material goes via estMaterialBuildup)
+  estEditCell(wbsId,locId);
 }
 
 function estEditCell(wbsId,locId){
@@ -2510,12 +3119,15 @@ function estEditCell(wbsId,locId){
   _estResetRelock();
   const act=_wbsNodes.find(n=>n.id===wbsId),loc=_locNodes.find(n=>n.id===locId);
   if(!act||!loc)return;
-  // MATERIAL nodes use the mini-estimate build-up editor instead of qty×rate.
+  // MATERIAL nodes always use the build-up editor, never this direct path.
   if((act.node_type||'')==='material'){ return estMaterialBuildup(wbsId,locId); }
   const ex=_scopeMap()[wbsId+'|'+locId];
-  if(ex&&ex.scope_status==='approved'){toast('Approved estimate — un-approve the package first','warn');return;}
+  const draft=_localDrafts.get(String(wbsId)+'|'+String(locId))||null;
+  const src=draft||ex||null;  // prefer draft values to seed the form
+  if(ex&&ex.scope_status==='approved'){toast('Approved estimate — PM must un-approve the package first','warn');return;}
+  if(_estPendingSet.has(wbsId+'|'+locId)){toast('This estimate is pending PM approval — withdraw first to edit','warn');return;}
   const _eligNow=_effectiveLeavesJS(wbsId).has(locId);
-  if(ex&&!_eligNow){
+  if(ex&&!_eligNow&&!draft){
     openModal(`⚠ Stranded estimate — ${act.name}`,`
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
       <div style="font-size:12px;color:#b91c1c;margin-bottom:8px;">Allocation rules no longer allow this pair. The estimate (₹${_inr(ex.est_amount)}, ${_esc(ex.scope_code||'')}) is excluded from all totals and cannot be edited.</div>
@@ -2524,24 +3136,25 @@ function estEditCell(wbsId,locId){
     `,async()=>{closeModal();});
     return;
   }
-  if(!ex&&!_eligNow){toast('Pair not allowed by allocation rules','warn');return;}
+  if(!ex&&!draft&&!_eligNow){toast('Pair not allowed by allocation rules','warn');return;}
   openModal(`Estimate — ${act.name}`,`
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
     <label>Quantity (${_esc(act.uom||'')})</label>
-    <input id="m_eqty" type="number" min="0" step="0.01" value="${ex?Number(ex.est_qty||0):''}" oninput="_estPreview()">
+    <input id="m_eqty" type="number" min="0" step="0.01" value="${src?Number(src.est_qty||0):''}" oninput="_estPreview()">
     <label style="margin-top:8px;">Rate (₹)</label>
-    <input id="m_erate" type="number" min="0" step="0.01" value="${ex?Number(ex.est_rate||0):Number(act.default_rate||0)}" oninput="_estPreview()">
+    <input id="m_erate" type="number" min="0" step="0.01" value="${src?Number(src.est_rate||0):Number(act.default_rate||0)}" oninput="_estPreview()">
     <div id="m_eamt" style="margin-top:8px;font-weight:600;color:#1B2A47;"></div>
     <label style="margin-top:8px;">Notes</label>
-    <input id="m_enotes" value="${_esc((ex&&ex.notes)||'')}" autocomplete="off">
-    ${ex?`<button class="btn btn-danger btn-sm" style="margin-top:12px;" onclick="estDeleteCell(${wbsId},'${locId}')">🗑 Delete this estimate</button>`:''}
+    <input id="m_enotes" value="${_esc((src&&src.notes)||'')}" autocomplete="off">
+    ${ex&&!draft?`<button class="btn btn-danger btn-sm" style="margin-top:12px;" onclick="estDeleteCell(${wbsId},'${locId}')">🗑 Delete this estimate</button>`:''}
+    <div style="margin-top:12px;font-size:11px;color:#0d9488;background:#f0fdfa;border:1px solid #99f6e4;border-radius:5px;padding:8px 10px;">Change saved as local draft — click <b>Submit for Approval</b> in the toolbar to send to the Project Manager.</div>
   `,async()=>{
     const qty=Number(document.getElementById('m_eqty').value||0);
     const rate=Number(document.getElementById('m_erate').value||0);
     const notes=document.getElementById('m_enotes').value.trim()||null;
-    if(qty<=0){toast('Quantity must be > 0 (use Delete to clear)','error');return;}
+    if(qty<=0){toast('Quantity must be > 0','error');return;}
     closeModal();
-    await _estSaveRows([{wbs_node_id:wbsId,loc_node_id:locId,est_qty:qty,est_rate:rate,notes}],'Saving estimate…');
+    await _estSaveRows([{wbs_node_id:wbsId,loc_node_id:locId,est_qty:qty,est_rate:rate,notes}]);
   });
   _estPreview();
 }
@@ -2618,20 +3231,18 @@ async function estMaterialBuildup(wbsId,locId){
     const clean=_buildupRows.filter(r=>r.material_name&&r.qty>0);
     if(!clean.length){toast('Add at least one material row with qty','error');return;}
     closeModal();
-    // 1) save the scope cell carrying the total (est_qty=1, est_rate=total → est_amount=total)
-    await _estSaveRows([{wbs_node_id:wbsId,loc_node_id:locId,est_qty:1,est_rate:total,notes:'(material build-up)'}],'Saving material budget…');
-    // 2) resolve the scope id by natural key and write build-up detail rows
-    try{
-      const {data:sc}=await sb.from('wbs_scope').select('id').eq('wbs_node_id',wbsId).eq('loc_node_id',locId).single();
-      if(sc&&sc.id){
-        await sb.from('wbs_material_buildup').delete().eq('scope_id',sc.id);
-        await sb.from('wbs_material_buildup').insert(clean.map((r,i)=>({
-          scope_id:sc.id, sno:i+1, material_code:r.material_code, material_name:r.material_name,
-          uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct), qty_total:_buQtyTotal(r),
-          rate:r.rate, amount:_buQtyTotal(r)*r.rate
-        })));
-      }
-    }catch(e){toast('Build-up detail save: '+e.message,'warn',5000);}
+    // Save to local draft — buildup_rows snapshot travels with the submission
+    // so the approve RPC can write them to wbs_material_buildup atomically.
+    await _estSaveRows([{
+      wbs_node_id:wbsId, loc_node_id:locId,
+      est_qty:1, est_rate:total, notes:'(material build-up)',
+      buildup_rows:clean.map((r,i)=>({
+        sno:i+1, material_code:r.material_code, material_name:r.material_name,
+        uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct),
+        qty_total:_buQtyTotal(r), rate:r.rate, amount:_buQtyTotal(r)*r.rate
+      }))
+    }]);
+    toast('Build-up saved as local draft — submit for PM approval to commit','success',3500);
   },{width:'920px'});
   _buRenderRows();
 }
@@ -2774,22 +3385,18 @@ async function estMaterialBulkFill(wbsId){
     const total=_buRowsTotal();
     if(!confirm(`Apply build-up (₹${_inr(total)}/unit) to ${ids.length} unit(s)?`))return;
     closeModal();
-    // 1) save scope totals for all selected units in one batch
-    await _estSaveRows(ids.map(id=>({wbs_node_id:wbsId,loc_node_id:id,est_qty:1,est_rate:total,notes:'(material build-up)'})),`Filling ${ids.length} unit(s)…`);
-    // 2) resolve each scope id by natural key and write its build-up detail rows
-    pbShow('Writing build-up details…');
-    try{
-      const {data:scopes}=await sb.from('wbs_scope').select('id,loc_node_id').eq('wbs_node_id',wbsId).in('loc_node_id',ids);
-      for(const sc of (scopes||[])){
-        await sb.from('wbs_material_buildup').delete().eq('scope_id',sc.id);
-        await sb.from('wbs_material_buildup').insert(clean.map((r,i)=>({
-          scope_id:sc.id, sno:i+1, material_code:r.material_code, material_name:r.material_name,
-          uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct), qty_total:_buQtyTotal(r),
-          rate:r.rate, amount:_buQtyTotal(r)*r.rate
-        })));
-      }
-    }catch(e){toast('Build-up detail save: '+e.message,'warn',5000);}
-    finally{pbDone();}
+    // Save each unit as a local draft with its buildup_rows snapshot
+    const buSnapshot=clean.map((r,i)=>({
+      sno:i+1, material_code:r.material_code, material_name:r.material_name,
+      uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct),
+      qty_total:_buQtyTotal(r), rate:r.rate, amount:_buQtyTotal(r)*r.rate
+    }));
+    await _estSaveRows(ids.map(id=>({
+      wbs_node_id:wbsId, loc_node_id:id,
+      est_qty:1, est_rate:total, notes:'(material build-up)',
+      buildup_rows:buSnapshot
+    })),`Filling ${ids.length} unit(s)…`);
+    toast(`${ids.length} unit(s) saved as local drafts — submit for PM approval to commit`,'success',3500);
   },{width:'960px'});
   _buRenderRows();
 }
@@ -2801,10 +3408,9 @@ async function estMaterialBreakup(wbsId){
   const node=_wbsNodes.find(n=>n.id===wbsId);if(!node)return;
   const eff=_effectiveLeavesJS(wbsId);
   const cols=_estCols().filter(c=>eff.has(c.id));
-  const colIds=new Set(cols.map(c=>c.id));
   const sm=_scopeMap();
   // scope ids for this material node across the visible units
-  const scopeIds=cols.map(c=>sm[wbsId+'|'+c.id]).filter(x=>x&&x.id).map(x=>x.id);
+  const scopeIds=cols.map(c=>sm[String(wbsId)+'|'+String(c.id)]).filter(x=>x&&x.id).map(x=>x.id);
   if(!scopeIds.length){
     openModal(`📋 Material Take-off — ${_esc(node.name)}`,
       `<div style="font-size:12px;color:var(--muted);">No material build-up entered yet for the units in view.</div>`,async()=>{closeModal();},{readOnly:true});
@@ -2817,7 +3423,6 @@ async function estMaterialBreakup(wbsId){
     rows=data||[];
   }catch(e){toast('Load failed: '+e.message,'error');pbDone();return;}
   pbDone();
-  // group by material_code (fallback name) + uom
   const agg={};
   rows.forEach(r=>{
     const key=(r.material_code||r.material_name||'?')+'|'+(r.uom||'');
@@ -2851,6 +3456,60 @@ async function estMaterialBreakup(wbsId){
       </table>
     </div>
   `,async()=>{closeModal();},{width:'640px',readOnly:true});
+}
+
+// ── Activity / Hire Equipment row-level summary (equivalent to material take-off)
+// Shows qty and amount per unit in current view, same pattern as estMaterialBreakup.
+function estActivitySummary(wbsId){
+  const node=_wbsNodes.find(n=>n.id===wbsId);if(!node)return;
+  const isHire=(node.node_type||'')==='hire_equipment';
+  const eff=_effectiveLeavesJS(wbsId);
+  const cols=_estCols().filter(c=>eff.has(c.id));
+  const sm=_scopeMap();
+  const filled=cols.map(c=>({col:c,row:sm[String(wbsId)+'|'+String(c.id)]})).filter(x=>x.row);
+  if(!filled.length){
+    openModal(`📋 ${isHire?'Hire':'Activity'} Summary — ${_esc(node.name)}`,
+      `<div style="font-size:12px;color:var(--muted);">No estimates entered yet for the units in view.</div>`,
+      async()=>{closeModal();},{readOnly:true});
+    return;
+  }
+  const grandQty=filled.reduce((s,x)=>s+Number(x.row.est_qty||0),0);
+  const grandAmt=filled.reduce((s,x)=>s+Number(x.row.est_amount||0),0);
+  const thS='text-align:right;padding:6px 8px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--panel-2);';
+  const bodyRows=filled.map(x=>{
+    const status=x.row.scope_status==='approved'?'<span style="font-size:10px;color:#15803d;">✓ approved</span>':
+      _estPendingSet.has(String(wbsId)+'|'+String(x.col.id))?'<span style="font-size:10px;color:#2563eb;">🕓 pending</span>':
+      '<span style="font-size:10px;color:#d97706;">● draft</span>';
+    return`<tr>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;">${_esc(_locPathJS(x.col.id))}</td>
+      <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;">${_inr(x.row.est_qty)} ${_esc(node.uom||'')}</td>
+      <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;">₹${_inr(x.row.est_rate)}</td>
+      <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;font-weight:600;">₹${_inr(x.row.est_amount)}</td>
+      <td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">${status}</td>
+    </tr>`;
+  }).join('');
+  openModal(`📋 ${isHire?'🏗 Hire':'📄 Activity'} Summary — ${_esc(node.name)}`,`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>${filled.length} of ${cols.length} eligible unit(s) estimated in current view. UOM: <b>${_esc(node.uom||'—')}</b></div>
+    <div style="max-height:380px;overflow:auto;border:1px solid var(--border);border-radius:6px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr>
+          <th style="${thS}text-align:left;">Location</th>
+          <th style="${thS}">Quantity</th>
+          <th style="${thS}">Rate ₹</th>
+          <th style="${thS}">Amount</th>
+          <th style="${thS}">Status</th>
+        </tr></thead>
+        <tbody>${bodyRows}</tbody>
+        <tfoot><tr style="font-weight:700;background:#f3f6fa;">
+          <td style="padding:6px 8px;text-align:left;">Grand total (${filled.length} units)</td>
+          <td style="padding:6px 8px;text-align:right;">${_inr(grandQty)} ${_esc(node.uom||'')}</td>
+          <td></td>
+          <td style="padding:6px 8px;text-align:right;">₹${_inr(grandAmt)}</td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+    </div>
+  `,async()=>{closeModal();},{width:'720px',readOnly:true});
 }
 
 function estBulkFill(wbsId){
@@ -2901,34 +3560,549 @@ function estApprovePkg(pkgId){
   const actIds=new Set(_estActivityDescIds(pkgId));
   const colIds=new Set(_estCols().map(c=>c.id));
   const rows=_scope.filter(r=>actIds.has(r.wbs_node_id)&&colIds.has(r.loc_node_id));
-  const drafts=rows.filter(r=>r.scope_status!=='approved');
   const approved=rows.filter(r=>r.scope_status==='approved');
   if(!rows.length){toast('No estimates under this package in the current filter','warn');return;}
-  const _narrowWarn=_estFloor!=='__all__'?`<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:8px 10px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;"><span style="font-size:16px;flex-shrink:0;">⚠</span><div style="flex:1;"><div style="font-size:12px;color:#92400e;font-weight:500;margin-bottom:3px;">'Narrow to' filter is active — only ${rows.length} of all eligible estimates are in scope.</div><div style="font-size:11px;color:#a16207;">Approving now affects only these ${rows.length} rows. To approve all units in this stage, switch to Whole stage first.</div></div><button onclick="estSetFloor('__all__');closeModal();setTimeout(()=>estApprovePkg(${pkgId}),80);" style="flex-shrink:0;font-size:11px;padding:3px 8px;background:transparent;border:0.5px solid #a16207;color:#a16207;border-radius:4px;cursor:pointer;white-space:nowrap;">Set to Whole stage</button></div>`:'';
-  openModal(`✔ Package status — ${pkg.name}`,`
-    ${_narrowWarn}
-    <div style="font-size:12px;margin-bottom:10px;">In current filter: <strong>${drafts.length}</strong> draft · <strong>${approved.length}</strong> approved · total ₹${_inr(rows.reduce((s,r)=>s+Number(r.est_amount||0),0))}</div>
-    <label style="display:flex;align-items:center;gap:8px;"><input type="radio" name="m_act" value="approve" checked style="width:auto;margin:0;"> Approve ${drafts.length} draft estimate(s) — they become immutable</label>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:6px;"><input type="radio" name="m_act" value="unapprove" style="width:auto;margin:0;"> Un-approve ${approved.length} approved estimate(s) — re-opens them for edit</label>
+  openModal(`✔ Package — ${pkg.name}`,`
+    <div style="font-size:12px;margin-bottom:12px;">In current filter: <strong>${rows.length}</strong> total · <strong>${approved.length}</strong> approved · ₹${_inr(rows.reduce((s,r)=>s+Number(r.est_amount||0),0))}</div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#1e40af;">
+      💡 To <b>approve</b> estimates, use the <b>Approval Queue</b> in the toolbar — estimates submitted by Planning/QS appear there for review and approval.
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;"><input type="radio" name="m_act" value="unapprove" checked style="width:auto;margin:0;"> Un-approve ${approved.length} approved estimate(s) — re-opens them for QS to edit and resubmit</label>
   `,async()=>{
-    const sel=document.querySelector('input[name="m_act"]:checked');
-    const action=sel?sel.value:'approve';
-    const target=action==='approve'?drafts:approved;
-    const status=action==='approve'?'approved':'draft';
-    if(!target.length){toast('Nothing to change','warn');return;}
+    const target=approved;
+    if(!target.length){toast('No approved estimates to un-approve','warn');return;}
     closeModal();
     pbShow('Updating status…');
     try{
-      const{data,error}=await sb.rpc('rpc_set_scope_status',{p_ids:target.map(r=>r.id),p_status:status,p_user:state.userName});
+      const{data,error}=await sb.rpc('rpc_set_scope_status',{p_ids:target.map(r=>r.id),p_status:'draft',p_user:state.userName});
       if(error)throw error;
-      toast(`${(data&&data.updated)||0} estimate(s) → ${status}`,'success');
-      await apiLoadScope();renderEstimation();
+      toast(`${(data&&data.updated)||0} estimate(s) → draft`,'success');
+      await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
     }catch(e){toast('Error: '+e.message,'error');}
     finally{pbDone();}
   });
 }
 
-// ── lock / auto-relock (mirrors matrix pattern) ──
+// ── submit modal state ──
+let _subSelected=new Set();  // Set of draft keys (String(wbsId)+'|'+String(locId))
+let _subView='grouped';      // 'grouped' | 'flat'
+let _subCollapsed=new Set(); // Set of encoded WBS group keys collapsed in submit modal
+
+function estOpenSubmit(){
+  if(!canEdit()){toast('Planning/QS only','error');return;}
+  _subSelected=new Set();
+  _subCollapsed=new Set();
+  _renderSubmitBody();
+  document.getElementById('estSubmitOverlay').style.display='flex';
+}
+function estCloseSubmit(){document.getElementById('estSubmitOverlay').style.display='none';}
+
+function _subExpandAll(){_subCollapsed.clear();_renderSubmitBody();}
+function _subCollapseAll(){
+  const drafts=[..._localDrafts.entries()].map(([key,d])=>({key,...d}));
+  const wbsOrder=[],wbsSeen=new Set();
+  drafts.forEach(d=>{const wk=_wbsPathJS(d.wbs_node_id);if(!wbsSeen.has(wk)){wbsSeen.add(wk);wbsOrder.push(wk);}});
+  wbsOrder.forEach(wk=>_subCollapsed.add(encodeURIComponent(wk)));
+  _renderSubmitBody();
+}
+function _subToggleCollapse(encodedWk){
+  if(_subCollapsed.has(encodedWk))_subCollapsed.delete(encodedWk);else _subCollapsed.add(encodedWk);
+  _renderSubmitBody();
+}
+
+function setSubView(v){
+  _subView=v;
+  const gb=document.getElementById('subGrpBtn'),fb=document.getElementById('subFlatBtn');
+  if(gb){gb.style.background=v==='grouped'?'#1B2A47':'transparent';gb.style.color=v==='grouped'?'#fff':'var(--muted)';}
+  if(fb){fb.style.background=v==='flat'?'#1B2A47':'transparent';fb.style.color=v==='flat'?'#fff':'var(--muted)';}
+  if(v==='grouped') _subCollapsed.clear();
+  _renderSubmitBody();
+}
+
+function _renderSubmitBody(){
+  const drafts=[..._localDrafts.entries()].map(([key,d])=>({key,...d}));
+  const n=drafts.length, sel=_subSelected.size;
+
+  // update subtitle and button
+  const sub=document.getElementById('sub_subtitle');
+  if(sub)sub.textContent=n?`${n} draft(s) — select which to send to the Project Manager`:'No unsent drafts';
+  const btn=document.getElementById('sub_confirm_btn');
+  if(btn){btn.textContent=`Submit ${sel} estimate(s)`;btn.disabled=sel===0;}
+  const si=document.getElementById('sub_sel_info');
+  if(si)si.textContent=`${sel} of ${n} selected`;
+  const sa=document.getElementById('subSelectAll');
+  if(sa){sa.checked=n>0&&sel===n;sa.indeterminate=sel>0&&sel<n;}
+
+  const body=document.getElementById('sub_body');
+  if(!body)return;
+
+  if(!n){
+    body.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);"><div style="font-size:28px;margin-bottom:8px;">✅</div>No unsent drafts.<br>All your estimates are either submitted, pending, or approved.</div>';
+    return;
+  }
+
+  // row renderer — used by both grouped and flat
+  const rowHtml=(d,showPath=false)=>{
+    const sel=_subSelected.has(d.key);
+    const act=_wbsNodes.find(n=>n.id===d.wbs_node_id);
+    const newAmt=d.est_qty*d.est_rate;
+    const diffHtml=d._isNew
+      ?`<span style="color:#0d9488;font-weight:700;">+₹${_inr(newAmt)}</span><div style="font-size:10px;color:var(--muted);">New estimate</div>`
+      :`<div><span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(d._oldAmt||0)}</span> → <span style="color:#0d9488;font-weight:700;">₹${_inr(newAmt)}</span></div>`;
+    const pathLine=showPath?`<div style="font-size:10.5px;color:var(--muted);">${_esc(_wbsPathJS(d.wbs_node_id))}</div>`:'';
+    const locLine=`<div style="font-size:10.5px;color:var(--muted);">📍 ${_esc(_locPathJS(d.loc_node_id))}</div>`;
+    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f1f5f9;background:${sel?'#eff6ff':'#fff'};cursor:pointer;" onclick="_subToggleRow('${d.key}')">
+      <input type="checkbox" style="width:auto;cursor:pointer;" ${sel?'checked':''} onclick="event.stopPropagation();" onchange="_subToggleRow('${d.key}')">
+      <div style="flex:1;min-width:0;">
+        ${pathLine}
+        <div style="font-size:12px;color:#1B2A47;">${_esc(act?act.name:'?')}
+          <span style="font-size:10px;background:#eef2f7;color:var(--muted);padding:1px 5px;border-radius:3px;margin-left:4px;">${d._isNew?'New':'Modified'}</span>
+        </div>
+        ${locLine}
+      </div>
+      <div style="font-size:12px;text-align:right;white-space:nowrap;">${diffHtml}</div>
+    </div>`;
+  };
+
+  if(_subView==='flat'){
+    body.innerHTML=drafts.map(d=>rowHtml(d,true)).join('')
+      +`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:10px 12px;margin-top:14px;font-size:12px;color:#9a3412;">Once submitted, selected cells lock as <b>Pending</b> — withdraw to edit again before the Project Manager decides.</div>`;
+    return;
+  }
+
+  // grouped: WBS path → location
+  const wbsOrder=[], wbsMap={};
+  drafts.forEach(d=>{
+    const wk=_wbsPathJS(d.wbs_node_id);
+    if(!wbsMap[wk]){wbsMap[wk]={label:wk,drafts:[]};wbsOrder.push(wk);}
+    wbsMap[wk].drafts.push(d);
+  });
+
+  const groupsHtml=wbsOrder.map(wk=>{
+    const g=wbsMap[wk];
+    const gTotal=g.drafts.reduce((s,d)=>s+d.est_qty*d.est_rate,0);
+    const gSel=g.drafts.every(d=>_subSelected.has(d.key));
+    const gInd=!gSel&&g.drafts.some(d=>_subSelected.has(d.key));
+
+    // sub-group by location path
+    const locOrder=[], locMap={};
+    g.drafts.forEach(d=>{
+      const lk=_locPathJS(d.loc_node_id);
+      if(!locMap[lk]){locMap[lk]={label:lk,drafts:[]};locOrder.push(lk);}
+      locMap[lk].drafts.push(d);
+    });
+
+    const locsHtml=locOrder.map((lk,li)=>{
+      const lg=locMap[lk];
+      const lTotal=lg.drafts.reduce((s,d)=>s+d.est_qty*d.est_rate,0);
+      const lSel=lg.drafts.every(d=>_subSelected.has(d.key));
+      const lInd=!lSel&&lg.drafts.some(d=>_subSelected.has(d.key));
+      const isLast=li===locOrder.length-1;
+      return`<div style="border-top:1px solid #e7ecf5;">
+        <div style="background:#f8fafc;padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="_subToggleLocGroup('${encodeURIComponent(wk)}','${encodeURIComponent(lk)}')">
+          <input type="checkbox" style="width:auto;" ${lSel?'checked':''} ${lInd?'data-ind="1"':''} onclick="event.stopPropagation();" onchange="_subToggleLocGroup('${encodeURIComponent(wk)}','${encodeURIComponent(lk)}')">
+          <span style="flex:1;font-size:11px;color:var(--muted);font-weight:600;">📍 ${_esc(lk)}</span>
+          <span style="font-size:11px;color:var(--muted);">${lg.drafts.length} row(s)</span>
+          <span style="font-size:11.5px;font-weight:700;color:#1B2A47;">₹${_inr(lTotal)}</span>
+        </div>
+        ${lg.drafts.map(d=>rowHtml(d,false)).join('')}
+      </div>`;
+    }).join('');
+
+    return`<div style="margin-bottom:12px;border-radius:6px;overflow:hidden;border:1px solid #c8d3e8;">
+      <div style="background:#e7ecf5;padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="_subToggleCollapse('${encodeURIComponent(wk)}')">
+        <input type="checkbox" style="width:auto;" ${gSel?'checked':''} ${gInd?'data-ind="1"':''} onclick="event.stopPropagation();" onchange="_subToggleWbsGroup('${encodeURIComponent(wk)}')">
+        <span style="font-size:10px;color:#64748b;user-select:none;width:12px;text-align:center;">${_subCollapsed.has(encodeURIComponent(wk))?'▸':'▾'}</span>
+        <span style="flex:1;font-size:12px;font-weight:700;color:#1B2A47;">📂 ${_esc(wk)}</span>
+        <span style="font-size:11px;color:var(--muted);">${g.drafts.length} draft(s)</span>
+        <span style="font-size:12px;font-weight:700;color:#0d9488;">₹${_inr(gTotal)}</span>
+      </div>
+      ${_subCollapsed.has(encodeURIComponent(wk))?'':locsHtml}
+    </div>`;
+  }).join('');
+
+  body.innerHTML=groupsHtml
+    +`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:10px 12px;margin-top:4px;font-size:12px;color:#9a3412;">Once submitted, selected cells lock as <b>Pending</b> — withdraw to edit again before the Project Manager decides.</div>`;
+
+  // fix indeterminate state after render (can't set via html attribute)
+  document.querySelectorAll('#sub_body input[data-ind="1"]').forEach(cb=>{cb.indeterminate=true;});
+}
+
+function subToggleAll(checked){
+  const drafts=[..._localDrafts.keys()];
+  _subSelected=checked?new Set(drafts):new Set();
+  _renderSubmitBody();
+}
+function _subToggleRow(key){
+  if(_subSelected.has(key))_subSelected.delete(key);else _subSelected.add(key);
+  _renderSubmitBody();
+}
+function _subToggleWbsGroup(encodedWk){
+  const wk=decodeURIComponent(encodedWk);
+  const keys=[..._localDrafts.entries()].filter(([,d])=>_wbsPathJS(d.wbs_node_id)===wk).map(([k])=>k);
+  const allSel=keys.every(k=>_subSelected.has(k));
+  keys.forEach(k=>allSel?_subSelected.delete(k):_subSelected.add(k));
+  _renderSubmitBody();
+}
+function _subToggleLocGroup(encodedWk,encodedLk){
+  const wk=decodeURIComponent(encodedWk), lk=decodeURIComponent(encodedLk);
+  const keys=[..._localDrafts.entries()].filter(([,d])=>_wbsPathJS(d.wbs_node_id)===wk&&_locPathJS(d.loc_node_id)===lk).map(([k])=>k);
+  const allSel=keys.every(k=>_subSelected.has(k));
+  keys.forEach(k=>allSel?_subSelected.delete(k):_subSelected.add(k));
+  _renderSubmitBody();
+}
+
+async function estDiscardSelected(){
+  if(!_subSelected.size){toast('Select at least one draft to discard','warn');return;}
+  if(!confirm(`Discard ${_subSelected.size} selected draft(s)? This removes them from the database permanently.`))return;
+  const pairs=[..._subSelected].map(k=>{const[w,l]=k.split('|');return{wbs_node_id:Number(w),loc_node_id:l};});
+  estCloseSubmit();
+  pbShow('Discarding…');
+  try{
+    const{data,error}=await sb.rpc('rpc_discard_scope_drafts',{p_user:state.userName,p_pairs:pairs});
+    if(error)throw error;
+    pairs.forEach(p=>_localDrafts.delete(String(p.wbs_node_id)+'|'+p.loc_node_id));
+    toast(`${data.discarded||0} draft(s) discarded`,'success');
+    _subSelected=new Set();
+    _estUpdateSubmitUI();
+    renderEstimation();
+  }catch(e){toast('Discard failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+async function estConfirmSubmit(){
+  if(!_subSelected.size){toast('Select at least one draft to submit','warn');return;}
+  estCloseSubmit();
+  pbShow('Submitting…');
+  try{
+    // New RPC signature accepts p_pairs to submit only selected drafts.
+    // Pass p_rows=[] — server ignores it; p_pairs controls which drafts to flip.
+    const pairs=[..._subSelected].map(k=>{const[w,l]=k.split('|');return{wbs_node_id:Number(w),loc_node_id:l};});
+    const{data,error}=await sb.rpc('rpc_submit_scope_changes',{p_rows:[],p_user:state.userName,p_pairs:pairs});
+    if(error)throw error;
+    const rej=(data&&data.rejected)||[];
+    if(rej.length)toast(`${rej.length} row(s) not submitted: ${rej[0].reason}`,'warn',5000);
+    const n=data&&data.submitted||0;
+    if(n){
+      toast(`${n} estimate(s) submitted — the Project Manager can now review and approve them`,'success');
+      // Remove submitted pairs from local cache
+      pairs.forEach(p=>_localDrafts.delete(String(p.wbs_node_id)+'|'+p.loc_node_id));
+      _subSelected=new Set();
+    }
+    await _estLoadSubmissionMeta();
+    _estUpdateSubmitUI();
+    renderEstimation();
+  }catch(e){toast('Submit failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+
+
+// ════════════════════════════════════════════════════════════════════
+// PM APPROVAL QUEUE
+// ════════════════════════════════════════════════════════════════════
+let _queueData=[];
+let _queueSelected=new Set();
+let _pendingRejectIds=[];
+
+async function estOpenQueue(){
+  if(!canApprove()){toast('Project Manager or Admin only','error');return;}
+  _queueCollapsed=new Set();
+  pbShow('Loading queue…');
+  try{
+    const{data,error}=await sb.from('wbs_scope_submissions')
+      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_qty,new_rate,new_amount,submitted_by,submitted_at,status')
+      .eq('status','pending')
+      .order('submitted_at',{ascending:false});
+    if(error)throw error;
+    _queueData=data||[];
+    _queueSelected=new Set();
+    _renderQueue();
+    document.getElementById('estQueueOverlay').style.display='flex';
+  }catch(e){toast('Queue load failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+function estCloseQueue(){document.getElementById('estQueueOverlay').style.display='none';}
+
+function _renderQueue(){
+  document.getElementById('queue_subtitle').textContent=`${_queueData.length} pending submission(s) awaiting decision`;
+  const rowHtml=(r, _ctx='')=>{
+    const act=_wbsNodes.find(n=>n.id===r.wbs_node_id);
+    const diff=r.change_type==='new'
+      ?`<span style="color:#0d9488;font-weight:600;">₹${_inr(r.new_amount||r.new_qty*r.new_rate)}</span>`
+      :`<span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(r.old_amount||0)}</span> → <span style="color:#0d9488;font-weight:600;">₹${_inr(r.new_amount||r.new_qty*r.new_rate)}</span>`;
+    const sel=_queueSelected.has(r.id);
+    // In grouped mode, suppress full path since group headers show it
+    const pathHtml=(_queueGrouped&&_ctx==='grouped')
+      ?`<div style="font-size:11px;color:var(--muted);">${_esc(act?act.name:'?')} · ${r.change_type==='new'?'New estimate':'Modification'}</div>
+       <div style="font-size:10.5px;color:var(--muted);">Submitted by ${_esc(r.submitted_by)}, ${new Date(r.submitted_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>`
+      :`<div style="font-size:11px;color:var(--muted);"><b>WBS:</b> ${_esc(act?_wbsPathJS(r.wbs_node_id):'?')}</div>
+       <div style="font-size:11px;color:var(--muted);"><b>Location:</b> ${_esc(_locPathJS(r.loc_node_id))}</div>
+       <div style="font-size:10.5px;color:var(--muted);">By ${_esc(r.submitted_by)}, ${new Date(r.submitted_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>`;
+    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f1f5f9;background:${sel?'#eff6ff':'#fff'};">
+      <input type="checkbox" style="width:auto;" ${sel?'checked':''} onchange="_queueToggle('${r.id}',this.checked)">
+      <div style="flex:1;min-width:0;">${pathHtml}</div>
+      <div style="font-size:12px;white-space:nowrap;margin:0 4px;">${diff}</div>
+      <button onclick="_queueRowAction('${r.id}','approve')" style="padding:3px 8px;border-radius:4px;border:1px solid #16a34a;background:transparent;color:#16a34a;font-size:11px;cursor:pointer;font-weight:600;">✓</button>
+      <button onclick="_queueRowAction('${r.id}','reject')" style="padding:3px 8px;border-radius:4px;border:1px solid #dc2626;background:transparent;color:#dc2626;font-size:11px;cursor:pointer;font-weight:600;">✕</button>
+    </div>`;
+  };
+  const toolbar=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" style="width:auto;" onchange="_queueSelectAll(this.checked)"> Select all</label>
+    <span style="font-size:12px;color:var(--muted);" id="q_sel_count">0 selected</span>
+    <div style="margin-left:auto;display:flex;gap:6px;">
+      <button onclick="_queueGrouped=true;_renderQueue()" style="padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:${_queueGrouped?'#1B2A47':'transparent'};color:${_queueGrouped?'#fff':'var(--muted)'};font-size:11px;cursor:pointer;">⊞ Grouped</button>
+      <button onclick="_queueGrouped=false;_renderQueue()" style="padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:${!_queueGrouped?'#1B2A47':'transparent'};color:${!_queueGrouped?'#fff':'var(--muted)'};font-size:11px;cursor:pointer;">≡ Flat list</button>
+      <button onclick="_queueBulkAction('reject')" style="padding:4px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:#dc2626;color:#fff;">✕ Reject</button>
+      <button onclick="_queueBulkAction('approve')" style="padding:4px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:#0d9488;color:#fff;">✓ Approve</button>
+    </div>
+  </div>`;
+  let html='';
+  if(_queueGrouped){
+    html=_groupedSubmissionHtml(_queueData, rowHtml, toolbar, _queueCollapsed, '_queueToggleCollapse');
+  } else {
+    html=toolbar;
+    if(!_queueData.length){html+='<div style="padding:32px;text-align:center;color:var(--muted);">No pending submissions.</div>';}
+    else {
+      const mods=_queueData.filter(r=>r.change_type==='modify');
+      const news=_queueData.filter(r=>r.change_type==='new');
+      if(mods.length) html+=`<div style="font-size:12px;font-weight:700;color:#1B2A47;margin-bottom:6px;">📝 Modifications <span style="background:#e7ecf5;font-size:10px;padding:1px 6px;border-radius:8px;">${mods.length}</span></div>${mods.map(r=>rowHtml(r,'flat')).join('')}`;
+      if(news.length) html+=`<div style="font-size:12px;font-weight:700;color:#1B2A47;margin:${mods.length?'12px':0} 0 6px;">🆕 New Estimates <span style="background:#e7ecf5;font-size:10px;padding:1px 6px;border-radius:8px;">${news.length}</span></div>${news.map(r=>rowHtml(r,'flat')).join('')}`;
+    }
+  }
+  document.getElementById('queue_body').innerHTML=html;
+  _queueUpdateSelCount();
+}
+function _queueToggle(id,checked){if(checked)_queueSelected.add(id);else _queueSelected.delete(id);_renderQueue();}
+function _queueToggleCollapse(ek){if(_queueCollapsed.has(ek))_queueCollapsed.delete(ek);else _queueCollapsed.add(ek);_renderQueue();}
+function _queueExpandAll(){_queueCollapsed.clear();_renderQueue();}
+function _queueCollapseAll(){
+  const wbsKeys=new Set(_queueData.map(r=>{const a=_wbsNodes.find(n=>n.id===r.wbs_node_id);return encodeURIComponent(a?_wbsPathJS(r.wbs_node_id):'Unknown WBS');}));
+  wbsKeys.forEach(k=>_queueCollapsed.add(k));_renderQueue();
+}
+function _mySubToggleCollapse(ek){if(_mySubCollapsed.has(ek))_mySubCollapsed.delete(ek);else _mySubCollapsed.add(ek);_renderMySubmissions();}
+function _mySubExpandAll(){_mySubCollapsed.clear();_renderMySubmissions();}
+function _mySubCollapseAll(){
+  const wbsKeys=new Set(_mySubData.map(r=>{const a=_wbsNodes.find(n=>n.id===r.wbs_node_id);return encodeURIComponent(a?_wbsPathJS(r.wbs_node_id):'Unknown WBS');}));
+  wbsKeys.forEach(k=>_mySubCollapsed.add(k));_renderMySubmissions();
+}
+function _queueSelectAll(checked){_queueSelected=checked?new Set(_queueData.map(r=>r.id)):new Set();_renderQueue();}
+function _queueUpdateSelCount(){const el=document.getElementById('q_sel_count');if(el)el.textContent=_queueSelected.size+' selected';}
+function _queueRowAction(id,action){
+  if(action==='approve'){_queueBulkApprove([id]);}
+  else{_pendingRejectIds=[id];document.getElementById('rej_subtitle').textContent='1 estimate selected';document.getElementById('rej_reason').value='';document.getElementById('estRejectOverlay').style.display='flex';}
+}
+function _queueBulkAction(action){
+  if(!_queueSelected.size){toast('Select at least one row first','warn');return;}
+  if(action==='approve'){_queueBulkApprove([..._queueSelected]);}
+  else{_pendingRejectIds=[..._queueSelected];document.getElementById('rej_subtitle').textContent=_pendingRejectIds.length+' estimates selected';document.getElementById('rej_reason').value='';document.getElementById('estRejectOverlay').style.display='flex';}
+}
+async function _queueBulkApprove(ids){
+  pbShow('Pre-validating and approving…');
+  try{
+    const{data,error}=await sb.rpc('rpc_approve_scope_submissions',{p_ids:ids,p_user:state.userName});
+    if(error)throw error;
+    if(!data.committed){
+      const blocked=data.blocked||[];
+      const reasons=blocked.map(b=>b.reason).join('; ');
+      toast(`Approval blocked — pre-validation failed: ${reasons}`,'error',8000);
+      return;
+    }
+    toast(`${data.approved} estimate(s) approved`,'success');
+    await apiLoadScope();await _estLoadSubmissionMeta();estCloseQueue();renderEstimation();
+  }catch(e){toast('Approve failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+function estCloseReject(){document.getElementById('estRejectOverlay').style.display='none';}
+async function estConfirmReject(){
+  const reason=(document.getElementById('rej_reason').value||'').trim();
+  if(!reason){toast('Rejection reason is required','error');return;}
+  pbShow('Rejecting…');
+  try{
+    const{data,error}=await sb.rpc('rpc_reject_scope_submissions',{p_ids:_pendingRejectIds,p_user:state.userName,p_reason:reason});
+    if(error)throw error;
+    toast(`${data.rejected} estimate(s) rejected`,'success');
+    estCloseReject();
+    await _estLoadSubmissionMeta();
+    _queueData=_queueData.filter(r=>!_pendingRejectIds.includes(r.id));
+    _queueSelected=new Set();
+    _renderQueue();
+    renderEstimation();
+  }catch(e){toast('Reject failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+
+// ════════════════════════════════════════════════════════════════════
+// MY SUBMISSIONS + FULL HISTORY (QS view)
+// ════════════════════════════════════════════════════════════════════
+let _mySubData=[];
+let _mySubSelected=new Set();
+
+async function estOpenMySubmissions(){
+  _mySubCollapsed=new Set();
+  pbShow('Loading…');
+  try{
+    const{data,error}=await sb.from('wbs_scope_submissions')
+      .select('id,wbs_node_id,loc_node_id,change_type,old_amount,new_amount,new_qty,new_rate,status,submitted_at,decision_reason')
+      .eq('submitted_by',state.userName)
+      .eq('status','pending')
+      .order('submitted_at',{ascending:false});
+    if(error)throw error;
+    _mySubData=data||[];_mySubSelected=new Set();
+    document.getElementById('mysub_title').textContent='My Pending Submissions';
+    _renderMySubmissions();
+    document.getElementById('estMySubOverlay').style.display='flex';
+  }catch(e){toast('Load failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+async function estOpenHistory(){
+  pbShow('Loading…');
+  try{
+    const{data,error}=await sb.from('wbs_scope_submissions')
+      .select('id,wbs_node_id,loc_node_id,change_type,old_amount,new_amount,new_qty,new_rate,status,submitted_at,decided_at,decided_by,decision_reason,submitted_by')
+      .order('submitted_at',{ascending:false}).limit(200);
+    if(error)throw error;
+    _mySubData=data||[];_mySubSelected=new Set();
+    document.getElementById('mysub_title').textContent='Full Submission History';
+    _renderMySubmissions(true);
+    document.getElementById('estMySubOverlay').style.display='flex';
+  }catch(e){toast('Load failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+// ── grouping state: true = group by WBS then location, false = flat list ──
+let _mySubGrouped=true;
+let _queueGrouped=true;
+let _queueCollapsed=new Set();
+let _mySubCollapsed=new Set();
+
+// ── shared grouping helper: takes rows array, returns html string ──
+function _groupedSubmissionHtml(rows, rowHtmlFn, toolbar='', collapsedSet=null, toggleFn=''){
+  // Group by WBS path → then by loc path within each WBS group
+  const wbsOrder=[], wbsMap={};
+  rows.forEach(r=>{
+    const act=_wbsNodes.find(n=>n.id===r.wbs_node_id);
+    const wbsKey=act?_wbsPathJS(r.wbs_node_id):'Unknown WBS';
+    if(!wbsMap[wbsKey]){wbsMap[wbsKey]={key:wbsKey,rows:[]};wbsOrder.push(wbsKey);}
+    wbsMap[wbsKey].rows.push(r);
+  });
+  let html=toolbar;
+  if(!rows.length){return html+'<div style="padding:32px;text-align:center;color:var(--muted);">No records.</div>';}
+  wbsOrder.forEach(wbsKey=>{
+    const group=wbsMap[wbsKey];
+    const total=group.rows.reduce((s,r)=>s+Number(r.new_amount||r.new_qty*r.new_rate||0),0);
+    const ek=encodeURIComponent(wbsKey);
+    const isCollapsed=collapsedSet&&collapsedSet.has(ek);
+    const chevron=`<span style="font-size:10px;color:#64748b;user-select:none;width:12px;text-align:center;">${isCollapsed?'▸':'▾'}</span>`;
+    const clickAttr=toggleFn?`onclick="${toggleFn}('${ek}')" style="cursor:pointer;"`:'';
+    html+=`<div style="margin-bottom:14px;border-radius:6px;overflow:hidden;border:1px solid #c8d3e8;">
+      <div ${clickAttr} style="background:#e7ecf5;padding:8px 12px;display:flex;align-items:center;gap:8px;${toggleFn?'cursor:pointer;':''}">
+        ${chevron}
+        <span style="font-size:12px;font-weight:700;color:#1B2A47;flex:1;">📂 ${_esc(wbsKey)}</span>
+        <span style="font-size:11px;color:var(--muted);">${group.rows.length} estimate(s)</span>
+        <span style="font-size:12px;font-weight:700;color:#0d9488;">₹${_inr(total)}</span>
+      </div>`;
+    if(!isCollapsed){
+      // Sub-group by location path
+      const locOrder=[], locMap={};
+      group.rows.forEach(r=>{
+        const loc=_locNodes.find(n=>n.id===r.loc_node_id);
+        const locKey=loc?_locPathJS(r.loc_node_id):'Unknown Location';
+        if(!locMap[locKey]){locMap[locKey]={key:locKey,rows:[]};locOrder.push(locKey);}
+        locMap[locKey].rows.push(r);
+      });
+      locOrder.forEach((locKey,li)=>{
+        const lgroup=locMap[locKey];
+        const isLast=li===locOrder.length-1;
+        html+=`<div style="border-left:1px solid #c8d3e8;border-right:1px solid #c8d3e8;${isLast?'border-bottom:1px solid #c8d3e8;border-radius:0 0 6px 6px;':'border-bottom:1px solid #e7ecf5;'}">
+          <div style="padding:5px 12px;background:#f8fafc;font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px;">
+            <span>📍 ${_esc(locKey)}</span>
+            <span style="margin-left:auto;color:#1B2A47;">${lgroup.rows.length} row(s)</span>
+          </div>
+          ${lgroup.rows.map(r=>rowHtmlFn(r,'grouped')).join('')}
+        </div>`;
+      });
+    }
+    html+='</div>';
+  });
+  return html;
+}
+
+function _renderMySubmissions(isHistory=false){
+  const rows=_mySubData;
+  const wbBtn=document.getElementById('mysub_withdraw_all_btn');
+  if(wbBtn)wbBtn.style.display=(!isHistory&&rows.filter(r=>r.status==='pending').length)?'':'none';
+  const statusColors={'pending':['#dbeafe','#1e40af','🕓 Pending'],'approved':['#dcfce7','#15803d','✅ Approved'],'rejected':['#fee2e2','#b91c1c','❌ Rejected'],'withdrawn':['#f1f5f9','#64748b','↩ Withdrawn']};
+  const rowHtml=(r, _ctx='')=>{
+    const diff=r.change_type==='new'?`<span style="color:#0d9488;font-weight:600;">₹${_inr(r.new_amount||r.new_qty*r.new_rate)}</span>`
+      :`<span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(r.old_amount||0)}</span> → <span style="color:#0d9488;font-weight:600;">₹${_inr(r.new_amount||r.new_qty*r.new_rate)}</span>`;
+    const [sbg,stx,stxt]=statusColors[r.status]||statusColors['pending'];
+    const sel=_mySubSelected.has(r.id)&&!isHistory;
+    const act=_wbsNodes.find(n=>n.id===r.wbs_node_id);
+    // In grouped mode, suppress WBS/loc path since it's shown in group headers
+    const pathHtml=(_mySubGrouped&&_ctx==='grouped')
+      ?`<div style="font-size:11px;color:var(--muted);">${_esc(act?act.name:'?')}</div>`
+      :`<div style="font-size:11px;color:var(--muted);"><b>WBS:</b> ${_esc(act?_wbsPathJS(r.wbs_node_id):'?')}</div>
+       <div style="font-size:11px;color:var(--muted);"><b>Location:</b> ${_esc(_locPathJS(r.loc_node_id))}</div>`;
+    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f1f5f9;background:${sel?'#eff6ff':'#fff'};">
+      ${!isHistory&&r.status==='pending'?`<input type="checkbox" style="width:auto;" ${sel?'checked':''} onchange="_mySubToggle('${r.id}',this.checked)">`:'<div style="width:18px;"></div>'}
+      <div style="flex:1;min-width:0;">
+        ${pathHtml}
+        ${r.status==='rejected'&&r.decision_reason?`<div style="font-size:11px;color:#b91c1c;margin-top:2px;">Rejected: ${_esc(r.decision_reason)}</div>`:''}
+      </div>
+      <div style="font-size:11.5px;white-space:nowrap;margin:0 4px;">${diff}</div>
+      <span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;background:${sbg};color:${stx};white-space:nowrap;">${stxt}</span>
+      ${!isHistory&&r.status==='pending'?`<button onclick="estWithdrawOne('${r.wbs_node_id}|${r.loc_node_id}')" style="padding:3px 8px;border-radius:4px;border:1px solid #dc2626;background:transparent;color:#dc2626;font-size:11px;cursor:pointer;">↩</button>`:''}
+    </div>`;
+  };
+  const toolbar=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap;">
+    ${!isHistory?`<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" style="width:auto;" onchange="_mySubSelectAll(this.checked)"> Select all</label>
+    <span style="font-size:12px;color:var(--muted);" id="mysub_sel_count">0 selected</span>`:''}
+    <div style="margin-left:auto;display:flex;gap:6px;">
+      <button onclick="_mySubExpandAll()" style="padding:4px 8px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;background:transparent;color:var(--muted);" title="Expand all groups">⊞</button>
+      <button onclick="_mySubCollapseAll()" style="padding:4px 8px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;background:transparent;color:var(--muted);" title="Collapse all groups">⊟</button>
+      <button onclick="_mySubGrouped=true;_mySubCollapsed.clear();_renderMySubmissions(${isHistory})" style="padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:${_mySubGrouped?'#1B2A47':'transparent'};color:${_mySubGrouped?'#fff':'var(--muted)'};font-size:11px;cursor:pointer;">⊞ Grouped</button>
+      <button onclick="_mySubGrouped=false;_renderMySubmissions(${isHistory})" style="padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:${!_mySubGrouped?'#1B2A47':'transparent'};color:${!_mySubGrouped?'#fff':'var(--muted)'};font-size:11px;cursor:pointer;">≡ Flat list</button>
+    </div>
+  </div>`;
+  let html='';
+  if(_mySubGrouped){
+    html=_groupedSubmissionHtml(rows, rowHtml, toolbar, _mySubCollapsed, '_mySubToggleCollapse');
+  } else {
+    html=toolbar;
+    if(!rows.length){html+='<div style="padding:32px;text-align:center;color:var(--muted);">No records.</div>';}
+    else html+=rows.map(r=>rowHtml(r,'flat')).join('');
+  }
+  document.getElementById('mysub_body').innerHTML=html;
+}
+function _mySubToggle(id,checked){if(checked)_mySubSelected.add(id);else _mySubSelected.delete(id);_renderMySubmissions();}
+function _mySubSelectAll(checked){_mySubSelected=checked?new Set(_mySubData.filter(r=>r.status==='pending').map(r=>r.id)):new Set();_renderMySubmissions();}
+function estCloseMySubmissions(){document.getElementById('estMySubOverlay').style.display='none';}
+
+async function estWithdrawOne(pairKey){
+  const row=_mySubData.find(r=>String(r.wbs_node_id)+'|'+String(r.loc_node_id)===pairKey&&r.status==='pending');
+  if(!row){toast('No pending submission found for this cell','warn');return;}
+  if(!confirm('Withdraw this submission? The cell reopens as a draft with your submitted values — you can re-edit and resubmit.'))return;
+  await _doWithdraw([row.id]);
+}
+async function estBulkWithdraw(){
+  if(!_mySubSelected.size){toast('Select at least one row','warn');return;}
+  if(!confirm(`Withdraw ${_mySubSelected.size} submission(s)? Each reopens as a draft with submitted values.`))return;
+  await _doWithdraw([..._mySubSelected]);
+}
+async function _doWithdraw(ids){
+  pbShow('Withdrawing…');
+  try{
+    const{data,error}=await sb.rpc('rpc_withdraw_scope_submissions',{p_ids:ids,p_user:state.userName});
+    if(error)throw error;
+    const skipped=(data.skipped||[]).length;
+    if(skipped)toast(`${skipped} row(s) already decided — could not withdraw (the Project Manager may have just acted on them)`,'warn',5000);
+    if(data.withdrawn)toast(`${data.withdrawn} submission(s) withdrawn — cells reopened as drafts`,'success');
+    await _estLoadSubmissionMeta();
+    estCloseMySubmissions();
+    renderEstimation();
+  }catch(e){toast('Withdraw failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+
+// ─── lock / auto-relock (unchanged) ───
 function estToggleLock(){
   if(!canEdit()&&!canApprove()){toast('Admin, Planning/QS, or Project Manager only','error');return;}
   _estLocked=!_estLocked;_estUpdateLockUI();
