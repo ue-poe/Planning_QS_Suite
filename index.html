@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v17 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v24 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -507,6 +507,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
           <span>🗂️ <b id="ss_local_drafts">0</b> unsent local edit(s)</span>
           <span>🕓 <b id="ss_pending">0</b> pending PM approval</span>
           <span id="ss_rejected_seg" style="display:none;">❌ <b id="ss_rejected">0</b> rejected — <a href="#" onclick="estOpenMySubmissions();return false;" style="color:#dc2626;">review</a></span>
+          <span id="ss_unapproved_seg" style="display:none;">↩ <b id="ss_unapproved">0</b> unapproved by PM — <a href="#" onclick="estFilterUnapproved();return false;" style="color:#92400e;">view</a></span>
         </div>
         <div style="overflow-x:auto;overflow-y:auto;max-height:65vh;">
           <table id="est_table" style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
@@ -521,7 +522,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
           <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563eb;"></span> Pending PM approval</span>
           <span style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;"></span> Approved (immutable)</span>
           <span style="font-size:11px;color:var(--muted);">Grey cell — pair not allowed by rules</span>
-          <span style="font-size:11px;color:var(--muted);">⇉ bulk-fill · ✔ un-approve · ☑ select mode → bulk delete · pill = filled/eligible</span>
+          <span style="font-size:11px;color:var(--muted);">⇉ bulk-fill · ↩ un-approve pkg · ☑ select mode → bulk delete · pill = filled/eligible</span>
           <span id="est_relock_timer" style="font-size:11px;color:#D4AF37;margin-left:auto;display:none;"></span>
         </div>
       </div>
@@ -726,6 +727,9 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 const ALLOWED_ROLES = ['Admin','Planning/ QS','Project Manager'];
 const state = {user:null,role:null,roles:[],userName:null,userId:null};
+// v24: rate rounding helper — all rates stored to exactly 2dp to prevent
+// floating-point drift triggering floor/ceiling qty guard false positives.
+const _r2=v=>Math.round((Number(v)||0)*100)/100;
 
 // ============================================================
 // UTILITIES
@@ -2621,11 +2625,12 @@ function renderEstimation(){
             rowTotal+=Number(row.est_amount||0);
             const isPending=_estPendingSet.has(String(node.id)+'|'+String(c.id));
             const isLocalDraft=row._isLocalDraft;
-            const dot=row.scope_status==='approved'?'#16a34a':isPending?'#2563eb':isLocalDraft?'#f59e0b':'#d97706';
-            const bg=row.scope_status==='approved'?'#f0fdf4':isPending?'#eff6ff':isLocalDraft?'#fffdf0':'#fffdf5';
-            const title=isPending?'Pending PM approval':isLocalDraft?'Local draft — unsent':row.scope_status==='approved'?'Approved':'Draft';
+            const isUnapproved=!isPending&&!isLocalDraft&&row.scope_status==='draft'&&!!row.unapproved_by;
+            const dot=row.scope_status==='approved'?'#16a34a':isPending?'#2563eb':isLocalDraft?'#f59e0b':isUnapproved?'#b45309':'#d97706';
+            const bg=row.scope_status==='approved'?'#f0fdf4':isPending?'#eff6ff':isLocalDraft?'#fffdf0':isUnapproved?'#fef3c7':'#fffdf5';
+            const title=isPending?'Pending PM approval':isLocalDraft?'Local draft — unsent':row.scope_status==='approved'?'Approved':isUnapproved?'↩ Unapproved by Project Manager — open for edit':'Draft';
             return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;cursor:pointer;background:${bg};" title="${_esc(title+' · '+(row.scope_code||''))}">
-              <div style="font-size:10px;color:#64748b;">${_inr(row.est_qty)} ${_esc(row.uom||'')} <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span></div>
+              <div style="font-size:10px;color:#64748b;">${_inr(row.est_qty)} ${_esc(row.uom||'')} <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span>${isUnapproved?'<span style="font-size:9px;color:#b45309;margin-left:2px;">↩</span>':''}</div>
               <div style="font-weight:600;color:#1B2A47;">₹${_inr(row.est_amount)}</div></td>`;
           }
           return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#9aa7b8;cursor:pointer;" title="Click to view / estimate">+</td>`;
@@ -2666,7 +2671,7 @@ function renderEstimation(){
               ${isAct&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" title="${isMat?'Bulk-fill build-up sheet across units':'Bulk-fill across units'}" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
               ${isMat?`<button class="btn btn-ghost btn-xs" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
               ${(isAct&&!isMat)?`<button class="btn btn-ghost btn-xs" title="${isHire?'Hire equipment summary — qty and amount across units in view':'Activity summary — qty and amount across units in view'}" onclick="event.stopPropagation();estActivitySummary(${node.id})">📋</button>`:''}
-              ${isPkg&&!_estLocked&&!_estSelectMode&&canApprove()?`<button class="btn btn-ghost btn-xs" title="Un-approve package estimates" onclick="event.stopPropagation();estApprovePkg(${node.id})">✔</button>`:''}
+              ${isPkg&&!_estLocked&&!_estSelectMode&&canApprove()?`<button class="btn btn-ghost btn-xs" title="Un-approve all approved estimates in this package — reopens for QS to edit and resubmit" onclick="event.stopPropagation();estApprovePkg(${node.id})" style="color:#b45309;">↩</button>`:''}
             </span>
           </div>
         </div>
@@ -2839,19 +2844,25 @@ async function _estRefreshStatusStrip(){
     const pending=(data||[]).filter(r=>r.status==='pending').length;
     const rejected=(data||[]).filter(r=>r.status==='rejected').length;
     const localN=_localDrafts.size;
+    // v22: count unapproved cells (scope_status='draft' with unapproved_by set, for this user's submissions)
+    const unapproved=canEdit()?_scope.filter(r=>r.scope_status==='draft'&&r.unapproved_by&&!_localDrafts.has(String(r.wbs_node_id)+'|'+String(r.loc_node_id))).length:0;
     const el_ld=document.getElementById('ss_local_drafts');
     const el_p=document.getElementById('ss_pending');
     const el_rj=document.getElementById('ss_rejected');
     const el_rjseg=document.getElementById('ss_rejected_seg');
+    const el_un=document.getElementById('ss_unapproved');
+    const el_unseg=document.getElementById('ss_unapproved_seg');
     const mySubLink=document.getElementById('est_my_sub_link');
     if(el_ld)el_ld.textContent=localN;
     if(el_p)el_p.textContent=pending;
     if(el_rj)el_rj.textContent=rejected;
     if(el_rjseg)el_rjseg.style.display=rejected>0?'':'none';
+    if(el_un)el_un.textContent=unapproved;
+    if(el_unseg)el_unseg.style.display=unapproved>0&&canEdit()?'':'none';
     // My submissions button: visible for any canEdit() user always
     if(mySubLink)mySubLink.style.display=canEdit()?'':'none';
     // Show strip only when there's something worth showing
-    strip.style.display=(localN>0||pending>0||rejected>0)?'flex':'none';
+    strip.style.display=(localN>0||pending>0||rejected>0||unapproved>0)?'flex':'none';
   }catch(e){/* non-fatal */}
 
   // Queue count for PM
@@ -2921,9 +2932,14 @@ function estViewCell(wbsId,locId){
     `<b>WBS:</b> ${_esc(_wbsPathJS(wbsId))}<br><b>Location:</b> ${_esc(_locPathJS(locId))}`;
 
   const pill=document.getElementById('evm_statuspill');
+  // v22: resolve unapproved state before building popup
+  if(dispStatus==='draft'&&ex&&ex.unapproved_by&&!_estPendingSet.has(draftKey)&&!_estRejectedMap.has(draftKey)){
+    dispStatus='unapproved';
+  }
   const pillMap={
     '_local_draft':['#fef3c7','#92400e','🟠 Local draft — not yet submitted'],
     'draft':['#fef3c7','#92400e','🟠 Draft'],
+    'unapproved':['#fef3c7','#b45309','↩ Unapproved by PM — edit and resubmit'],
     'pending':['#dbeafe','#1e40af','🕓 Pending PM approval'],
     'approved':['#dcfce7','#15803d','✅ Approved — immutable'],
     'rejected':['#fee2e2','#b91c1c','❌ Rejected'],
@@ -2936,7 +2952,14 @@ function estViewCell(wbsId,locId){
   const rejWarn=document.getElementById('evm_rejected_reason');
   const rejReason=_estRejectedMap&&_estRejectedMap.get(draftKey);
   if(dispStatus==='rejected'&&rejReason){
-    rejWarn.style.display='';rejWarn.textContent='Rejected reason: '+rejReason;
+    rejWarn.style.display='';
+    rejWarn.style.background='#fee2e2';rejWarn.style.color='#b91c1c';rejWarn.style.borderColor='#fca5a5';
+    rejWarn.textContent='Rejected reason: '+rejReason;
+  } else if(dispStatus==='unapproved'&&ex&&ex.unapproved_by){
+    rejWarn.style.display='';
+    rejWarn.style.background='#fef3c7';rejWarn.style.color='#92400e';rejWarn.style.borderColor='#fcd34d';
+    const when=ex.unapproved_at?(' on '+new Date(ex.unapproved_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})):'';
+    rejWarn.textContent=`↩ Unapproved by Project Manager${when} — edit and resubmit for approval`;
   } else { rejWarn.style.display='none'; }
 
   document.getElementById('evm_amt').textContent=dispStatus==='empty'?'No estimate yet':'₹'+_inr(dispAmt);
@@ -2993,7 +3016,7 @@ function estViewCell(wbsId,locId){
   const footer=document.getElementById('evm_footer');
   let btns=`<button class="btn btn-ghost" onclick="estCloseView()">Close</button>`;
   if(canEdit()){
-    if(dispStatus==='empty'||dispStatus==='_local_draft'||dispStatus==='draft'||dispStatus==='rejected'){
+    if(dispStatus==='empty'||dispStatus==='_local_draft'||dispStatus==='draft'||dispStatus==='rejected'||dispStatus==='unapproved'){
       if(_estLocked){
         btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">Unlock grid to edit</span>`;
       } else {
@@ -3063,7 +3086,7 @@ async function _estLoadSubmissionMeta(){
   try{
     const {data:draftData, error:draftErr}=await sb.from('wbs_scope_submissions')
       .select('id,wbs_node_id,loc_node_id,status,new_qty,new_rate,new_notes,buildup_rows,change_type,old_qty,old_rate,old_amount')
-      .eq('status','draft')
+      .in('status',['draft','rejected'])
       .eq('submitted_by',state.userName)
       .limit(2000);
     if(draftErr)throw draftErr;
@@ -3074,17 +3097,27 @@ async function _estLoadSubmissionMeta(){
       .limit(5000);
     if(metaErr)throw metaErr;
 
-    // Rebuild all three caches from DB data
+    // Rebuild all three caches from DB data.
+    // v23: rejected rows win over stale draft rows for the same pair —
+    // process drafts first, then rejected rows overwrite. Guarantees
+    // _localDrafts carries the correct buildup_rows from the rejected
+    // submission rather than a stale draft created without buildup.
     _localDrafts=new Map();
-    (draftData||[]).forEach(r=>{
+    const _draftsFirst=(draftData||[]).filter(r=>r.status==='draft');
+    const _rejectedRows=(draftData||[]).filter(r=>r.status==='rejected')
+      .sort((a,b)=>new Date(b.submitted_at||0)-new Date(a.submitted_at||0));
+    [..._draftsFirst,..._rejectedRows].forEach(r=>{
       const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);
       const ex=_scopeMap()[k];
+      const isRejected=r.status==='rejected';
+      if(_localDrafts.has(k)&&!isRejected)return; // rejected always overwrites stale draft
       _localDrafts.set(k,{
         wbs_node_id:r.wbs_node_id, loc_node_id:r.loc_node_id,
         est_qty:Number(r.new_qty||0), est_rate:Number(r.new_rate||0),
         notes:r.new_notes||null,
         buildup_rows:r.buildup_rows||null,
         _isNew:r.change_type==='new',
+        _isRejected:isRejected,
         _oldQty:r.old_qty!=null?Number(r.old_qty):null,
         _oldRate:r.old_rate!=null?Number(r.old_rate):null,
         _oldAmt:r.old_amount!=null?Number(r.old_amount):null
@@ -3150,7 +3183,7 @@ function estEditCell(wbsId,locId){
     <div style="margin-top:12px;font-size:11px;color:#0d9488;background:#f0fdfa;border:1px solid #99f6e4;border-radius:5px;padding:8px 10px;">Change saved as local draft — click <b>Submit for Approval</b> in the toolbar to send to the Project Manager.</div>
   `,async()=>{
     const qty=Number(document.getElementById('m_eqty').value||0);
-    const rate=Number(document.getElementById('m_erate').value||0);
+    const rate=_r2(document.getElementById('m_erate').value||0);
     const notes=document.getElementById('m_enotes').value.trim()||null;
     if(qty<=0){toast('Quantity must be > 0','error');return;}
     closeModal();
@@ -3255,13 +3288,15 @@ async function estMaterialBuildup(wbsId,locId){
     closeModal();
     // Save to local draft — buildup_rows snapshot travels with the submission
     // so the approve RPC can write them to wbs_material_buildup atomically.
+    // v24: round total and per-line rates to 2dp before storage
+    const totalR=_r2(total);
     await _estSaveRows([{
       wbs_node_id:wbsId, loc_node_id:locId,
-      est_qty:1, est_rate:total, notes:'(material build-up)',
+      est_qty:1, est_rate:totalR, notes:'(material build-up)',
       buildup_rows:clean.map((r,i)=>({
         sno:i+1, material_code:r.material_code, material_name:r.material_name,
         uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct),
-        qty_total:_buQtyTotal(r), rate:r.rate, amount:_buQtyTotal(r)*r.rate
+        qty_total:_r2(_buQtyTotal(r)), rate:_r2(r.rate), amount:_r2(_buQtyTotal(r)*r.rate)
       }))
     }]);
     toast('Build-up saved as local draft — submit for PM approval to commit','success',3500);
@@ -3292,7 +3327,7 @@ function _buAddRow(){_buildupRows.push({material_code:null,material_name:'',uom:
 function _buDelRow(i){_buildupRows.splice(i,1);if(!_buildupRows.length)_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,wastage_pct:0,rate:0});_buRenderRows();}
 function _buSet(i,k,v){
   if(!_buildupRows[i])return;
-  _buildupRows[i][k]=k==='wastage_pct'?_buClampWastage(v):(Number(v)||0);
+  _buildupRows[i][k]=k==='wastage_pct'?_buClampWastage(v):k==='rate'?_r2(v):(Number(v)||0);
   const r=_buildupRows[i];
   const t=document.getElementById('bu_tqty_'+i);if(t)t.textContent=_inr(_buQtyTotal(r));
   const a=document.getElementById('bu_amt_'+i);if(a)a.textContent='₹'+_inr(_buQtyTotal(r)*(r.rate||0));
@@ -3346,7 +3381,7 @@ function _buPick(i,code){
   _buildupRows[i].material_code=m.material_code;
   _buildupRows[i].material_name=m.material_name;
   _buildupRows[i].uom=m.uom||'';
-  if(!_buildupRows[i].rate&&m.estimated_rate)_buildupRows[i].rate=Number(m.estimated_rate);
+  if(!_buildupRows[i].rate&&m.estimated_rate)_buildupRows[i].rate=_r2(m.estimated_rate);
   _buHideSuggest();
   _buRenderRows();
 }
@@ -3405,17 +3440,18 @@ async function estMaterialBulkFill(wbsId){
     const ids=[...document.querySelectorAll('.bf_unit:checked')].map(i=>i.value);
     if(!ids.length){toast('Select at least one unit','error');return;}
     const total=_buRowsTotal();
-    if(!confirm(`Apply build-up (₹${_inr(total)}/unit) to ${ids.length} unit(s)?`))return;
+    const totalR=_r2(total); // v24: round to 2dp
+    if(!confirm(`Apply build-up (₹${_inr(totalR)}/unit) to ${ids.length} unit(s)?`))return;
     closeModal();
     // Save each unit as a local draft with its buildup_rows snapshot
     const buSnapshot=clean.map((r,i)=>({
       sno:i+1, material_code:r.material_code, material_name:r.material_name,
       uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct),
-      qty_total:_buQtyTotal(r), rate:r.rate, amount:_buQtyTotal(r)*r.rate
+      qty_total:_r2(_buQtyTotal(r)), rate:_r2(r.rate), amount:_r2(_buQtyTotal(r)*r.rate)
     }));
     await _estSaveRows(ids.map(id=>({
       wbs_node_id:wbsId, loc_node_id:id,
-      est_qty:1, est_rate:total, notes:'(material build-up)',
+      est_qty:1, est_rate:totalR, notes:'(material build-up)',
       buildup_rows:buSnapshot
     })),`Filling ${ids.length} unit(s)…`);
     toast(`${ids.length} unit(s) saved as local drafts — submit for PM approval to commit`,'success',3500);
@@ -3564,7 +3600,7 @@ function estBulkFill(wbsId){
     <div style="margin-top:8px;font-size:11px;color:#b45309;">Existing draft values listed above will be overwritten. Approved cells are skipped.</div>
   `,async()=>{
     const qty=Number(document.getElementById('m_bqty').value||0);
-    const rate=Number(document.getElementById('m_brate').value||0);
+    const rate=_r2(document.getElementById('m_brate').value||0);
     const ids=[...document.querySelectorAll('.bf_unit:checked')].map(i=>i.value);
     if(qty<=0){toast('Quantity must be > 0','error');return;}
     if(!ids.length){toast('Select at least one unit','error');return;}
@@ -3574,7 +3610,8 @@ function estBulkFill(wbsId){
   });
 }
 
-function estApprovePkg(pkgId){
+// v22: simplified unapprove — no modal, direct confirm dialog
+async function estApprovePkg(pkgId){
   if(_estLocked){_estFlashLock();return;}
   if(!canApprove()){toast('Admin or Project Manager only','error');return;}
   _estResetRelock();
@@ -3583,26 +3620,17 @@ function estApprovePkg(pkgId){
   const colIds=new Set(_estCols().map(c=>c.id));
   const rows=_scope.filter(r=>actIds.has(r.wbs_node_id)&&colIds.has(r.loc_node_id));
   const approved=rows.filter(r=>r.scope_status==='approved');
-  if(!rows.length){toast('No estimates under this package in the current filter','warn');return;}
-  openModal(`✔ Package — ${pkg.name}`,`
-    <div style="font-size:12px;margin-bottom:12px;">In current filter: <strong>${rows.length}</strong> total · <strong>${approved.length}</strong> approved · ₹${_inr(rows.reduce((s,r)=>s+Number(r.est_amount||0),0))}</div>
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#1e40af;">
-      💡 To <b>approve</b> estimates, use the <b>Approval Queue</b> in the toolbar — estimates submitted by Planning/QS appear there for review and approval.
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;"><input type="radio" name="m_act" value="unapprove" checked style="width:auto;margin:0;"> Un-approve ${approved.length} approved estimate(s) — re-opens them for QS to edit and resubmit</label>
-  `,async()=>{
-    const target=approved;
-    if(!target.length){toast('No approved estimates to un-approve','warn');return;}
-    closeModal();
-    pbShow('Updating status…');
-    try{
-      const{data,error}=await sb.rpc('rpc_set_scope_status',{p_ids:target.map(r=>r.id),p_status:'draft',p_user:state.userName});
-      if(error)throw error;
-      toast(`${(data&&data.updated)||0} estimate(s) → draft`,'success');
-      await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
-    }catch(e){toast('Error: '+e.message,'error');}
-    finally{pbDone();}
-  });
+  if(!approved.length){toast('No approved estimates in this package (current filter)','warn');return;}
+  const total='₹'+_inr(approved.reduce((s,r)=>s+Number(r.est_amount||0),0));
+  if(!confirm(`Un-approve ${approved.length} estimate(s) in "${pkg.name}"?\n\nTotal: ${total}\n\nThis reopens them for Planning/QS to edit and resubmit. Downstream budget gates will stop reading these values until re-approved.`))return;
+  pbShow('Un-approving…');
+  try{
+    const{data,error}=await sb.rpc('rpc_set_scope_status',{p_ids:approved.map(r=>r.id),p_status:'draft',p_user:state.userName});
+    if(error)throw error;
+    toast(`${(data&&data.updated)||0} estimate(s) opened for revision — Planning/QS can now edit and resubmit`,'success',5000);
+    await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
+  }catch(e){toast('Un-approve failed: '+e.message,'error');}
+  finally{pbDone();}
 }
 
 // ── submit modal state ──
@@ -3647,7 +3675,7 @@ function _renderSubmitBody(){
 
   // update subtitle and button
   const sub=document.getElementById('sub_subtitle');
-  if(sub)sub.textContent=n?`${n} draft(s) — select which to send to the Project Manager`:'No unsent drafts';
+  if(sub)sub.textContent=n?`${n} item(s) ready — select which to send to the Project Manager`:'No unsent drafts';
   const btn=document.getElementById('sub_confirm_btn');
   if(btn){btn.textContent=`Submit ${sel} estimate(s)`;btn.disabled=sel===0;}
   const si=document.getElementById('sub_sel_info');
@@ -3673,12 +3701,16 @@ function _renderSubmitBody(){
       :`<div><span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(d._oldAmt||0)}</span> → <span style="color:#0d9488;font-weight:700;">₹${_inr(newAmt)}</span></div>`;
     const pathLine=showPath?`<div style="font-size:10.5px;color:var(--muted);">${_esc(_wbsPathJS(d.wbs_node_id))}</div>`:'';
     const locLine=`<div style="font-size:10.5px;color:var(--muted);">📍 ${_esc(_locPathJS(d.loc_node_id))}</div>`;
-    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f1f5f9;background:${sel?'#eff6ff':'#fff'};cursor:pointer;" onclick="_subToggleRow('${d.key}')">
+    // v23: rejected badge — this row was rejected and is being resubmitted as-is
+    const rejBadge=d._isRejected
+      ?`<span style="font-size:10px;background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:3px;margin-left:4px;">❌ Rejected — resubmitting</span>`:'';
+    const typeBadge=`<span style="font-size:10px;background:#eef2f7;color:var(--muted);padding:1px 5px;border-radius:3px;margin-left:4px;">${d._isNew?'New':'Modified'}</span>`;
+    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f1f5f9;background:${d._isRejected?'#fff5f5':sel?'#eff6ff':'#fff'};cursor:pointer;" onclick="_subToggleRow('${d.key}')">
       <input type="checkbox" style="width:auto;cursor:pointer;" ${sel?'checked':''} onclick="event.stopPropagation();" onchange="_subToggleRow('${d.key}')">
       <div style="flex:1;min-width:0;">
         ${pathLine}
         <div style="font-size:12px;color:#1B2A47;">${_esc(act?act.name:'?')}
-          <span style="font-size:10px;background:#eef2f7;color:var(--muted);padding:1px 5px;border-radius:3px;margin-left:4px;">${d._isNew?'New':'Modified'}</span>
+          ${typeBadge}${rejBadge}
         </div>
         ${locLine}
       </div>
@@ -3736,7 +3768,7 @@ function _renderSubmitBody(){
         <input type="checkbox" style="width:auto;" ${gSel?'checked':''} ${gInd?'data-ind="1"':''} onclick="event.stopPropagation();" onchange="_subToggleWbsGroup('${encodeURIComponent(wk)}')">
         <span style="font-size:10px;color:#64748b;user-select:none;width:12px;text-align:center;">${_subCollapsed.has(encodeURIComponent(wk))?'▸':'▾'}</span>
         <span style="flex:1;font-size:12px;font-weight:700;color:#1B2A47;">📂 ${_esc(wk)}</span>
-        <span style="font-size:11px;color:var(--muted);">${g.drafts.length} draft(s)</span>
+        <span style="font-size:11px;color:var(--muted);">${g.drafts.length} item(s)</span>
         <span style="font-size:12px;font-weight:700;color:#0d9488;">₹${_inr(gTotal)}</span>
       </div>
       ${_subCollapsed.has(encodeURIComponent(wk))?'':locsHtml}
@@ -3958,6 +3990,15 @@ async function estConfirmReject(){
 let _mySubData=[];
 let _mySubSelected=new Set();
 
+// v22: filters grid to show only unapproved cells (scope_status=draft + unapproved_by set)
+function estFilterUnapproved(){
+  // Switch status filter to 'draft' — unapproved cells render as draft with ↩ marker
+  const sel=document.getElementById('est_status_filter');
+  if(sel){sel.value='draft';_estStatusFilter='draft';}
+  renderEstimation();
+  toast('Showing draft cells — unapproved ones are marked ↩','info',4000);
+}
+
 async function estOpenMySubmissions(){
   _mySubCollapsed=new Set();
   pbShow('Loading…');
@@ -4099,10 +4140,19 @@ function _mySubSelectAll(checked){_mySubSelected=checked?new Set(_mySubData.filt
 function estCloseMySubmissions(){document.getElementById('estMySubOverlay').style.display='none';}
 
 async function estWithdrawOne(pairKey){
-  const row=_mySubData.find(r=>String(r.wbs_node_id)+'|'+String(r.loc_node_id)===pairKey&&r.status==='pending');
-  if(!row){toast('No pending submission found for this cell','warn');return;}
+  const[wbsId,locId]=pairKey.split('|');
+  // v21: fetch directly from DB — _mySubData may not be loaded if the My Submissions
+  // panel was never opened in this session (e.g. withdraw from cell view popup).
+  const{data,error}=await sb.from('wbs_scope_submissions')
+    .select('id')
+    .eq('wbs_node_id',Number(wbsId))
+    .eq('loc_node_id',locId)
+    .eq('submitted_by',state.userName)
+    .eq('status','pending')
+    .limit(1);
+  if(error||!data||!data.length){toast('No pending submission found for this cell','warn');return;}
   if(!confirm('Withdraw this submission? The cell reopens as a draft with your submitted values — you can re-edit and resubmit.'))return;
-  await _doWithdraw([row.id]);
+  await _doWithdraw([data[0].id]);
 }
 async function estBulkWithdraw(){
   if(!_mySubSelected.size){toast('Select at least one row','warn');return;}
