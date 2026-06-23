@@ -3230,6 +3230,28 @@ async function estMaterialBuildup(wbsId,locId){
     const total=_buRowsTotal();
     const clean=_buildupRows.filter(r=>r.material_name&&r.qty>0);
     if(!clean.length){toast('Add at least one material row with qty','error');return;}
+    // v20: floor-lock pre-check — estimate qty cannot drop below live-MIR consumed
+    // at (material_code, loc_node_id). Forward-only; mirrors the DB trigger.
+    try{
+      const _matCodes=clean.map(r=>r.material_code).filter(Boolean);
+      if(_matCodes.length){
+        const {data:_mirRows}=await sb.from('pu_mir_items')
+          .select('material_code,qty_required,pu_mir!inner(status)')
+          .eq('loc_node_id',locId).in('material_code',_matCodes);
+        const _used={};
+        (_mirRows||[]).forEach(r=>{
+          if(['Rejected','Cancelled'].includes(r.pu_mir?.status||''))return;
+          _used[r.material_code]=(_used[r.material_code]||0)+Number(r.qty_required||0);
+        });
+        const _breaches=clean.filter(r=>{const f=_used[r.material_code]||0;return f>0 && _buQtyTotal(r)<f-0.0001;});
+        if(_breaches.length){
+          toast('Estimate floor-lock — qty cannot drop below committed MIR qty:\n\n'
+            +_breaches.map(r=>`• ${_esc(r.material_name)}: entered ${_inr(_buQtyTotal(r))} ${_esc(r.uom||'')}, MIRs already consumed ${_inr(_used[r.material_code]||0)} here`).join('\n')
+            +'\n\nRaise the qty to at least the MIR-consumed amount, or cancel the MIRs first.','error',9000);
+          return;
+        }
+      }
+    }catch(e){ console.warn('floor-lock pre-check skipped:',e.message); }
     closeModal();
     // Save to local draft — buildup_rows snapshot travels with the submission
     // so the approve RPC can write them to wbs_material_buildup atomically.
