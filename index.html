@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v24 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v26 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -414,9 +414,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
             <span id="est_summary" style="font-size:11px;color:#8fa8cc;"></span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <button id="est_select_btn" onclick="estToggleSelectMode()"
+            <button id="est_select_btn" onclick="estToggleSelectMode()" title="Select estimates to delete"
               style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">
-              ☑ Select
+              🗑 Delete
             </button>
             <button onclick="estExpandAll()" title="Expand all WBS rows"
               style="padding:5px 10px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">⊞ Expand all</button>
@@ -2354,8 +2354,11 @@ let _estFillFilter='all',_estSearch='',_estSelectMode=false,_estSelected=new Set
 const _estCollapsed=new Set(); // non-leaf WBS nodes explicitly collapsed in the estimation grid
 let _estRelockInt=null,_estRelockSecs=0;
 const EST_RELOCK_SECS=180;
+let _estActMode={};   // v26: wbsId -> 'qty'|'ls' (activity-level estimate mode, client-derived)
 
 function _inr(v){return Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
+// LS-aware effective amount for a scope/merged row (budget for LS, est_amount otherwise)
+function _estRowAmt(r){return r&&r.estimate_mode==='ls'?(Number(r.ls_budget_amount)||0):(Number(r&&r.est_amount)||0);}
 
 async function apiLoadScope(){
   // Paginate to avoid PostgREST PGRST_DB_MAX_ROWS cap (default 1000 on free plan).
@@ -2448,24 +2451,39 @@ async function estBulkDelete(){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   const keys=[..._estSelected];if(!keys.length)return;
   const sm=_scopeMap();
+  const dsm=_estDraftScopeMap();
   // Exclude any pending-submission rows from bulk delete — those must be
   // withdrawn first, then the QS edits the draft to _delete:true and submits.
   const pendingKeys=keys.filter(k=>_estPendingSet.has(k));
   const deleteKeys=keys.filter(k=>!_estPendingSet.has(k));
   if(pendingKeys.length&&!deleteKeys.length){toast(`All selected estimates have pending submissions — withdraw them first to delete`,'warn',4500);return;}
   if(pendingKeys.length)toast(`${pendingKeys.length} pending row(s) skipped — withdraw submissions first`,'warn',4000);
-  const total=deleteKeys.reduce((s,k)=>s+Number((sm[k]||{}).est_amount||0),0);
+  const total=deleteKeys.reduce((s,k)=>s+_estRowAmt(dsm[k]||sm[k]||{}),0);
   if(!confirm(`Delete ${deleteKeys.length} estimate(s) totalling ₹${_inr(total)}?\n\nThis cannot be undone.`))return;
-  const rows=deleteKeys.map(k=>{const[w,l]=k.split('|');return{wbs_node_id:Number(w),loc_node_id:l,_delete:true};});
+
+  // A selected cell can be a local draft (unsent edit in wbs_scope_submissions),
+  // a live scope (wbs_scope), or both. Discard the draft AND deactivate the scope
+  // so the cell fully disappears — the old path only deleted scopes, so a new
+  // local draft (e.g. an unsent LS package) would silently survive and reappear.
+  const draftPairs=[], scopeRows=[];
+  deleteKeys.forEach(k=>{
+    const[w,l]=k.split('|'); const wbs=Number(w);
+    if(_localDrafts.has(k)) draftPairs.push({wbs_node_id:wbs,loc_node_id:l});
+    if(sm[k])               scopeRows.push({wbs_node_id:wbs,loc_node_id:l,_delete:true});
+  });
   _estSelected.clear();_estSelectMode=false;
-  // Bulk delete writes directly to DB via rpc_save_wbs_scope — these are
-  // live rows being removed, not drafts going through the approval queue.
-  pbShow(`Deleting ${rows.length} estimate(s)…`);
+  pbShow(`Deleting ${deleteKeys.length} estimate(s)…`);
   try{
-    const{data,error}=await sb.rpc('rpc_save_wbs_scope',{p_rows:rows,p_user:state.userName});
-    if(error)throw error;
-    const d=(data&&data.deleted)||0;
-    toast(`${d} estimate(s) deleted`,'success');
+    if(draftPairs.length){
+      const{error}=await sb.rpc('rpc_discard_scope_drafts',{p_user:state.userName,p_pairs:draftPairs});
+      if(error)throw error;
+      draftPairs.forEach(p=>_localDrafts.delete(String(p.wbs_node_id)+'|'+p.loc_node_id));
+    }
+    if(scopeRows.length){
+      const{error}=await sb.rpc('rpc_save_wbs_scope',{p_rows:scopeRows,p_user:state.userName});
+      if(error)throw error;
+    }
+    toast(`${deleteKeys.length} estimate(s) deleted`,'success');
     await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
   }catch(e){toast('Delete failed: '+e.message,'error');}
   finally{pbDone();}
@@ -2596,18 +2614,24 @@ function renderEstimation(){
       const isHire=ntype==='hire_equipment';
       const rowBg=isHire?'#f5f0ff':isMat?'#fbf4ee':isAct?'#ffffff':isPkg?'#eef4ee':depth===0?'#dde6f0':'#f3f6fa';
       let rowTotal=0;
+      let _rAnyLS=false,_rApproved=false,_rPending=false;   // v26: activity-mode flags, computed in the cell pass (no extra col loops)
       const cells=cols.map(c=>{
         if(isAct){
           const ok=eff[node.id]&&eff[node.id].has(c.id);
           const row=sm[node.id+'|'+c.id];
+          if(row){ if(row.estimate_mode==='ls')_rAnyLS=true; if(row.scope_status==='approved')_rApproved=true; }
+          if(_estPendingSet.has(node.id+'|'+c.id))_rPending=true;
           // ── SELECT MODE CELLS ─────────────────────────────────────────
           if(_estSelectMode){
             if(!ok)return`<td style="padding:4px;border:0.5px solid var(--border);background:#f1f3f6;text-align:center;color:#c2c9d4;">·</td>`;
             if(row){
-              if(row.scope_status==='approved')return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:#f0fdf4;cursor:not-allowed;" title="Approved — cannot delete"><div style="font-size:10px;color:#15803d;">${_inr(row.est_qty)} ${_esc(row.uom||'')} ✓</div><div style="font-weight:600;color:#15803d;">₹${_inr(row.est_amount)}</div></td>`;
+              const _isLS=row.estimate_mode==='ls';
+              const _amt=_estRowAmt(row);
+              const _ql=_isLS?'<span style="font-size:9px;font-weight:700;color:#a07d10;background:#fffbe9;border:0.5px solid #e6cf7a;border-radius:3px;padding:0 4px;">LS ₹</span>':`${_inr(row.est_qty)} ${_esc(row.uom||'')}`;
+              if(row.scope_status==='approved')return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:#f0fdf4;cursor:not-allowed;" title="Approved — cannot delete"><div style="font-size:10px;color:#15803d;">${_ql} ✓</div><div style="font-weight:600;color:#15803d;">₹${_inr(_amt)}</div></td>`;
               const sk=`${String(node.id)}|${String(c.id)}`;const sel=_estSelected.has(sk);
-              rowTotal+=Number(row.est_amount||0);
-              return`<td onclick="estToggleCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid ${sel?'#3b82f6':'var(--border)'};text-align:right;cursor:pointer;background:${sel?'#dbeafe':'#fffdf5'};${sel?'outline:2px solid #3b82f6;outline-offset:-2px;':''}" title="${sel?'Click to deselect':'Click to select'}"><div style="font-size:10px;color:${sel?'#1d4ed8':'#64748b'};">${sel?'✓ ':''} ${_inr(row.est_qty)} ${_esc(row.uom||'')}</div><div style="font-weight:600;color:${sel?'#1d4ed8':'#1B2A47'};">₹${_inr(row.est_amount)}</div></td>`;
+              rowTotal+=_amt;
+              return`<td onclick="estToggleCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid ${sel?'#3b82f6':'var(--border)'};text-align:right;cursor:pointer;background:${sel?'#dbeafe':'#fffdf5'};${sel?'outline:2px solid #3b82f6;outline-offset:-2px;':''}" title="${sel?'Click to deselect':'Click to select'}"><div style="font-size:10px;color:${sel?'#1d4ed8':'#64748b'};">${sel?'✓ ':''} ${_ql}</div><div style="font-weight:600;color:${sel?'#1d4ed8':'#1B2A47'};">₹${_inr(_amt)}</div></td>`;
             }
             return`<td style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#c2c9d4;background:#fafafa;">+</td>`;
           }
@@ -2622,22 +2646,28 @@ function renderEstimation(){
             return`<td style="padding:4px;border:0.5px solid var(--border);background:#f1f3f6;text-align:center;color:#c2c9d4;" title="Pair not allowed by allocation rules">·</td>`;
           }
           if(row){
-            rowTotal+=Number(row.est_amount||0);
+            const _isLS=row.estimate_mode==='ls';
+            const _amt=_isLS?Number(row.ls_budget_amount||0):Number(row.est_amount||0);
+            rowTotal+=_amt;
             const isPending=_estPendingSet.has(String(node.id)+'|'+String(c.id));
             const isLocalDraft=row._isLocalDraft;
             const isUnapproved=!isPending&&!isLocalDraft&&row.scope_status==='draft'&&!!row.unapproved_by;
             const dot=row.scope_status==='approved'?'#16a34a':isPending?'#2563eb':isLocalDraft?'#f59e0b':isUnapproved?'#b45309':'#d97706';
             const bg=row.scope_status==='approved'?'#f0fdf4':isPending?'#eff6ff':isLocalDraft?'#fffdf0':isUnapproved?'#fef3c7':'#fffdf5';
-            const title=isPending?'Pending PM approval':isLocalDraft?'Local draft — unsent':row.scope_status==='approved'?'Approved':isUnapproved?'↩ Unapproved by Project Manager — open for edit':'Draft';
+            const title=(_isLS?'LS · ':'')+(isPending?'Pending PM approval':isLocalDraft?'Local draft — unsent':row.scope_status==='approved'?'Approved':isUnapproved?'↩ Unapproved by Project Manager — open for edit':'Draft');
+            const _topLine=_isLS
+              ?`<span style="font-size:9px;font-weight:700;color:#a07d10;background:#fffbe9;border:0.5px solid #e6cf7a;border-radius:3px;padding:0 4px;">LS ₹</span> <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span>${isUnapproved?'<span style="font-size:9px;color:#b45309;margin-left:2px;">↩</span>':''}`
+              :`${_inr(row.est_qty)} ${_esc(row.uom||'')} <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span>${isUnapproved?'<span style="font-size:9px;color:#b45309;margin-left:2px;">↩</span>':''}`;
             return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;cursor:pointer;background:${bg};" title="${_esc(title+' · '+(row.scope_code||''))}">
-              <div style="font-size:10px;color:#64748b;">${_inr(row.est_qty)} ${_esc(row.uom||'')} <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span>${isUnapproved?'<span style="font-size:9px;color:#b45309;margin-left:2px;">↩</span>':''}</div>
-              <div style="font-weight:600;color:#1B2A47;">₹${_inr(row.est_amount)}</div></td>`;
+              <div style="font-size:10px;color:#64748b;">${_topLine}</div>
+              <div style="font-weight:600;color:#1B2A47;">₹${_inr(_amt)}</div></td>`;
           }
           return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#9aa7b8;cursor:pointer;" title="Click to view / estimate">+</td>`;
         }
         const sub=actIds.reduce((s,aid)=>{
           if(!(eff[aid]&&eff[aid].has(c.id)))return s;   // stranded rows excluded
-          const r=sm[aid+'|'+c.id];return s+(r?Number(r.est_amount||0):0);},0);
+          const r=sm[aid+'|'+c.id];
+          return s+(r?(r.estimate_mode==='ls'?Number(r.ls_budget_amount||0):Number(r.est_amount||0)):0);},0);
         rowTotal+=sub;
         return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:${isPkg?'#e4efe4':'inherit'};color:${isPkg?'#14532d':'#8a94a3'};font-weight:${isPkg?600:400};font-size:11px;">${sub?'₹'+_inr(sub):''}</td>`;
       }).join('');
@@ -2647,6 +2677,21 @@ function renderEstimation(){
         const elig=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)).length;
         const fill=cols.filter(c=>eff[node.id]&&eff[node.id].has(c.id)&&sm[node.id+'|'+c.id]).length;
         if(elig>0){const pct=fill/elig;const pbg=pct===1?'#d1fae5':pct>=0.5?'#fef3c7':fill>0?'#fee2e2':'#f1f5f9';const ptx=pct===1?'#065f46':pct>=0.5?'#92400e':fill>0?'#991b1b':'#64748b';coveragePill=`<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:${pbg};color:${ptx};margin-left:5px;">${fill}/${elig}</span>`;}
+      }
+      // v26: activity-level QTY/LS toggle (estimable leaves only) — uses flags
+      // accumulated during the cell pass above, no extra per-row column scans.
+      let modeToggle='';
+      if(isAct){
+        const _amode=_estActMode[node.id]||(_rAnyLS?'ls':'qty');
+        if(_estActMode[node.id]===undefined)_estActMode[node.id]=_amode;
+        const _modeLocked=_rApproved||_rPending;
+        if(!_estLocked&&!_estSelectMode&&canEdit()){
+          const segS=(on,onBg,onTx)=>`padding:1px 6px;font-size:9px;font-weight:700;cursor:${_modeLocked?'not-allowed':'pointer'};background:${on?onBg:'#fff'};color:${on?onTx:'#94a3b8'};`;
+          modeToggle=`<span style="display:inline-flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;margin-left:6px;vertical-align:middle;${_modeLocked?'opacity:.55;':''}" title="${_modeLocked?'Mode locked — approved/pending location(s) exist; un-approve/withdraw to change':'Estimate mode for this activity — applies to all its locations'}">
+            <span ${_modeLocked?'':`onclick="event.stopPropagation();estSetActivityMode(${node.id},'qty')"`} style="${segS(_amode!=='ls','#1e3a5f','#fff')}">QTY</span>
+            <span ${_modeLocked?'':`onclick="event.stopPropagation();estSetActivityMode(${node.id},'ls')"`} style="${segS(_amode==='ls','#D4AF37','#5a4500')}">LS ₹</span>
+          </span>`;
+        }
       }
       const rowCb=(_estSelectMode&&isAct)?`<input type="checkbox" onchange="estSelectRow(${node.id},this.checked)" style="width:13px;height:13px;accent-color:#3b82f6;cursor:pointer;margin-right:4px;vertical-align:middle;" title="Select all draft cells in row">`:'';
       const hasChildren=!isAct&&_wbsNodes.some(n=>n.parent_id===node.id);
@@ -2667,6 +2712,7 @@ function renderEstimation(){
             ${_esc(node.name)}
             ${(isAct&&!isMat)?`<span style="font-size:10px;color:#475569;background:#eef2f7;padding:1px 5px;border-radius:3px;margin-left:3px;white-space:nowrap;">${_esc(node.uom||'')}</span>`:''}
             ${coveragePill}
+            ${modeToggle}
             <span style="display:inline-flex;gap:3px;vertical-align:middle;">
               ${isAct&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" title="${isMat?'Bulk-fill build-up sheet across units':'Bulk-fill across units'}" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
               ${isMat?`<button class="btn btn-ghost btn-xs" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
@@ -2692,7 +2738,7 @@ function renderEstimation(){
       if(r.loc_node_id!==c.id||!_isEligible(r))return false;
       if(_estNodeType!=='__all__'){const wn=_wbsNodes.find(x=>x.id===r.wbs_node_id);if(!wn||(wn.node_type||'group')!==_estNodeType)return false;}
       return true;
-    }).reduce((s,r)=>s+Number(r.est_amount||0),0);
+    }).reduce((s,r)=>s+(r.estimate_mode==='ls'?Number(r.ls_budget_amount||0):Number(r.est_amount||0)),0);
     grand+=sum;
     ft+=`<td style="padding:5px 6px;border:0.5px solid var(--border);text-align:right;background:var(--panel-2);font-size:11px;font-weight:600;color:#1B2A47;">${sum?'₹'+_inr(sum):'—'}</td>`;
   });
@@ -2701,13 +2747,13 @@ function renderEstimation(){
 
   // Update select mode button
   const _selBtn=document.getElementById('est_select_btn');
-  if(_selBtn){_selBtn.style.borderColor=_estSelectMode?'#3b82f6':'#334155';_selBtn.style.color=_estSelectMode?'#93c5fd':'#8fa8cc';_selBtn.textContent=_estSelectMode?'✓ Selecting':'☑ Select';}
+  if(_selBtn){_selBtn.style.borderColor=_estSelectMode?'#3b82f6':'#334155';_selBtn.style.color=_estSelectMode?'#93c5fd':'#8fa8cc';_selBtn.textContent=_estSelectMode?'✓ Selecting to delete':'🗑 Delete';}
   // Update bulk action bar
   const _bar=document.getElementById('est_bulk_bar');
   if(_bar){
     if(_estSelectMode){
       const _n=_estSelected.size;
-      const _tot=[..._estSelected].reduce((s,k)=>s+Number((sm[k]||{}).est_amount||0),0);
+      const _tot=[..._estSelected].reduce((s,k)=>s+_estRowAmt(sm[k]||{}),0);
       _bar.style.display='';
       _bar.innerHTML=`<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#1e3a5f;border-top:2px solid #3b82f6;">
         <span style="display:flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;background:${_n?'#3b82f6':'#334155'};color:#fff;font-size:11px;font-weight:600;">${_n}</span>
@@ -2756,6 +2802,7 @@ async function _estSaveRows(rows,label){
   // then updates _localDrafts to reflect the new state.
   // _localDrafts is always a mirror of this user's DB draft rows.
   pbShow(label||'Saving…');
+  const _smSave=_scopeMap();   // _scope is unchanged during this loop — build once
   try{
     for(const r of rows){
       const key=String(r.wbs_node_id)+'|'+String(r.loc_node_id);
@@ -2767,11 +2814,14 @@ async function _estSaveRows(rows,label){
         if(error){console.error('[_estSaveRows] discard error:',error);throw error;}
         _localDrafts.delete(key);
       } else {
+        const _mode=r.estimate_mode||'qty';                         // LS
         const p_row={
           wbs_node_id:r.wbs_node_id, loc_node_id:r.loc_node_id,
           new_qty:r.est_qty, new_rate:r.est_rate,
           new_notes:r.notes||null,
-          buildup_rows:r.buildup_rows||null
+          buildup_rows:r.buildup_rows||null,
+          estimate_mode:_mode,                                       // LS
+          ls_budget_amount:(_mode==='ls'?(r.ls_budget_amount??null):null) // LS
         };
         const{data,error}=await sb.rpc('rpc_save_scope_draft',{p_row:p_row,p_user:state.userName});
         if(error){console.error('[_estSaveRows] RPC error:',error);throw error;}
@@ -2779,11 +2829,13 @@ async function _estSaveRows(rows,label){
           toast(data.reason,'warn',6000);
           continue;
         }
-        const ex=_scopeMap()[key];
+        const ex=_smSave[key];
         _localDrafts.set(key,{
           wbs_node_id:r.wbs_node_id, loc_node_id:r.loc_node_id,
           est_qty:r.est_qty, est_rate:r.est_rate, notes:r.notes||null,
           buildup_rows:r.buildup_rows||null,
+          estimate_mode:_mode,                                       // LS
+          ls_budget_amount:(_mode==='ls'?(r.ls_budget_amount??null):null), // LS
           _isNew:!ex,
           _oldQty:ex?Number(ex.est_qty):null,
           _oldRate:ex?Number(ex.est_rate):null,
@@ -2804,11 +2856,14 @@ function _estDraftScopeMap(){
   const merged={...sm};
   _localDrafts.forEach((d,key)=>{
     // key is already String(wbsId)+'|'+String(locId) from _estSaveRows
+    const _ls=(d.estimate_mode==='ls');                              // LS
     merged[key]={
       ...(sm[key]||{}),
       wbs_node_id:d.wbs_node_id, loc_node_id:d.loc_node_id,
       est_qty:d.est_qty, est_rate:d.est_rate,
-      est_amount:d.est_qty*d.est_rate,
+      est_amount:_ls?0:d.est_qty*d.est_rate,
+      estimate_mode:d.estimate_mode||'qty',                          // LS
+      ls_budget_amount:(_ls?(d.ls_budget_amount??null):null),        // LS
       notes:d.notes,
       scope_status:'_local_draft',  // sentinel: renders with orange dot, not DB status
       _isLocalDraft:true, _isNew:d._isNew
@@ -2916,6 +2971,12 @@ function estViewCell(wbsId,locId){
     dispStatus='empty';
   }
 
+  // LS: a lump-sum package shows its budget as the amount, not qty×rate
+  const _isLS=(draft?(draft.estimate_mode==='ls'):(ex?(ex.estimate_mode==='ls'):false));
+  const _actLS=_estActMode[wbsId]==='ls';   // v26: activity-level mode for empty cells
+  const _lsBudget=Number(draft?(draft.ls_budget_amount||0):(ex?(ex.ls_budget_amount||0):0))||0;
+  if(_isLS&&dispStatus!=='empty'){ dispAmt=_lsBudget; dispMeta=`LS budget pool · ₹${_inr(_lsBudget)}`; }
+
   // Check if there's a pending submission (from DB lookup would be ideal but
   // we don't have async here — we flag pending from the status strip data if available)
   // For the view popup we show what we have from _scope (status field includes 'pending' if
@@ -2974,6 +3035,8 @@ function estViewCell(wbsId,locId){
   const detail=document.getElementById('evm_detail');
   if(dispStatus==='empty'){
     detail.innerHTML='';
+  } else if(_isLS){
+    _evmRenderLSDetail(detail,{ex,draft,act,dispStatus,budget:_lsBudget,wbsId,locId,buildupRows});
   } else if(isMaterial){
     // For material, render buildup synchronously if we have rows in draft,
     // otherwise fetch from DB. Show a loading state then fill.
@@ -3021,8 +3084,8 @@ function estViewCell(wbsId,locId){
         btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">Unlock grid to edit</span>`;
       } else {
         const btnLabel=dispStatus==='empty'?'Add Estimate':'Edit Estimate';
-        if(isMaterial){
-          btns+=`<button class="btn btn-primary" onclick="estCloseView();estMaterialBuildup(${wbsId},'${locId}')">${btnLabel} (build-up)</button>`;
+        if(isMaterial||_isLS||_actLS){
+          btns+=`<button class="btn btn-primary" onclick="estCloseView();estMaterialBuildup(${wbsId},'${locId}')">${btnLabel} ${(_isLS||_actLS)?'(LS package)':'(build-up)'}</button>`;
         } else {
           btns+=`<button class="btn btn-primary" onclick="estCloseView();estEditCellDirect(${wbsId},'${locId}')">${btnLabel}</button>`;
         }
@@ -3077,6 +3140,53 @@ function estCloseView(){
   document.getElementById('estViewOverlay').style.display='none';
 }
 
+// LS: render the lump-sum package detail in the cell viewer — budget, whitelist,
+// and (only after approval) the live consumed/remaining ₹ from the DB gate.
+function _evmRenderLSDetail(detail,{ex,draft,act,dispStatus,budget,wbsId,locId,buildupRows}){
+  let html=`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Lump-Sum package — budget pool</div>`;
+  html+=`<div style="display:flex;align-items:center;gap:14px;padding:10px 12px;background:#fffdf5;border:1px solid #efe2b0;border-radius:8px;margin-bottom:12px;">
+    <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Budget</div><div style="font-weight:700;font-size:15px;color:#1B2A47;">₹${_inr(budget)}</div></div>
+    <div id="evm_ls_readout" style="margin-left:auto;font-size:11.5px;color:var(--muted);">${dispStatus==='approved'?'Loading consumed / remaining…':'<i>consumed / remaining appears after approval</i>'}</div>
+  </div>
+  <div id="evm_ls_wl"><div style="font-size:12px;color:var(--muted);">Loading whitelist…</div></div>`;
+  detail.innerHTML=html;
+
+  const renderWL=(rows)=>{
+    const wl=document.getElementById('evm_ls_wl'); if(!wl)return;
+    if(!rows||!rows.length){wl.innerHTML='<div style="font-size:12px;color:var(--muted);">No whitelist materials yet.</div>';return;}
+    wl.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Whitelisted materials (${rows.length})</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:#f1f5f9;">
+          <th style="padding:5px 8px;text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;">Material</th>
+          <th style="padding:5px 8px;text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;">Code</th>
+          <th style="padding:5px 8px;text-align:center;color:var(--muted);font-size:10.5px;text-transform:uppercase;">UOM</th>
+          <th style="padding:5px 8px;text-align:right;color:var(--muted);font-size:10.5px;text-transform:uppercase;">Indicative ₹</th>
+        </tr></thead><tbody>
+        ${rows.map(r=>`<tr>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;">${_esc(r.material_name||'')}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:11px;color:var(--muted);">${_esc(r.material_code||'')}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;text-align:center;">${_esc(r.uom||'')}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;text-align:right;color:var(--muted);">${r.rate?('₹'+_inr(r.rate)):'—'}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  };
+  if(buildupRows&&buildupRows.length){ renderWL(buildupRows); }
+  else if(ex&&ex.id){ sb.from('wbs_material_buildup').select('*').eq('scope_id',ex.id).order('sno').then(({data})=>renderWL(data||[])); }
+  else { renderWL([]); }
+
+  if(dispStatus==='approved'&&ex){
+    Promise.all([
+      sb.rpc('fn_package_consumed',{p_wbs_node_id:Number(wbsId),p_loc_node_id:locId}),
+      sb.rpc('fn_package_remaining',{p_wbs_node_id:Number(wbsId),p_loc_node_id:locId})
+    ]).then(([c,r])=>{
+      const el=document.getElementById('evm_ls_readout'); if(!el)return;
+      if(c.error||r.error){el.innerHTML='<span style="color:#d97706;">readout unavailable</span>';return;}
+      const con=Number(c.data)||0, rem=Number(r.data)||0;
+      el.innerHTML=`budget <b style="color:#1B2A47;">₹${_inr(budget)}</b> · consumed <b style="color:#1B2A47;">₹${_inr(con)}</b> · remaining <b style="color:${rem<=0?'#b91c1c':'#15803d'};">₹${_inr(rem)}</b>`;
+    });
+  }
+}
+
 // Sets of pending/rejected pairs for quick render-time lookup
 // (populated by _estLoadSubmissionMeta on tab enter and after any submit/withdraw)
 let _estPendingSet=new Set();  // Set of 'wbsId|locId' strings
@@ -3085,7 +3195,7 @@ let _estRejectedMap=new Map(); // Map of 'wbsId|locId' → rejection reason stri
 async function _estLoadSubmissionMeta(){
   try{
     const {data:draftData, error:draftErr}=await sb.from('wbs_scope_submissions')
-      .select('id,wbs_node_id,loc_node_id,status,new_qty,new_rate,new_notes,buildup_rows,change_type,old_qty,old_rate,old_amount')
+      .select('id,wbs_node_id,loc_node_id,status,new_qty,new_rate,new_notes,buildup_rows,change_type,old_qty,old_rate,old_amount,estimate_mode,ls_budget_amount')
       .in('status',['draft','rejected'])
       .eq('submitted_by',state.userName)
       .limit(2000);
@@ -3103,12 +3213,17 @@ async function _estLoadSubmissionMeta(){
     // _localDrafts carries the correct buildup_rows from the rejected
     // submission rather than a stale draft created without buildup.
     _localDrafts=new Map();
+    const _sm=_scopeMap();   // build once — reused by both loops (was rebuilt per-iteration → very slow with many submissions)
     const _draftsFirst=(draftData||[]).filter(r=>r.status==='draft');
     const _rejectedRows=(draftData||[]).filter(r=>r.status==='rejected')
       .sort((a,b)=>new Date(b.submitted_at||0)-new Date(a.submitted_at||0));
     [..._draftsFirst,..._rejectedRows].forEach(r=>{
       const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);
-      const ex=_scopeMap()[k];
+      const ex=_sm[k];
+      // Orphan guard: if the pair is already approved, any draft/rejected row for it
+      // is stale (an approved scope can't be edited) — ignore it so it doesn't
+      // resurrect as a resubmittable local draft.
+      if(ex&&ex.scope_status==='approved')return;
       const isRejected=r.status==='rejected';
       if(_localDrafts.has(k)&&!isRejected)return; // rejected always overwrites stale draft
       _localDrafts.set(k,{
@@ -3116,6 +3231,8 @@ async function _estLoadSubmissionMeta(){
         est_qty:Number(r.new_qty||0), est_rate:Number(r.new_rate||0),
         notes:r.new_notes||null,
         buildup_rows:r.buildup_rows||null,
+        estimate_mode:r.estimate_mode||'qty',
+        ls_budget_amount:(r.estimate_mode==='ls'?(r.ls_budget_amount??null):null),
         _isNew:r.change_type==='new',
         _isRejected:isRejected,
         _oldQty:r.old_qty!=null?Number(r.old_qty):null,
@@ -3128,6 +3245,9 @@ async function _estLoadSubmissionMeta(){
     _estRejectedMap=new Map();
     (metaData||[]).forEach(r=>{
       const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);
+      const exm=_sm[k];
+      // Orphan guard: ignore stale pending/rejected meta on a pair that is now approved.
+      if(exm&&exm.scope_status==='approved')return;
       if(r.status==='pending') _estPendingSet.add(k);
       if(r.status==='rejected'&&!_estRejectedMap.has(k))
         _estRejectedMap.set(k,r.decision_reason||'No reason given');
@@ -3154,6 +3274,14 @@ function estEditCell(wbsId,locId){
   if(!act||!loc)return;
   // MATERIAL nodes always use the build-up editor, never this direct path.
   if((act.node_type||'')==='material'){ return estMaterialBuildup(wbsId,locId); }
+  // v26: LS cells (activity / hire too) use the whitelist + budget editor, not qty×rate.
+  {
+    const _exLS=_scopeMap()[wbsId+'|'+locId];
+    const _dLS=_localDrafts.get(String(wbsId)+'|'+String(locId));
+    if((_dLS&&_dLS.estimate_mode==='ls')||(_exLS&&_exLS.estimate_mode==='ls')||_estActMode[wbsId]==='ls'){
+      return estMaterialBuildup(wbsId,locId);
+    }
+  }
   const ex=_scopeMap()[wbsId+'|'+locId];
   const draft=_localDrafts.get(String(wbsId)+'|'+String(locId))||null;
   const src=draft||ex||null;  // prefer draft values to seed the form
@@ -3211,6 +3339,8 @@ async function estDeleteCell(wbsId,locId){
 let _matMaster=null;        // [{material_code,material_name,uom,estimated_rate}]
 let _buildupRows=[];        // working set for the open popup
 let _buildupCtx=null;       // {wbsId, locId, scopeId|null}
+let _buMode='qty';          // LS: 'qty' | 'ls' for the open build-up popup
+let _buBudget=0;            // LS: budget ₹ for the open LS package
 
 async function _loadMatMaster(){
   if(_matMaster) return _matMaster;
@@ -3219,6 +3349,63 @@ async function _loadMatMaster(){
   if(error){toast('Material master: '+error.message,'error');_matMaster=[];return _matMaster;}
   _matMaster=data||[];
   return _matMaster;
+}
+
+// v26: activity-level mode toggle. Sets the estimate mode for a whole activity and
+// converts its existing editable location cells. Empty cells inherit the mode when
+// first created (the build-up editor reads _estActMode). Works for activity, material
+// and hire_equipment leaves alike.
+async function estSetActivityMode(wbsId,mode){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  if(_estLocked){_estFlashLock();return;}
+  const act=_wbsNodes.find(n=>n.id===wbsId); if(!act)return;
+  const eff=_effectiveLeavesJS(wbsId);
+  const sm=_estDraftScopeMap();
+  const cells=[];
+  eff.forEach(locId=>{ const r=sm[wbsId+'|'+locId]; if(r) cells.push({locId,r}); });
+  // Lock: any approved or pending cell freezes the whole-activity switch
+  const locked=cells.filter(c=>c.r.scope_status==='approved'||_estPendingSet.has(wbsId+'|'+c.locId));
+  if(locked.length){
+    toast(`Cannot switch “${act.name}” — ${locked.length} location(s) are approved or pending. Un-approve / withdraw them first.`,'warn',6000);
+    return;
+  }
+  const cur=_estActMode[wbsId]||(cells.some(c=>c.r.estimate_mode==='ls')?'ls':'qty');
+  _estActMode[wbsId]=mode;
+  if(cur===mode){renderEstimation();return;}
+
+  // Convert existing editable cells. Warn if data would be transformed.
+  if(cells.length){
+    const willLose=(mode==='ls')
+      ? cells.some(c=>Number(c.r.est_amount)>0)                 // qty estimates → whitelist (qty dropped)
+      : cells.some(c=>c.r.estimate_mode==='ls'&&Number(c.r.ls_budget_amount)>0); // budgets dropped
+    const msg=mode==='ls'
+      ? `Switch “${act.name}” to LS for all ${cells.length} estimated location(s)?\n\nEach becomes a budget pool — existing quantities are dropped and materials kept as a whitelist. You'll set a ₹ budget per location.`
+      : `Switch “${act.name}” to QTY for all ${cells.length} estimated location(s)?\n\nBudgets are dropped; materials are kept and you'll re-enter quantities.`;
+    if(willLose&&!confirm(msg)){_estActMode[wbsId]=cur;return;}
+  }
+
+  const rows=[];
+  for(const c of cells){
+    let bu=null;
+    const d=_localDrafts.get(wbsId+'|'+c.locId);
+    if(d&&Array.isArray(d.buildup_rows)) bu=d.buildup_rows;
+    else if(c.r.id){ try{ const {data}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',c.r.id).order('sno'); bu=data||[]; }catch(e){ bu=[]; } }
+    bu=(bu||[]).filter(x=>x.material_code);
+    if(mode==='ls'){
+      rows.push({
+        wbs_node_id:wbsId, loc_node_id:c.locId, est_qty:0, est_rate:0, notes:'(LS package)',
+        estimate_mode:'ls', ls_budget_amount:(d?d.ls_budget_amount:null)||null,
+        buildup_rows:bu.map((x,i)=>({sno:i+1,material_code:x.material_code,material_name:x.material_name,uom:x.uom||null,qty:0,wastage_pct:0,qty_total:0,rate:_r2(x.rate||0),amount:0}))
+      });
+    } else {
+      const qb=bu.map((x,i)=>{const q=Number(x.qty)||0,w=Number(x.wastage_pct)||0,tq=q*(1+w/100);return{sno:i+1,material_code:x.material_code,material_name:x.material_name,uom:x.uom||null,qty:q,wastage_pct:w,qty_total:_r2(tq),rate:_r2(x.rate||0),amount:_r2(tq*(x.rate||0))};});
+      const total=qb.reduce((s,x)=>s+x.amount,0);
+      rows.push({wbs_node_id:wbsId, loc_node_id:c.locId, est_qty:1, est_rate:_r2(total), notes:'(material build-up)', estimate_mode:'qty', ls_budget_amount:null, buildup_rows:qb});
+    }
+  }
+  if(rows.length) await _estSaveRows(rows,`Switching “${act.name}” to ${mode==='ls'?'LS':'QTY'}…`);
+  else renderEstimation();
+  toast(`“${act.name}” set to ${mode==='ls'?'LS ₹':'QTY'}${rows.length?` — ${rows.length} location(s) converted`:''}.${mode==='ls'&&rows.length?' Set a budget on each LS cell.':''}`,'success',4500);
 }
 
 async function estMaterialBuildup(wbsId,locId){
@@ -3230,36 +3417,73 @@ async function estMaterialBuildup(wbsId,locId){
   if(!ex&&!_eligNow){toast('Pair not allowed by allocation rules','warn');return;}
   await _loadMatMaster();
   _buildupCtx={wbsId,locId,scopeId:ex?ex.id:null};
+  // Resolve current mode/budget from local draft → live scope → default qty
+  const _key=String(wbsId)+'|'+String(locId);
+  const _d=_localDrafts.get(_key);
+  _buMode=(_d?(_d.estimate_mode||'qty'):(ex?(ex.estimate_mode||'qty'):(_estActMode[wbsId]||'qty')));
+  _buBudget=(_d?(_d.ls_budget_amount||0):(ex?(ex.ls_budget_amount||0):0));
   // load existing build-up rows if this cell already has them
   _buildupRows=[];
-  if(ex&&ex.id){
+  if(_d&&Array.isArray(_d.buildup_rows)){
+    _buildupRows=_d.buildup_rows.map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty)||0,wastage_pct:Number(r.wastage_pct||0),rate:Number(r.rate)||0}));
+  } else if(ex&&ex.id){
     const {data}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',ex.id).order('sno');
     _buildupRows=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty),wastage_pct:Number(r.wastage_pct||0),rate:Number(r.rate)}));
   }
   if(!_buildupRows.length) _buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,wastage_pct:0,rate:0});
-  openModal(`🧱 Material Build-up — ${_esc(node.name)}`,`
+  openModal(`${_buMode==='ls'?'💰 LS Package':'🧱 Material Build-up'} — ${_esc(node.name)}`,`
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Estimate mode</span>
+      <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;">
+        <span id="bu_mode_qty" onclick="_buSetMode('qty')" style="padding:4px 13px;font-size:11px;font-weight:700;cursor:pointer;">QTY</span>
+        <span id="bu_mode_ls"  onclick="_buSetMode('ls')"  style="padding:4px 13px;font-size:11px;font-weight:700;cursor:pointer;">LS ₹</span>
+      </span>
+      <span id="bu_mode_hint" style="font-size:10.5px;color:var(--muted);"></span>
+    </div>
+    <div id="bu_budget_box" style="display:none;align-items:center;gap:10px;margin-bottom:10px;padding:9px 12px;background:#fffdf5;border:1px solid #efe2b0;border-radius:8px;">
+      <label style="font-weight:600;color:#a07d10;font-size:12px;">LS Budget ₹</label>
+      <input id="bu_budget" type="number" min="0" step="1000" value="${_buBudget||''}" placeholder="e.g. 100000" oninput="_buBudgetChange()" style="width:160px;font-weight:600;">
+      <span id="bu_budget_readout" style="margin-left:auto;font-size:11px;color:var(--muted);"><i>consumed / remaining appears after approval</i></span>
+    </div>
     <div id="bu_scrollwrap" style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:6px;" onscroll="_buHideSuggest()">
       <table style="width:100%;border-collapse:collapse;font-size:12px;" id="bu_table">
-        <thead><tr style="background:var(--panel-2);">
-          <th style="text-align:left;padding:5px 8px;">Material</th>
-          <th style="width:50px;">UOM</th>
-          <th style="width:75px;">Measured qty</th>
-          <th style="width:65px;background:var(--color-background-info, #eef4ff);">Wastage %</th>
-          <th style="width:85px;">Total qty</th>
-          <th style="width:85px;">Rate ₹</th>
-          <th style="width:95px;text-align:right;padding-right:8px;">Amount</th>
-          <th style="width:24px;"></th>
-        </tr></thead>
+        <thead id="bu_head"></thead>
         <tbody id="bu_body"></tbody>
       </table>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
       <button class="btn btn-ghost btn-sm" onclick="_buAddRow()">+ Add material</button>
-      <div style="font-weight:700;color:#1B2A47;">Total: ₹<span id="bu_total">0</span></div>
+      <div id="bu_total_wrap" style="font-weight:700;color:#1B2A47;">Total: ₹<span id="bu_total">0</span></div>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted);">Total qty = Measured qty × (1 + Wastage % ⁄ 100), capped at 25%. Amount is computed on Total qty.</div>
+    <div id="bu_qty_help" style="margin-top:8px;font-size:11px;color:var(--muted);">Total qty = Measured qty × (1 + Wastage % ⁄ 100), capped at 25%. Amount is computed on Total qty.</div>
+    <div id="bu_ls_help" style="display:none;margin-top:8px;font-size:11px;color:var(--muted);">LS mode: materials are a whitelist with no quantity. Any whitelisted material purchased at this location consumes the shared ₹ budget; the gate blocks when it is hit. Indicative rate is reference only and never gates.</div>
   `,async()=>{
+    if(_buMode==='ls'){
+      // ── LS save path ──
+      const budgetRaw=parseFloat(document.getElementById('bu_budget')?.value);
+      if(isFinite(budgetRaw)&&budgetRaw<0){toast('LS budget cannot be negative','error');return;}
+      const budget=(isFinite(budgetRaw)&&budgetRaw>0)?_r2(budgetRaw):0;
+      const wl=_buildupRows.filter(r=>r.material_code);   // whitelist must carry a code
+      if(!wl.length){toast('Add at least one whitelist material (must be picked from the master)','error');return;}
+      closeModal();
+      await _estSaveRows([{
+        wbs_node_id:wbsId, loc_node_id:locId,
+        est_qty:0, est_rate:0, notes:'(LS package)',
+        estimate_mode:'ls', ls_budget_amount:(budget>0?budget:null),
+        buildup_rows:wl.map((r,i)=>({
+          sno:i+1, material_code:r.material_code, material_name:r.material_name,
+          uom:r.uom||null, qty:0, wastage_pct:0, qty_total:0,
+          rate:_r2(r.rate||0), amount:0
+        }))
+      }]);
+      toast(budget>0
+        ? `LS package saved as local draft — budget ₹${_inr(budget)}, ${wl.length} whitelisted. Submit for PM approval to commit.`
+        : `LS draft saved — ${wl.length} whitelisted. ⚠ Set an LS budget before submitting for approval.`,
+        budget>0?'success':'warn', 4500);
+      return;
+    }
+    // ── QTY save path (unchanged) ──
     const total=_buRowsTotal();
     const clean=_buildupRows.filter(r=>r.material_name&&r.qty>0);
     if(!clean.length){toast('Add at least one material row with qty','error');return;}
@@ -3293,6 +3517,7 @@ async function estMaterialBuildup(wbsId,locId){
     await _estSaveRows([{
       wbs_node_id:wbsId, loc_node_id:locId,
       est_qty:1, est_rate:totalR, notes:'(material build-up)',
+      estimate_mode:'qty', ls_budget_amount:null,
       buildup_rows:clean.map((r,i)=>({
         sno:i+1, material_code:r.material_code, material_name:r.material_name,
         uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct),
@@ -3301,13 +3526,61 @@ async function estMaterialBuildup(wbsId,locId){
     }]);
     toast('Build-up saved as local draft — submit for PM approval to commit','success',3500);
   },{width:'920px'});
+  _buApplyModeUI();
   _buRenderRows();
+}
+
+// LS: switch the open build-up between QTY and LS mode
+function _buSetMode(mode){
+  if(mode===_buMode){return;}
+  _buMode=mode;
+  _buApplyModeUI();
+  _buRenderRows();
+}
+function _buBudgetChange(){_buBudget=parseFloat(document.getElementById('bu_budget')?.value)||0;}
+function _buApplyModeUI(){
+  const isLS=_buMode==='ls';
+  const segQ=document.getElementById('bu_mode_qty'), segL=document.getElementById('bu_mode_ls');
+  if(segQ)segQ.style.cssText='padding:4px 13px;font-size:11px;font-weight:700;cursor:pointer;'+(!isLS?'background:#1e3a5f;color:#fff;':'background:#fff;color:#64748b;');
+  if(segL)segL.style.cssText='padding:4px 13px;font-size:11px;font-weight:700;cursor:pointer;'+(isLS?'background:#D4AF37;color:#5a4500;':'background:#fff;color:#64748b;');
+  const bb=document.getElementById('bu_budget_box'); if(bb)bb.style.display=isLS?'flex':'none';
+  const tw=document.getElementById('bu_total_wrap'); if(tw)tw.style.display=isLS?'none':'';
+  const qh=document.getElementById('bu_qty_help'); if(qh)qh.style.display=isLS?'none':'';
+  const lh=document.getElementById('bu_ls_help'); if(lh)lh.style.display=isLS?'':'none';
+  const hint=document.getElementById('bu_mode_hint');
+  if(hint)hint.textContent=isLS?'budget pool · materials whitelisted without quantity':'per-material quantities × rate';
 }
 
 function _buClampWastage(v){const n=Number(v)||0;return Math.min(25,Math.max(0,n));}
 function _buQtyTotal(r){return(Number(r.qty)||0)*(1+_buClampWastage(r.wastage_pct)/100);}
 function _buRenderRows(){
-  const body=document.getElementById('bu_body'); if(!body)return;
+  const head=document.getElementById('bu_head'), body=document.getElementById('bu_body'); if(!body)return;
+  if(_buMode==='ls'){
+    if(head)head.innerHTML=`<tr style="background:var(--panel-2);">
+      <th style="text-align:left;padding:5px 8px;">Material (whitelist)</th>
+      <th style="width:55px;">UOM</th>
+      <th style="width:120px;">Indicative rate ₹<div style="font-weight:400;font-size:9px;color:#94a3b8;">reference only</div></th>
+      <th style="width:24px;"></th></tr>`;
+    body.innerHTML=_buildupRows.map((r,i)=>`<tr>
+      <td style="padding:3px 6px;">
+        <input id="bu_mat_${i}" value="${_esc(r.material_name||'')}" placeholder="type material…" autocomplete="off"
+          style="width:100%;font-size:12px;" oninput="_buMatType(${i})" onblur="setTimeout(_buHideSuggest,200)">
+      </td>
+      <td style="text-align:center;"><input id="bu_uom_${i}" value="${_esc(r.uom||'')}" style="width:46px;font-size:11px;" readonly></td>
+      <td><input id="bu_rate_${i}" type="number" min="0" step="0.01" value="${r.rate||''}" style="width:90px;font-size:12px;" oninput="_buSet(${i},'rate',this.value)"></td>
+      <td style="text-align:center;"><button class="btn btn-ghost btn-xs" onclick="_buDelRow(${i})">✕</button></td>
+    </tr>`).join('');
+    return;
+  }
+  if(head)head.innerHTML=`<tr style="background:var(--panel-2);">
+    <th style="text-align:left;padding:5px 8px;">Material</th>
+    <th style="width:50px;">UOM</th>
+    <th style="width:75px;">Measured qty</th>
+    <th style="width:65px;background:#eef4ff;">Wastage %</th>
+    <th style="width:85px;">Total qty</th>
+    <th style="width:85px;">Rate ₹</th>
+    <th style="width:95px;text-align:right;padding-right:8px;">Amount</th>
+    <th style="width:24px;"></th></tr>`;
   body.innerHTML=_buildupRows.map((r,i)=>`<tr>
     <td style="padding:3px 6px;">
       <input id="bu_mat_${i}" value="${_esc(r.material_name||'')}" placeholder="type material…" autocomplete="off"
@@ -3669,6 +3942,9 @@ function setSubView(v){
   _renderSubmitBody();
 }
 
+// LS-aware amount for a local draft (budget for LS, qty×rate otherwise)
+function _estDraftAmt(d){ return d&&d.estimate_mode==='ls' ? (Number(d.ls_budget_amount)||0) : ((Number(d.est_qty)||0)*(Number(d.est_rate)||0)); }
+
 function _renderSubmitBody(){
   const drafts=[..._localDrafts.entries()].map(([key,d])=>({key,...d}));
   const n=drafts.length, sel=_subSelected.size;
@@ -3695,10 +3971,12 @@ function _renderSubmitBody(){
   const rowHtml=(d,showPath=false)=>{
     const sel=_subSelected.has(d.key);
     const act=_wbsNodes.find(n=>n.id===d.wbs_node_id);
-    const newAmt=d.est_qty*d.est_rate;
+    const _isLS=d.estimate_mode==='ls';
+    const newAmt=_estDraftAmt(d);
+    const lsTag=_isLS?'<span style="font-size:9px;font-weight:700;color:#a07d10;background:#fffbe9;border:0.5px solid #e6cf7a;border-radius:3px;padding:0 4px;margin-right:4px;">LS ₹</span>':'';
     const diffHtml=d._isNew
-      ?`<span style="color:#0d9488;font-weight:700;">+₹${_inr(newAmt)}</span><div style="font-size:10px;color:var(--muted);">New estimate</div>`
-      :`<div><span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(d._oldAmt||0)}</span> → <span style="color:#0d9488;font-weight:700;">₹${_inr(newAmt)}</span></div>`;
+      ?`<span style="color:#0d9488;font-weight:700;">${lsTag}+₹${_inr(newAmt)}</span><div style="font-size:10px;color:var(--muted);">${_isLS?'LS budget':'New estimate'}</div>`
+      :`<div>${lsTag}<span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(d._oldAmt||0)}</span> → <span style="color:#0d9488;font-weight:700;">₹${_inr(newAmt)}</span></div>`;
     const pathLine=showPath?`<div style="font-size:10.5px;color:var(--muted);">${_esc(_wbsPathJS(d.wbs_node_id))}</div>`:'';
     const locLine=`<div style="font-size:10.5px;color:var(--muted);">📍 ${_esc(_locPathJS(d.loc_node_id))}</div>`;
     // v23: rejected badge — this row was rejected and is being resubmitted as-is
@@ -3734,7 +4012,7 @@ function _renderSubmitBody(){
 
   const groupsHtml=wbsOrder.map(wk=>{
     const g=wbsMap[wk];
-    const gTotal=g.drafts.reduce((s,d)=>s+d.est_qty*d.est_rate,0);
+    const gTotal=g.drafts.reduce((s,d)=>s+_estDraftAmt(d),0);
     const gSel=g.drafts.every(d=>_subSelected.has(d.key));
     const gInd=!gSel&&g.drafts.some(d=>_subSelected.has(d.key));
 
@@ -3748,7 +4026,7 @@ function _renderSubmitBody(){
 
     const locsHtml=locOrder.map((lk,li)=>{
       const lg=locMap[lk];
-      const lTotal=lg.drafts.reduce((s,d)=>s+d.est_qty*d.est_rate,0);
+      const lTotal=lg.drafts.reduce((s,d)=>s+_estDraftAmt(d),0);
       const lSel=lg.drafts.every(d=>_subSelected.has(d.key));
       const lInd=!lSel&&lg.drafts.some(d=>_subSelected.has(d.key));
       const isLast=li===locOrder.length-1;
@@ -3825,6 +4103,15 @@ async function estDiscardSelected(){
 }
 async function estConfirmSubmit(){
   if(!_subSelected.size){toast('Select at least one draft to submit','warn');return;}
+  // LS: a lump-sum draft must carry a budget before it can be submitted for approval
+  const _lsNoBudget=[..._subSelected].filter(k=>{
+    const d=_localDrafts.get(k);
+    return d&&d.estimate_mode==='ls'&&!(Number(d.ls_budget_amount)>0);
+  });
+  if(_lsNoBudget.length){
+    toast(`${_lsNoBudget.length} LS package(s) have no budget set — open the cell and enter an LS budget before submitting.`,'error',6000);
+    return;
+  }
   estCloseSubmit();
   pbShow('Submitting…');
   try{
