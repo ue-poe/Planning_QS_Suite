@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v26 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v32 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -193,6 +193,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .tbl tr:hover td{background:#fafbfd;}
 
 @media(max-width:900px){.rules-layout{grid-template-columns:1fr;}.bulk-form{grid-template-columns:1fr 1fr;}}
+
+/* v28: estimation-grid cell classes (de-inlined from per-cell style attrs to
+   cut grid markup ~60% and speed DOM parse). Static declarations only; any
+   state-dependent color stays inline on the element. */
+.eg-dot{padding:4px;border:0.5px solid var(--border);background:#f1f3f6;text-align:center;color:#c2c9d4;}
+.eg-plus{padding:4px;border:0.5px dashed var(--border);text-align:center;color:#9aa7b8;cursor:pointer;}
+.eg-plus-s{padding:4px;border:0.5px dashed var(--border);text-align:center;color:#c2c9d4;background:#fafafa;}
+.eg-appr{padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:#f0fdf4;cursor:not-allowed;}
+.eg-appr-q{font-size:10px;color:#15803d;}
+.eg-appr-a{font-weight:600;color:#15803d;}
+.eg-str{padding:4px 6px;border:0.5px solid #b91c1c;text-align:right;cursor:pointer;background:#fdf2f2;}
+.eg-str-q{font-size:10px;color:#b91c1c;}
+.eg-str-a{font-weight:600;color:#b91c1c;text-decoration:line-through;}
+.eg-fill{padding:4px 6px;border:0.5px solid var(--border);text-align:right;cursor:pointer;}
+.eg-fq{font-size:10px;color:#64748b;}
+.eg-fa{font-weight:600;color:#1B2A47;}
+.eg-d7{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:2px;}
+.eg-ls{font-size:9px;font-weight:700;color:#a07d10;background:#fffbe9;border:0.5px solid #e6cf7a;border-radius:3px;padding:0 4px;}
+.eg-unap{font-size:9px;color:#b45309;margin-left:2px;}
+.eg-roll{padding:4px 6px;border:0.5px solid var(--border);text-align:right;font-size:11px;}
+.eg-roll-pkg{background:#e4efe4;color:#14532d;font-weight:600;}
+.eg-roll-sub{background:inherit;color:#8a94a3;font-weight:400;}
+.eg-sc{padding:4px 6px;text-align:right;cursor:pointer;}
+.eg-q10{font-size:10px;}
+.eg-w6{font-weight:600;}
+.eg-label{padding:4px 6px;border:0.5px solid var(--border);position:sticky;left:0;z-index:1;min-width:200px;max-width:280px;width:280px;}
+.eg-total{padding:4px 8px;border:0.5px solid var(--border);text-align:right;color:#1B2A47;}
+.eg-foot-l{padding:6px 12px;background:var(--panel-2);border:0.5px solid var(--border);font-weight:600;color:#1B2A47;position:sticky;left:0;}
+.eg-foot-c{padding:5px 6px;border:0.5px solid var(--border);text-align:right;background:var(--panel-2);font-size:11px;font-weight:600;color:#1B2A47;}
+.eg-foot-g{padding:5px 8px;border:0.5px solid var(--border);text-align:right;background:#1B2A47;color:#D4AF37;font-weight:700;}
+
+/* v29: collapse-aware location column header */
+.eg-h-corner{text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:200px;max-width:280px;width:280px;position:sticky;left:0;top:0;z-index:4;white-space:normal;word-break:break-word;}
+.eg-h-total{padding:6px 8px;background:#16243d;border:0.5px solid rgba(255,255,255,0.12);color:#D4AF37;font-size:11px;text-align:right;min-width:110px;position:sticky;top:0;z-index:2;}
+.eg-h-stage{padding:5px 8px;background:#16243d;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:700;font-size:11px;text-align:center;position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;white-space:normal;word-break:break-word;line-height:1.2;vertical-align:middle;min-width:104px;}
+.eg-h-floor{padding:5px 8px;background:#22395c;border:0.5px solid rgba(255,255,255,0.12);color:#dbe7f8;font-weight:600;font-size:11px;text-align:center;position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;white-space:normal;word-break:break-word;line-height:1.2;vertical-align:middle;min-width:104px;}
+.eg-h-zone{padding:6px 8px;background:#1B2A47;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:500;font-size:11px;text-align:center;min-width:110px;position:sticky;top:0;z-index:2;white-space:normal;word-break:break-word;line-height:1.2;vertical-align:middle;}
+.eg-h-grp{padding:5px 8px;background:#2d4a73;border:0.5px solid rgba(255,255,255,0.12);color:#fff;font-weight:700;font-size:11px;text-align:center;position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;white-space:normal;word-break:break-word;line-height:1.2;vertical-align:middle;min-width:104px;}
+.eg-h-chev{display:inline-block;width:12px;color:#9bc0ea;font-size:10px;}
+.eg-h-code{font-family:monospace;font-size:9px;color:#8fa8cc;}
+.eg-subm{padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:#eff6ff;cursor:not-allowed;}
+.eg-subm-q{font-size:10px;color:#1d4ed8;}
+.eg-subm-a{font-weight:600;color:#1d4ed8;}
+.mrow{display:flex;align-items:center;gap:10px;padding:7px 20px;border-bottom:1px solid #f1f5f9;font-size:12px;}
+.mrow .mwbs{flex:1;min-width:0;}
+.mrow .mloc{color:var(--muted);white-space:nowrap;}
+.mrow .mamt{font-weight:600;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -350,8 +397,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
           </div>
           <div style="width:1px;height:16px;background:#4A6FA5;flex-shrink:0;"></div>
           <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:11px;color:#8fa8cc;white-space:nowrap;">Column depth:</span>
-            <div id="rules_depth_btns" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+            <span style="font-size:11px;color:#8fa8cc;white-space:nowrap;">Columns:</span>
+            <button onclick="rulesExpandCols()" title="Reveal one more level of location columns" style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;">&#8862; Expand level</button>
+            <button onclick="rulesCollapseCols()" title="Hide the deepest level of location columns" style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;">&#8863; Collapse level</button>
+            <button onclick="rulesCollapseAllCols()" title="Collapse all location columns to stages" style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;">&#8863;&#8863; Collapse all</button>
           </div>
           <span id="rules_col_count" style="font-size:11px;color:#8fa8cc;margin-left:auto;"></span>
         </div>
@@ -455,11 +504,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
             </select>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:11px;color:#8fa8cc;">Narrow to:</span>
-            <select id="est_floor_filter" onchange="estSetFloor(this.value)"
-              style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;max-width:220px;">
-              <option value="__all__">Whole stage</option>
-            </select>
+            <span style="font-size:11px;color:#8fa8cc;">Columns:</span>
+            <button onclick="estExpandCols()" title="Expand all location columns to leaf units" style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;">&#8862; Expand</button>
+            <button onclick="estCollapseCols()" title="Collapse all location columns to top groups" style="font-size:11px;padding:3px 8px;background:#1B2A47;color:#c2d3ec;border:1px solid #4A6FA5;border-radius:4px;cursor:pointer;">&#8863; Collapse</button>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
             <span style="font-size:11px;color:#8fa8cc;">Type:</span>
@@ -657,6 +704,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
     <div style="flex:1;overflow-y:auto;padding:16px 20px;" id="queue_body"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;padding:13px 20px;border-top:1px solid var(--border);background:#fafbfd;flex-shrink:0;">
       <button class="btn btn-ghost" onclick="estCloseQueue()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- v29: Bulk-delete confirmation overlay -->
+<div id="estDelOvl" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4650;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:600px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);">
+      <div style="font-size:15px;font-weight:700;color:#1B2A47;">Delete estimates</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px;" id="estDelSub"></div>
+    </div>
+    <div style="padding:8px 0;overflow:auto;" id="estDelList"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:13px 20px;border-top:1px solid var(--border);background:#fafbfd;">
+      <button class="btn btn-ghost" onclick="estCloseDelete()">Cancel</button>
+      <button id="estDelConfirm" onclick="estBulkDeleteConfirm()" style="background:#dc2626;border:none;color:#fff;font-weight:600;padding:7px 16px;border-radius:5px;cursor:pointer;font-size:13px;">&#128465; Delete</button>
     </div>
   </div>
 </div>
@@ -1799,7 +1861,6 @@ function rulesSetFilter(f){
 
 function renderRulesMatrix(){
   _buildStageFilter();
-  _buildDepthButtons();
   _renderMatrixHead();
   _renderMatrixBody();
   _updateCoverage();
@@ -1807,8 +1868,15 @@ function renderRulesMatrix(){
 }
 
 // ── Column depth state ─────────────────────────────────────
-let _colDepth = 1;
 let _colStage = '__all__'; // selected stage id or '__all__'
+// ── v30: collapse-aware location columns for the matrix (own state, separate from estimation) ──
+let _rulesColExpanded=new Set();   // v31: loc node ids whose children are revealed (default empty = collapsed to stages)
+function _rulesColRoots(){let roots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order);if(_colStage!=='__all__')roots=roots.filter(n=>n.id===_colStage);return roots;}
+function _rulesColHeaderRows(){const front=n=>n.is_leaf||!_rulesColExpanded.has(String(n.id));function fcount(n){return front(n)?1:_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false).reduce((a,c)=>a+fcount(c),0);}const vis=_getColNodes();const map=_locMapG();const ML=vis.length?Math.max(...vis.map(c=>_locDepthFromRootG(map[c.id]))):0;const rows=Array.from({length:ML+1},()=>[]);function rec(n){if(!n||n.is_active===false)return;const lvl=_locDepthFromRootG(n);if(front(n))rows[lvl].push({node:n,colspan:1,rowspan:ML-lvl+1,frontier:true});else{rows[lvl].push({node:n,colspan:fcount(n),rowspan:1,frontier:false});_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).forEach(rec);}}_rulesColRoots().forEach(rec);return{rows,ML};}
+function rulesToggleCol(id){id=String(id);if(_rulesColExpanded.has(id))_rulesColExpanded.delete(id);else _rulesColExpanded.add(id);_renderMatrixHead();_renderMatrixBody();_renderMatrixFoot();_updateColCount();}
+function rulesExpandCols(){_getColNodes().filter(c=>c._isGroup).forEach(c=>_rulesColExpanded.add(String(c.id)));_renderMatrixHead();_renderMatrixBody();_renderMatrixFoot();_updateColCount();}
+function rulesCollapseCols(){const exp=_rulesColExpanded;const deepest=[...exp].filter(id=>!_locNodes.some(c=>c.parent_id!=null&&String(c.parent_id)===id&&exp.has(String(c.id))));deepest.forEach(id=>exp.delete(id));_renderMatrixHead();_renderMatrixBody();_renderMatrixFoot();_updateColCount();}
+function rulesCollapseAllCols(){_rulesColExpanded=new Set();_renderMatrixHead();_renderMatrixBody();_renderMatrixFoot();_updateColCount();}
 
 // Build stage filter dropdown from root loc nodes
 function _buildStageFilter(){
@@ -1826,15 +1894,8 @@ function _buildStageFilter(){
 
 function rulesSetStage(val){
   _colStage=val;
-  // Rebuild depth buttons since max depth may differ per stage
-  _buildDepthButtons();
-  // Clamp _colDepth if new max is lower
-  const newMax=_locMaxDepth()+1;
-  if(_colDepth>newMax)_colDepth=newMax;
-  _renderMatrixHead();
-  _renderMatrixBody();
-  _renderMatrixFoot();
-  _updateColCount();
+  _rulesColExpanded=new Set();
+  _renderMatrixHead();_renderMatrixBody();_renderMatrixFoot();_updateColCount();
 }
 
 // Compute max depth of location tree (within selected stage if filtered)
@@ -1913,23 +1974,9 @@ function _updateColCount(){
 
 // Returns flat list of column nodes at chosen depth, filtered by selected stage
 function _getColNodes(){
-  let roots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false)
-                      .sort((a,b)=>a.sort_order-b.sort_order);
-  // Apply stage filter
-  if(_colStage!=='__all__') roots=roots.filter(n=>n.id===_colStage);
-  if(_colDepth===1)return roots;
-  let current=[...roots];
-  for(let lvl=2;lvl<=_colDepth;lvl++){
-    const next=[];
-    current.forEach(n=>{
-      const children=_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false)
-                               .sort((a,b)=>a.sort_order-b.sort_order);
-      if(children.length) next.push(...children);
-      else next.push(n);
-    });
-    current=next;
-  }
-  return current;
+  const out=[];const front=n=>n.is_leaf||!_rulesColExpanded.has(String(n.id));
+  const rec=n=>{if(!n||n.is_active===false)return;if(front(n)){if(n.is_leaf)out.push(n);else out.push(Object.assign({},n,{_isGroup:true,_leafIds:_locLeafIdsUnderG(n)}));return;}_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).forEach(rec);};
+  _rulesColRoots().forEach(rec);return out;
 }
 
 // Returns the root-stage ancestor of any col node (for grouping header)
@@ -1945,84 +1992,25 @@ function _getStageAncestor(nodeId){
 }
 
 function _renderMatrixHead(){
-  const head=document.getElementById('rules_matrix_head');
-  if(!head)return;
+  const head=document.getElementById('rules_matrix_head');if(!head)return;
   const cols=_getColNodes();
   if(!cols.length){head.innerHTML='';return;}
-
-  if(_colDepth===1){
-    // Single header row
-    let th=`<tr>
-      <th style="text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:240px;position:sticky;left:0;top:0;z-index:4;">WBS Structure</th>`;
-    cols.forEach(c=>{
-      const dp=computeDotPath(_locNodes,c.id);
-      th+=`<th style="padding:6px 8px;background:#1B2A47;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:500;font-size:11px;text-align:center;min-width:120px;position:sticky;top:0;z-index:2;">
-        <div style="word-break:break-word;line-height:1.3;">${_esc(c.name)}</div>
-        <div style="font-family:monospace;font-size:9px;color:#8fa8cc;margin-top:2px;">${_esc(dp)}</div>
-      </th>`;
+  const {rows,ML}=_rulesColHeaderRows();
+  let th='';
+  rows.forEach((rw,ri)=>{
+    th+='<tr>';
+    if(ri===0)th+=`<th class="eg-h-corner" rowspan="${ML+1}" style="min-width:240px;">WBS Structure</th>`;
+    rw.forEach(cell=>{
+      const n=cell.node;const isLeafCol=n.is_leaf;const isOpen=_rulesColExpanded.has(String(n.id));
+      const cls=isLeafCol?'eg-h-zone':(cell.frontier?'eg-h-grp':(n.parent_id==null?'eg-h-stage':'eg-h-floor'));
+      const chev=isLeafCol?'':`<span class="eg-h-chev">${isOpen?'▾':'▸'}</span>`;
+      const clk=isLeafCol?'':`onclick="rulesToggleCol('${n.id}')"`;
+      const code=`<div class="eg-h-code">${_esc(computeDotPath(_locNodes,n.id))}</div>`;
+      th+=`<th class="${cls}" colspan="${cell.colspan}" rowspan="${cell.rowspan}" ${clk} title="${_esc(n.name)}">${chev}${_esc(n.name)}${(cell.frontier&&!isLeafCol)?' Σ':''}${code}</th>`;
     });
     th+='</tr>';
-    head.innerHTML=th;
-    return;
-  }
-
-  // Build header rows equal to _colDepth — one row per level from root to col node
-  const numHeaderRows = _colDepth;
-
-  // Build ancestor chain for each col up to root
-  const locMap2=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
-  function getAncestorChain(nodeId){
-    // Returns [root, ..., parent, node] — full path from root to node
-    const chain=[];let cur=locMap2[nodeId];
-    while(cur){chain.unshift(cur);cur=cur.parent_id?locMap2[cur.parent_id]:null;}
-    return chain;
-  }
-
-  // For each col, get its ancestor chain
-  const colChains=cols.map(c=>({col:c,chain:getAncestorChain(c.id)}));
-
-  // Build header rows — one row per level (0=root/stage, 1=level2, 2=level3)
-  // Each row groups consecutive cols that share the same ancestor at that level
-  // WBS Structure th spans all header rows
-  let headerHtml=``;
-
-  for(let lvl=0;lvl<numHeaderRows;lvl++){
-    let row=`<tr>`;
-    if(lvl===0){
-      // First row: WBS Structure th spans all header rows
-      row+=`<th rowspan="${numHeaderRows}" style="text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1e3a5f;font-weight:500;min-width:240px;position:sticky;left:0;top:0;z-index:5;vertical-align:bottom;">WBS Structure</th>`;
-    }
-    // Group consecutive cols that share same ancestor at this level
-    let i=0;
-    while(i<colChains.length){
-      const chain=colChains[i].chain;
-      // ancestor at this level — chain[lvl] if it exists, else chain[chain.length-1]
-      const ancNode=chain[lvl]||chain[chain.length-1];
-      // Count how many consecutive cols share this ancestor
-      let span=1;
-      while(i+span<colChains.length){
-        const nextChain=colChains[i+span].chain;
-        const nextAnc=nextChain[lvl]||nextChain[nextChain.length-1];
-        if(nextAnc.id===ancNode.id)span++;
-        else break;
-      }
-      const dp=computeDotPath(_locNodes,ancNode.id);
-      const isLeafLevel=lvl===numHeaderRows-1; // bottom header row
-      const bgIdx=Math.floor(i/1)%2;
-      const bg=lvl===0?(bgIdx===0?'#1e3a5f':'#253d5e'):
-               lvl===1?(bgIdx===0?'#1e3a5f':'#253d5e'):'#1e3050';
-      const topOffset=lvl*32; // 32px per header row
-      row+=`<th colspan="${span}" style="padding:5px 7px;background:${bg};border:0.5px solid rgba(255,255,255,0.12);color:${isLeafLevel?'#c2d3ec':'#e8edf5'};font-weight:${isLeafLevel?400:500};font-size:${isLeafLevel?10:11}px;text-align:center;min-width:${isLeafLevel?90:80}px;position:sticky;top:${topOffset}px;z-index:2;">
-        <div style="word-break:break-word;line-height:1.3;">${_esc(ancNode.name)}</div>
-        <div style="font-family:monospace;font-size:8px;color:#8fa8cc;margin-top:1px;">${_esc(dp)}</div>
-      </th>`;
-      i+=span;
-    }
-    row+=`</tr>`;
-    headerHtml+=row;
-  }
-
-  head.innerHTML=headerHtml;
+  });
+  head.innerHTML=th;
   _updateColCount();
 }
 
@@ -2043,17 +2031,22 @@ function _renderMatrixBody(){
     while(cur&&cur.parent_id!=null){cur=wbsMap[cur.parent_id];if(cur)ids.push(cur.id);}
     return ids;
   }
-  const colDescendants={};
-  cols.forEach(c=>{colDescendants[c.id]=new Set(getDescendantIds(_locNodes,c.id));});
-  // Also build loc ancestors for each col node (rules may be stored at a parent stage)
+  // v30: cellState is also called for leaf zones UNDER collapsed group columns (coverage roll-up),
+  // so build the ancestor/descendant maps over every id we may query, not just visible cols.
+  const _covIds=[];cols.forEach(c=>{_covIds.push(c.id);if(c._isGroup)c._leafIds.forEach(z=>_covIds.push(z));});
   const locMap=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
   function getLocAncestorIds(id){
     const ids=[];let cur=locMap[id];
     while(cur&&cur.parent_id!=null){cur=locMap[cur.parent_id];if(cur)ids.push(cur.id);}
     return ids;
   }
-  const colAncestors={};
-  cols.forEach(c=>{colAncestors[c.id]=new Set(getLocAncestorIds(c.id));});
+  const colDescendants={},colAncestors={};
+  _covIds.forEach(id=>{colDescendants[id]=new Set(getDescendantIds(_locNodes,id));colAncestors[id]=new Set(getLocAncestorIds(id));});
+  // v31: coverage roll-up — effective loc-leaf set per WBS leaf (memoized for this render)
+  const _effMemo=new Map();
+  const _eff=wl=>{let e=_effMemo.get(wl);if(e===undefined){e=_effectiveLeavesJS(wl);_effMemo.set(wl,e);}return e;};
+  const _cwlMemo=new Map();
+  const _covWbsLeaves=node=>{let v=_cwlMemo.get(node.id);if(v===undefined){v=node.is_leaf?[node.id]:getDescendantIds(_wbsNodes,node.id).filter(id=>{const n=_wbsNodes.find(x=>x.id===id);return n&&n.is_leaf;});_cwlMemo.set(node.id,v);}return v;};
 
   // ── Cell state resolution ─────────────────────────────────────────
   // A rule COVERS a column when stored at the column node itself or any
@@ -2124,6 +2117,26 @@ function _renderMatrixBody(){
         ${(node.node_type||'group')==='package'?'<span class="badge-leaf" style="background:#1e3a5f;color:#dbe7f8;">PKG</span>':(node.node_type||'')==='material'?'<span class="badge-leaf" style="background:#7c3a14;color:#fde9d8;">MATERIAL</span>':(node.node_type||'')==='hire_equipment'?'<span class="badge-leaf" style="background:#5b1a6b;color:#fce8ff;">HIRE EQUIP</span>':(node.node_type||'')==='activity'?'<span class="badge-leaf">ACTIVITY</span>':node.is_leaf?'<span class="badge-leaf">ACTIVITY</span>':''}
       </td>`;
       const dataCells=cols.map(col=>{
+        if(col._isGroup){
+          const _wl=_covWbsLeaves(node);const _ll=col._leafIds;
+          let cov=0;const tot=_wl.length*_ll.length;
+          _wl.forEach(w=>{const es=_eff(w);for(const z of _ll)if(es.has(z))cov++;});
+          let gbg=cov===0?'':cov===tot?'#ecfdf5':'#fff7ed';
+          let gcol=cov===0?'#94a3b8':cov===tot?'#047857':'#c2410c';
+          // v32: a collapsed group cell is clickable — stores a rule at THIS group node (covers all children).
+          const gst=cellState(node,col.id);   // direct-rule state at exactly this (wbs, group) pair
+          let ring='',mark='';
+          if(gst.kind==='excDirect'){gbg='#fdecec';gcol='#b91c1c';ring='box-shadow:inset 0 0 0 2px #b91c1c;';mark='<span style="font-size:9px;margin-left:2px;">✕</span>';}
+          else if(gst.kind==='incDirect'){ring='box-shadow:inset 0 0 0 2px #D4AF37;';mark='<span style="font-size:9px;margin-left:2px;color:#a07d10;">●</span>';}
+          const gClickable=canEdit()&&!_rulesLocked;
+          const gClick=gClickable?`onclick="_matrixCellClick(${node.id},'${col.id}')"`:_rulesLocked?`onclick="_flashLockWarning()"`:'';
+          let gtitle=gst.kind==='incDirect'?`Direct rule stored here — click to remove (covers all of ${col.name})`
+                    :gst.kind==='excDirect'?`Exclude rule stored here — click to remove`
+                    :gClickable?`Click to ${_ruleMode==='exclude'?'exclude':'add a rule at'} ${col.name} — covers all ${tot} unit-pair(s) below`
+                    :`${cov} of ${tot} unit-pair(s) selected`;
+          if(_rulesLocked)gtitle='Unlock to edit · '+gtitle;
+          return`<td style="padding:5px;border:0.5px solid var(--border);text-align:center;background:${gbg};font-size:11px;font-weight:600;color:${gcol};cursor:${gClickable?'pointer':_rulesLocked?'not-allowed':'default'};${ring}" title="${_esc(gtitle)}" ${gClick}>${cov}/${tot}${mark}</td>`;
+        }
         const st=cellState(node,col.id);
         const G={
           excDirect:{bg:'#fdecec',inner:`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#b91c1c;border-radius:3px;font-size:11px;color:#fff;">✗</span>`,
@@ -2396,9 +2409,8 @@ function _estBuildFilters(){
       _locNodes.filter(n=>n.parent_id==null&&n.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order)
         .map(n=>`<option value="${n.id}" ${n.id===cur?'selected':''}>${_esc(n.name)}</option>`).join('');
   }
-  _estBuildFloorFilter();
 }
-function _estBuildFloorFilter(){
+function _estBuildFloorFilter_REMOVED(){
   const sel=document.getElementById('est_floor_filter');
   if(!sel)return;
   let opts='<option value="__all__">Whole stage</option>';
@@ -2410,11 +2422,11 @@ function _estBuildFloorFilter(){
   }
   sel.innerHTML=opts;
 }
-function estSetStage(v){_estStage=v;_estFloor='__all__';_estBuildFloorFilter();renderEstimation();}
-function estSetFloor(v){_estFloor=v;renderEstimation();}
+function estSetStage(v){_estStage=v;_estColCollapsed=new Set();renderEstimation();}
 function estSetNodeType(v){_estNodeType=v;renderEstimation();}
 function estSetFillFilter(v){_estFillFilter=v;renderEstimation();}
-function estSetSearch(v){_estSearch=v.trim().toLowerCase();renderEstimation();}
+let __estSearchT=null;
+function estSetSearch(v){_estSearch=v.trim().toLowerCase();clearTimeout(__estSearchT);__estSearchT=setTimeout(renderEstimation,180);}
 function estSetStatusFilter(v){_estStatusFilter=v;renderEstimation();}
 function _estToggleRow(id){
   if(_estCollapsed.has(id))_estCollapsed.delete(id);else _estCollapsed.add(id);
@@ -2432,13 +2444,14 @@ function estToggleSelectMode(){
   _estSelectMode=!_estSelectMode;_estSelected.clear();renderEstimation();
 }
 function estSelectRow(wbsId,checked){
-  const visLocs=new Set(_estCols().map(c=>c.id));
-  _scope.filter(r=>r.wbs_node_id==wbsId&&r.scope_status!=='approved'&&visLocs.has(r.loc_node_id))
+  // v29: only DRAFT cells in visible leaf-zone columns; skip approved + submitted(pending)
+  const visLeaf=new Set(_estVisCols().filter(c=>!c._isGroup).map(c=>c.id));
+  _scope.filter(r=>r.wbs_node_id==wbsId&&r.scope_status!=='approved'&&visLeaf.has(r.loc_node_id)&&!_estPendingSet.has(String(r.wbs_node_id)+'|'+String(r.loc_node_id)))
     .forEach(r=>{const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);if(checked)_estSelected.add(k);else _estSelected.delete(k);});
   renderEstimation();
 }
 function estSelectCol(locId,checked){
-  _scope.filter(r=>r.loc_node_id===locId&&r.scope_status!=='approved')
+  _scope.filter(r=>r.loc_node_id===locId&&r.scope_status!=='approved'&&!_estPendingSet.has(String(r.wbs_node_id)+'|'+String(r.loc_node_id)))
     .forEach(r=>{const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);if(checked)_estSelected.add(k);else _estSelected.delete(k);});
   renderEstimation();
 }
@@ -2447,37 +2460,40 @@ function estToggleCell(wbsId,locId){
   if(_estSelected.has(k))_estSelected.delete(k);else _estSelected.add(k);
   renderEstimation();
 }
-async function estBulkDelete(){
+function estBulkDelete(){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   const keys=[..._estSelected];if(!keys.length)return;
-  const sm=_scopeMap();
   const dsm=_estDraftScopeMap();
-  // Exclude any pending-submission rows from bulk delete — those must be
-  // withdrawn first, then the QS edits the draft to _delete:true and submits.
-  const pendingKeys=keys.filter(k=>_estPendingSet.has(k));
   const deleteKeys=keys.filter(k=>!_estPendingSet.has(k));
-  if(pendingKeys.length&&!deleteKeys.length){toast(`All selected estimates have pending submissions — withdraw them first to delete`,'warn',4500);return;}
-  if(pendingKeys.length)toast(`${pendingKeys.length} pending row(s) skipped — withdraw submissions first`,'warn',4000);
-  const total=deleteKeys.reduce((s,k)=>s+_estRowAmt(dsm[k]||sm[k]||{}),0);
-  if(!confirm(`Delete ${deleteKeys.length} estimate(s) totalling ₹${_inr(total)}?\n\nThis cannot be undone.`))return;
-
-  // A selected cell can be a local draft (unsent edit in wbs_scope_submissions),
-  // a live scope (wbs_scope), or both. Discard the draft AND deactivate the scope
-  // so the cell fully disappears — the old path only deleted scopes, so a new
-  // local draft (e.g. an unsent LS package) would silently survive and reappear.
+  if(!deleteKeys.length){toast('Nothing deletable selected — submitted rows must be withdrawn first','warn',4000);return;}
+  const items=deleteKeys.map(k=>{const[w,l]=k.split('|');return{key:k,wbs:Number(w),loc:l,amt:_estRowAmt(dsm[k]||{})};});
+  const total=items.reduce((s,i)=>s+i.amt,0);
+  _estDeleteItems=items;
+  const ds=document.getElementById('estDelSub');if(ds)ds.textContent=`${items.length} draft estimate(s) · ₹${_inr(total)} — this cannot be undone.`;
+  const dl=document.getElementById('estDelList');if(dl)dl.innerHTML=items.map(i=>`<div class="mrow"><div class="mwbs"><b>${_esc(_wbsPathJS(i.wbs))}</b></div><div class="mloc">${_esc(_locPathJS(i.loc))}</div><div class="mamt">₹${_inr(i.amt)}</div></div>`).join('');
+  const dc=document.getElementById('estDelConfirm');if(dc)dc.textContent=`🗑 Delete ${items.length}`;
+  document.getElementById('estDelOvl').style.display='flex';
+}
+function estCloseDelete(){const o=document.getElementById('estDelOvl');if(o)o.style.display='none';}
+async function estBulkDeleteConfirm(){
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const sm=_scopeMap();
+  const deleteKeys=_estDeleteItems.map(i=>i.key);
+  if(!deleteKeys.length){estCloseDelete();return;}
   const draftPairs=[], scopeRows=[];
   deleteKeys.forEach(k=>{
     const[w,l]=k.split('|'); const wbs=Number(w);
     if(_localDrafts.has(k)) draftPairs.push({wbs_node_id:wbs,loc_node_id:l});
     if(sm[k])               scopeRows.push({wbs_node_id:wbs,loc_node_id:l,_delete:true});
   });
+  estCloseDelete();
   _estSelected.clear();_estSelectMode=false;
   pbShow(`Deleting ${deleteKeys.length} estimate(s)…`);
   try{
     if(draftPairs.length){
       const{error}=await sb.rpc('rpc_discard_scope_drafts',{p_user:state.userName,p_pairs:draftPairs});
       if(error)throw error;
-      draftPairs.forEach(p=>_localDrafts.delete(String(p.wbs_node_id)+'|'+p.loc_node_id));
+      draftPairs.forEach(pp=>_localDrafts.delete(String(pp.wbs_node_id)+'|'+pp.loc_node_id));
     }
     if(scopeRows.length){
       const{error}=await sb.rpc('rpc_save_wbs_scope',{p_rows:scopeRows,p_user:state.userName});
@@ -2498,7 +2514,6 @@ function _estCols(){
     _locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false)
              .sort((a,b)=>a.sort_order-b.sort_order).forEach(walk);
   };
-  if(_estFloor!=='__all__'){walk(_locNodes.find(n=>n.id===_estFloor));return out;}
   let roots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order);
   if(_estStage!=='__all__')roots=roots.filter(n=>n.id===_estStage);
   roots.forEach(walk);
@@ -2511,48 +2526,54 @@ function _estActivityDescIds(nodeId){
 }
 // An estimable leaf is a labour activity, a material line, or a hire-equipment node.
 function _isEstimableLeaf(n){ const t=(n.node_type||'group'); return t==='activity'||t==='material'||t==='hire_equipment'; }
+// ── v29: collapse-aware LOCATION COLUMN model (column analogue of WBS rows) ──
+let _estColCollapsed=new Set();
+let __locMapCache=null,__locMapSrc=null;
+function _locMapG(){if(__locMapSrc!==_locNodes){__locMapSrc=_locNodes;__locMapCache=Object.fromEntries(_locNodes.map(n=>[n.id,n]));}return __locMapCache;}
+function _estColRoots(){let roots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order);if(_estStage!=='__all__')roots=roots.filter(n=>n.id===_estStage);return roots;}
+function _locLeafIdsUnderG(n){const out=[];(function w(x){if(!x||x.is_active===false)return;if(x.is_leaf){out.push(x.id);return;}_locNodes.filter(c=>c.parent_id===x.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).forEach(w);})(n);return out;}
+function _estColFrontier(n){return n.is_leaf||_estColCollapsed.has(String(n.id));}
+function _estVisCols(){const out=[];const rec=n=>{if(!n||n.is_active===false)return;if(_estColFrontier(n)){if(n.is_leaf)out.push(n);else out.push(Object.assign({},n,{_isGroup:true,_leafIds:_locLeafIdsUnderG(n)}));return;}_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).forEach(rec);};_estColRoots().forEach(rec);return out;}
+function _locDepthFromRootG(n){let d=0,cur=n;const map=_locMapG();while(cur&&cur.parent_id!=null){d++;cur=map[cur.parent_id];}return d;}
+function _estColHeaderRows(){const front=_estColFrontier;function fcount(n){return front(n)?1:_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false).reduce((s,c)=>s+fcount(c),0);}const vis=_estVisCols();const map=_locMapG();const ML=vis.length?Math.max(...vis.map(c=>_locDepthFromRootG(map[c.id]))):0;const rows=Array.from({length:ML+1},()=>[]);function rec(n){if(!n||n.is_active===false)return;const lvl=_locDepthFromRootG(n);if(front(n))rows[lvl].push({node:n,colspan:1,rowspan:ML-lvl+1,frontier:true});else{rows[lvl].push({node:n,colspan:fcount(n),rowspan:1,frontier:false});_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).forEach(rec);}}_estColRoots().forEach(rec);return{rows,ML};}
+function estToggleCol(id){id=String(id);if(_estColCollapsed.has(id))_estColCollapsed.delete(id);else _estColCollapsed.add(id);renderEstimation();}
+function estExpandCols(){_estColCollapsed=new Set();renderEstimation();}
+function estCollapseCols(){_estColCollapsed=new Set();_locNodes.filter(n=>n.parent_id==null&&!n.is_leaf).forEach(n=>_estColCollapsed.add(String(n.id)));renderEstimation();}
+let _estDeleteItems=[];
 
 function renderEstimation(){
   const head=document.getElementById('est_head'),body=document.getElementById('est_body'),foot=document.getElementById('est_foot');
   if(!head)return;
-  const cols=_estCols();
+  const cols=_estVisCols();
   const sm=_estDraftScopeMap();   // ← merged: live scope + local drafts
 
   document.getElementById('est_col_count').textContent=`${cols.length} unit column${cols.length!==1?'s':''}`;
   if(!cols.length){head.innerHTML='';foot.innerHTML='';body.innerHTML=`<tr><td style="padding:24px;text-align:center;color:var(--muted);">No location leaves in this filter.</td></tr>`;return;}
 
-  const _wbsThS='text-align:left;padding:8px 12px;background:#d9e3f0;border:0.5px solid var(--border);color:#1B2A47;font-weight:500;min-width:200px;max-width:280px;width:280px;position:sticky;left:0;top:0;z-index:4;white-space:normal;word-break:break-word;';
-  const _colThS='padding:6px 8px;background:#1B2A47;border:0.5px solid rgba(255,255,255,0.12);color:#e8edf5;font-weight:500;font-size:11px;text-align:center;min-width:110px;position:sticky;top:0;z-index:2;';
-  const _totThS='padding:6px 8px;background:#16243d;border:0.5px solid rgba(255,255,255,0.12);color:#D4AF37;font-size:11px;text-align:right;min-width:110px;position:sticky;top:0;z-index:2;';
-  const _selColCb=(cid)=>_estSelectMode
-    ?`<div style="margin-bottom:2px;"><input type="checkbox" onclick="event.stopPropagation();estSelectCol('${cid}',this.checked)" style="width:13px;height:13px;accent-color:#3b82f6;cursor:pointer;" title="Select all draft cells in column"></div>`
-    :'';
-  const _locMapA=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
-  const _colAncs=(c)=>{const ancs=[];let cur=_locMapA[c.parent_id];while(cur){ancs.unshift(cur);cur=cur.parent_id?_locMapA[cur.parent_id]:null;}return ancs;};
-  const _ancColors=['#6b8ab5','#7ea0c9','#93b8e0','#a8c8f0'];
-  const _colTh=(c)=>{
-    const selCb=_selColCb(c.id);
-    if(_estFloor==='__all__'){
-      return`<th style="${_colThS}" title="${_esc(_locPathJS(c.id))}">${selCb}<div>${_esc(c.name)}</div><div style="font-family:monospace;font-size:9px;color:#8fa8cc;">${_esc(computeDotPath(_locNodes,c.id))}</div></th>`;
-    }
-    const ancs=_colAncs(c);
-    const ancHtml=ancs.map((a,i)=>`<div style="font-size:9px;color:${_ancColors[Math.min(i,3)]};padding-left:${i*8}px;line-height:1.6;white-space:nowrap;">${i>0?'&#8627; ':''}${_esc(a.name)}</div>`).join('');
-    const pad=ancs.length*8;
-    return`<th style="${_colThS}text-align:left;min-width:130px;" title="${_esc(_locPathJS(c.id))}">${selCb}${ancHtml}<div style="font-size:11px;font-weight:500;color:#e8edf5;padding-left:${pad}px;padding-top:2px;white-space:nowrap;">${_esc(c.name)}</div><div style="font-family:monospace;font-size:9px;color:#8fa8cc;padding-left:${pad}px;">${_esc(computeDotPath(_locNodes,c.id))}</div></th>`;
-  };
-  let th=`<tr><th style="${_wbsThS}">WBS / Activity</th>`;
-  cols.forEach(c=>{th+=_colTh(c);});
-  th+=`<th style="${_totThS}">Row Total ₹</th></tr>`;
-  head.innerHTML=th;
-  // Inject colgroup to pin label column to 280px under table-layout:fixed.
-  // Data columns and totals column share the remaining width equally.
+  // v29: grouped, collapse-aware location column header
+  const _eHdr=_estColHeaderRows();const _ML=_eHdr.ML;
+  let _th='';
+  _eHdr.rows.forEach((rw,ri)=>{
+    _th+='<tr>';
+    if(ri===0)_th+=`<th class="eg-h-corner" rowspan="${_ML+1}">WBS / Activity</th>`;
+    rw.forEach(cell=>{
+      const n=cell.node;const isLeafCol=n.is_leaf;const collapsed=_estColCollapsed.has(String(n.id));
+      const cls=isLeafCol?'eg-h-zone':(cell.frontier?'eg-h-grp':(n.parent_id==null?'eg-h-stage':'eg-h-floor'));
+      const chev=isLeafCol?'':`<span class="eg-h-chev">${collapsed?'▸':'▾'}</span>`;
+      const clk=isLeafCol?'':`onclick="estToggleCol('${n.id}')"`;
+      const selCb=(isLeafCol&&_estSelectMode)?`<div style="margin-bottom:2px;"><input type="checkbox" onclick="event.stopPropagation();estSelectCol('${n.id}',this.checked)" style="width:13px;height:13px;accent-color:#3b82f6;cursor:pointer;" title="Select all draft cells in column"></div>`:'';
+      const code=isLeafCol?`<div class="eg-h-code">${_esc(computeDotPath(_locNodes,n.id))}</div>`:'';
+      _th+=`<th class="${cls}" colspan="${cell.colspan}" rowspan="${cell.rowspan}" ${clk} title="${_esc(_locPathJS(n.id))}">${selCb}${chev}${_esc(n.name)}${(cell.frontier&&!isLeafCol)?' Σ':''}${code}</th>`;
+    });
+    if(ri===0)_th+=`<th class="eg-h-total" rowspan="${_ML+1}">Row Total ₹</th>`;
+    _th+='</tr>';
+  });
+  head.innerHTML=_th;
   const tbl=document.getElementById('est_table');
   const existingCg=tbl.querySelector('colgroup');
   if(existingCg)existingCg.remove();
   const cg=document.createElement('colgroup');
-  cg.innerHTML=`<col style="width:280px;min-width:200px;max-width:280px;">`
-    +cols.map(()=>`<col style="min-width:110px;">`).join('')
-    +`<col style="min-width:110px;">`;
+  cg.innerHTML=`<col style="width:280px;min-width:200px;max-width:280px;">`+cols.map(()=>`<col style="min-width:110px;">`).join('')+`<col style="min-width:110px;">`;
   tbl.insertBefore(cg,tbl.firstChild);
 
   const eff={};
@@ -2616,6 +2637,12 @@ function renderEstimation(){
       let rowTotal=0;
       let _rAnyLS=false,_rApproved=false,_rPending=false;   // v26: activity-mode flags, computed in the cell pass (no extra col loops)
       const cells=cols.map(c=>{
+        if(c._isGroup){
+          const _aids=isAct?[node.id]:actIds;let _gs=0;
+          _aids.forEach(aid=>{const _ef=eff[aid];if(!_ef)return;c._leafIds.forEach(z=>{if(_ef.has(z)){const _r=sm[aid+'|'+z];if(_r)_gs+=(_r.estimate_mode==='ls'?Number(_r.ls_budget_amount||0):Number(_r.est_amount||0));}});});
+          rowTotal+=_gs;
+          return`<td class="eg-roll ${isPkg?'eg-roll-pkg':'eg-roll-sub'}" title="${_esc(c.name)} — group subtotal (expand column to edit)">${_gs?'₹'+_inr(_gs):''}</td>`;
+        }
         if(isAct){
           const ok=eff[node.id]&&eff[node.id].has(c.id);
           const row=sm[node.id+'|'+c.id];
@@ -2623,27 +2650,41 @@ function renderEstimation(){
           if(_estPendingSet.has(node.id+'|'+c.id))_rPending=true;
           // ── SELECT MODE CELLS ─────────────────────────────────────────
           if(_estSelectMode){
-            if(!ok)return`<td style="padding:4px;border:0.5px solid var(--border);background:#f1f3f6;text-align:center;color:#c2c9d4;">·</td>`;
+            // v27: a STRANDED estimate (row exists but the pair is no longer
+            // rule-eligible) was rendered here as a dead "·" — so it could not be
+            // bulk-deleted, even though normal mode lets you delete it one-by-one.
+            // This disproportionately hit material/hire lines whose rules changed.
+            // Now: stranded + unapproved → a selectable red cell; stranded +
+            // approved → non-selectable; truly empty/ineligible → "·".
+            if(!ok){
+              if(row && row.scope_status!=='approved'){
+                const _samt=_estRowAmt(row);
+                const _ssk=`${String(node.id)}|${String(c.id)}`;const _ssel=_estSelected.has(_ssk);
+                return`<td onclick="estToggleCell(${node.id},'${c.id}')" class="eg-sc" style="border:0.5px solid ${_ssel?'#3b82f6':'#b91c1c'};background:${_ssel?'#dbeafe':'#fdf2f2'};${_ssel?'outline:2px solid #3b82f6;outline-offset:-2px;':''}" title="${_ssel?'Click to deselect':'⚠ Stranded — rules no longer allow this pair. Click to select for delete.'}"><div class="eg-q10" style="color:${_ssel?'#1d4ed8':'#b91c1c'};">${_ssel?'✓ ':'⚠ '}stranded</div><div class="eg-w6" style="color:${_ssel?'#1d4ed8':'#b91c1c'};text-decoration:${_ssel?'none':'line-through'};">₹${_inr(_samt)}</div></td>`;
+              }
+              return`<td class="eg-dot">·</td>`;
+            }
             if(row){
               const _isLS=row.estimate_mode==='ls';
               const _amt=_estRowAmt(row);
-              const _ql=_isLS?'<span style="font-size:9px;font-weight:700;color:#a07d10;background:#fffbe9;border:0.5px solid #e6cf7a;border-radius:3px;padding:0 4px;">LS ₹</span>':`${_inr(row.est_qty)} ${_esc(row.uom||'')}`;
-              if(row.scope_status==='approved')return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:#f0fdf4;cursor:not-allowed;" title="Approved — cannot delete"><div style="font-size:10px;color:#15803d;">${_ql} ✓</div><div style="font-weight:600;color:#15803d;">₹${_inr(_amt)}</div></td>`;
+              const _ql=_isLS?'<span class="eg-ls">LS ₹</span>':`${_inr(row.est_qty)} ${_esc(row.uom||'')}`;
+              if(row.scope_status==='approved')return`<td class="eg-appr" title="Approved — cannot delete"><div class="eg-appr-q">${_ql} ✓</div><div class="eg-appr-a">₹${_inr(_amt)}</div></td>`;
+              if(_estPendingSet.has(String(node.id)+'|'+String(c.id)))return`<td class="eg-subm" title="Submitted — pending PM approval, cannot delete"><div class="eg-subm-q">${_ql} ⏳</div><div class="eg-subm-a">₹${_inr(_amt)}</div></td>`;
               const sk=`${String(node.id)}|${String(c.id)}`;const sel=_estSelected.has(sk);
               rowTotal+=_amt;
-              return`<td onclick="estToggleCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid ${sel?'#3b82f6':'var(--border)'};text-align:right;cursor:pointer;background:${sel?'#dbeafe':'#fffdf5'};${sel?'outline:2px solid #3b82f6;outline-offset:-2px;':''}" title="${sel?'Click to deselect':'Click to select'}"><div style="font-size:10px;color:${sel?'#1d4ed8':'#64748b'};">${sel?'✓ ':''} ${_ql}</div><div style="font-weight:600;color:${sel?'#1d4ed8':'#1B2A47'};">₹${_inr(_amt)}</div></td>`;
+              return`<td onclick="estToggleCell(${node.id},'${c.id}')" class="eg-sc" style="border:0.5px solid ${sel?'#3b82f6':'var(--border)'};background:${sel?'#dbeafe':'#fffdf5'};${sel?'outline:2px solid #3b82f6;outline-offset:-2px;':''}" title="${sel?'Click to deselect':'Click to select'}"><div class="eg-q10" style="color:${sel?'#1d4ed8':'#64748b'};">${sel?'✓ ':''} ${_ql}</div><div class="eg-w6" style="color:${sel?'#1d4ed8':'#1B2A47'};">₹${_inr(_amt)}</div></td>`;
             }
-            return`<td style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#c2c9d4;background:#fafafa;">+</td>`;
+            return`<td class="eg-plus-s">+</td>`;
           }
           // ── NORMAL CELLS ──────────────────────────────────────────────
           if(!ok){
             if(row){
               // STRANDED: estimate exists but rules no longer allow the pair.
-              return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid #b91c1c;text-align:right;cursor:pointer;background:#fdf2f2;" title="⚠ STRANDED — rules no longer allow this pair. Excluded from totals. Click to view/delete.">
-                <div style="font-size:10px;color:#b91c1c;">⚠ stranded</div>
-                <div style="font-weight:600;color:#b91c1c;text-decoration:line-through;">₹${_inr(row.est_amount)}</div></td>`;
+              return`<td onclick="estViewCell(${node.id},'${c.id}')" class="eg-str" title="⚠ STRANDED — rules no longer allow this pair. Excluded from totals. Click to view/delete.">
+                <div class="eg-str-q">⚠ stranded</div>
+                <div class="eg-str-a">₹${_inr(row.est_amount)}</div></td>`;
             }
-            return`<td style="padding:4px;border:0.5px solid var(--border);background:#f1f3f6;text-align:center;color:#c2c9d4;" title="Pair not allowed by allocation rules">·</td>`;
+            return`<td class="eg-dot" title="Pair not allowed by allocation rules">·</td>`;
           }
           if(row){
             const _isLS=row.estimate_mode==='ls';
@@ -2656,20 +2697,20 @@ function renderEstimation(){
             const bg=row.scope_status==='approved'?'#f0fdf4':isPending?'#eff6ff':isLocalDraft?'#fffdf0':isUnapproved?'#fef3c7':'#fffdf5';
             const title=(_isLS?'LS · ':'')+(isPending?'Pending PM approval':isLocalDraft?'Local draft — unsent':row.scope_status==='approved'?'Approved':isUnapproved?'↩ Unapproved by Project Manager — open for edit':'Draft');
             const _topLine=_isLS
-              ?`<span style="font-size:9px;font-weight:700;color:#a07d10;background:#fffbe9;border:0.5px solid #e6cf7a;border-radius:3px;padding:0 4px;">LS ₹</span> <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span>${isUnapproved?'<span style="font-size:9px;color:#b45309;margin-left:2px;">↩</span>':''}`
-              :`${_inr(row.est_qty)} ${_esc(row.uom||'')} <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};margin-left:2px;"></span>${isUnapproved?'<span style="font-size:9px;color:#b45309;margin-left:2px;">↩</span>':''}`;
-            return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;cursor:pointer;background:${bg};" title="${_esc(title+' · '+(row.scope_code||''))}">
-              <div style="font-size:10px;color:#64748b;">${_topLine}</div>
-              <div style="font-weight:600;color:#1B2A47;">₹${_inr(_amt)}</div></td>`;
+              ?`<span class="eg-ls">LS ₹</span> <span class="eg-d7" style="background:${dot};"></span>${isUnapproved?'<span class="eg-unap">↩</span>':''}`
+              :`${_inr(row.est_qty)} ${_esc(row.uom||'')} <span class="eg-d7" style="background:${dot};"></span>${isUnapproved?'<span class="eg-unap">↩</span>':''}`;
+            return`<td onclick="estViewCell(${node.id},'${c.id}')" class="eg-fill" style="background:${bg};" title="${_esc(title+' · '+(row.scope_code||''))}">
+              <div class="eg-fq">${_topLine}</div>
+              <div class="eg-fa">₹${_inr(_amt)}</div></td>`;
           }
-          return`<td onclick="estViewCell(${node.id},'${c.id}')" style="padding:4px;border:0.5px dashed var(--border);text-align:center;color:#9aa7b8;cursor:pointer;" title="Click to view / estimate">+</td>`;
+          return`<td onclick="estViewCell(${node.id},'${c.id}')" class="eg-plus" title="Click to view / estimate">+</td>`;
         }
         const sub=actIds.reduce((s,aid)=>{
           if(!(eff[aid]&&eff[aid].has(c.id)))return s;   // stranded rows excluded
           const r=sm[aid+'|'+c.id];
           return s+(r?(r.estimate_mode==='ls'?Number(r.ls_budget_amount||0):Number(r.est_amount||0)):0);},0);
         rowTotal+=sub;
-        return`<td style="padding:4px 6px;border:0.5px solid var(--border);text-align:right;background:${isPkg?'#e4efe4':'inherit'};color:${isPkg?'#14532d':'#8a94a3'};font-weight:${isPkg?600:400};font-size:11px;">${sub?'₹'+_inr(sub):''}</td>`;
+        return`<td class="eg-roll ${isPkg?'eg-roll-pkg':'eg-roll-sub'}">${sub?'₹'+_inr(sub):''}</td>`;
       }).join('');
       // Coverage pill
       let coveragePill='';
@@ -2703,7 +2744,7 @@ function renderEstimation(){
       // This ensures wrapped lines align under the first character of the name,
       // not back to the left edge of the cell.
       const _pfxW=indent+14; // chevron(12) + gap(2) + icon inherited from indent
-      const label=`<td style="padding:4px 6px;background:${rowBg};border:0.5px solid var(--border);position:sticky;left:0;z-index:1;min-width:200px;max-width:280px;width:280px;" title="${_esc(node.name)}">
+      const label=`<td class="eg-label" style="background:${rowBg};" title="${_esc(node.name)}">
         <div style="display:flex;align-items:flex-start;gap:0;">
           <div style="flex-shrink:0;width:${_pfxW}px;display:flex;align-items:center;gap:2px;padding-top:2px;">
             ${chevron}${rowCb}<span>${isPkg?'📦':isHire?'🏗':isMat?'🧱':isAct?'📄':'🗂'}</span>
@@ -2722,7 +2763,7 @@ function renderEstimation(){
           </div>
         </div>
       </td>`;
-      const totalTd=`<td style="padding:4px 8px;border:0.5px solid var(--border);text-align:right;font-weight:${isAct?500:700};color:#1B2A47;background:${isPkg?'#e4efe4':'#fbfcfe'};">${rowTotal?'₹'+_inr(rowTotal):''}</td>`;
+      const totalTd=`<td class="eg-total" style="font-weight:${isAct?500:700};background:${isPkg?'#e4efe4':'#fbfcfe'};">${rowTotal?'₹'+_inr(rowTotal):''}</td>`;
       // Skip children entirely when this node is collapsed
       return`<tr>${label}${cells}${totalTd}</tr>`+(isCollapsed?'':rowsFor(node.id,depth+1));
     }).join('');
@@ -2731,18 +2772,23 @@ function renderEstimation(){
   body.innerHTML=html||`<tr><td colspan="${cols.length+2}" style="padding:24px;text-align:center;color:var(--muted);">No activities defined yet — add 📄 activities under 📦 packages in WBS Structure.</td></tr>`;
 
   const _isEligible=r=>eff[r.wbs_node_id]&&eff[r.wbs_node_id].has(r.loc_node_id);
+  const _byId=_locMapG();const _wbById=new Map(_wbsNodes.map(n=>[n.id,n]));
+  const sumByLoc=new Map();
+  for(const r of _scope){
+    if(!_isEligible(r))continue;
+    if(_estNodeType!=='__all__'){const wn=_wbById.get(r.wbs_node_id);if(!wn||(wn.node_type||'group')!==_estNodeType)continue;}
+    const v=r.estimate_mode==='ls'?Number(r.ls_budget_amount||0):Number(r.est_amount||0);
+    sumByLoc.set(r.loc_node_id,(sumByLoc.get(r.loc_node_id)||0)+v);
+  }
   let grand=0;
-  let ft=`<tr><td style="padding:6px 12px;background:var(--panel-2);border:0.5px solid var(--border);font-weight:600;color:#1B2A47;position:sticky;left:0;">Unit totals</td>`;
+  let ft=`<tr><td class="eg-foot-l">Unit totals</td>`;
   cols.forEach(c=>{
-    const sum=_scope.filter(r=>{
-      if(r.loc_node_id!==c.id||!_isEligible(r))return false;
-      if(_estNodeType!=='__all__'){const wn=_wbsNodes.find(x=>x.id===r.wbs_node_id);if(!wn||(wn.node_type||'group')!==_estNodeType)return false;}
-      return true;
-    }).reduce((s,r)=>s+(r.estimate_mode==='ls'?Number(r.ls_budget_amount||0):Number(r.est_amount||0)),0);
+    const zoneIds=c._isGroup?c._leafIds:[c.id];
+    let sum=0;zoneIds.forEach(z=>sum+=(sumByLoc.get(z)||0));
     grand+=sum;
-    ft+=`<td style="padding:5px 6px;border:0.5px solid var(--border);text-align:right;background:var(--panel-2);font-size:11px;font-weight:600;color:#1B2A47;">${sum?'₹'+_inr(sum):'—'}</td>`;
+    ft+=`<td class="eg-foot-c">${sum?'₹'+_inr(sum):'—'}</td>`;
   });
-  ft+=`<td style="padding:5px 8px;border:0.5px solid var(--border);text-align:right;background:#1B2A47;color:#D4AF37;font-weight:700;">₹${_inr(grand)}</td></tr>`;
+  ft+=`<td class="eg-foot-g">₹${_inr(grand)}</td></tr>`;
   foot.innerHTML=ft;
 
   // Update select mode button
@@ -4156,12 +4202,27 @@ async function estOpenQueue(){
     if(error)throw error;
     _queueData=data||[];
     _queueSelected=new Set();
-    _renderQueue();
+    _queueGrouped=true;                 // v27: predictable default each open
     document.getElementById('estQueueOverlay').style.display='flex';
+    setQView('grouped');                // syncs qGrpBtn/qFlatBtn styling + renders
   }catch(e){toast('Queue load failed: '+e.message,'error');}
   finally{pbDone();}
 }
 function estCloseQueue(){document.getElementById('estQueueOverlay').style.display='none';}
+
+// v27: queue grouped/flat toggle — wired to the static toolbar's qGrpBtn/qFlatBtn.
+// These were referenced in the modal markup but never defined, so the Manager's
+// Grouped/Flat buttons threw a ReferenceError and did nothing. Mirrors setSubView.
+function setQView(v){
+  _queueGrouped=(v==='grouped');
+  const gb=document.getElementById('qGrpBtn'),fb=document.getElementById('qFlatBtn');
+  if(gb){gb.style.background=_queueGrouped?'#1B2A47':'transparent';gb.style.color=_queueGrouped?'#fff':'var(--muted)';}
+  if(fb){fb.style.background=!_queueGrouped?'#1B2A47':'transparent';fb.style.color=!_queueGrouped?'#fff':'var(--muted)';}
+  if(_queueGrouped)_queueCollapsed.clear();
+  _renderQueue();
+}
+// v27: select-all from the static toolbar (was referenced but undefined).
+function qToggleAll(checked){_queueSelectAll(checked);}
 
 function _renderQueue(){
   document.getElementById('queue_subtitle').textContent=`${_queueData.length} pending submission(s) awaiting decision`;
@@ -4186,21 +4247,15 @@ function _renderQueue(){
       <button onclick="_queueRowAction('${r.id}','reject')" style="padding:3px 8px;border-radius:4px;border:1px solid #dc2626;background:transparent;color:#dc2626;font-size:11px;cursor:pointer;font-weight:600;">✕</button>
     </div>`;
   };
-  const toolbar=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap;">
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" style="width:auto;" onchange="_queueSelectAll(this.checked)"> Select all</label>
-    <span style="font-size:12px;color:var(--muted);" id="q_sel_count">0 selected</span>
-    <div style="margin-left:auto;display:flex;gap:6px;">
-      <button onclick="_queueGrouped=true;_renderQueue()" style="padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:${_queueGrouped?'#1B2A47':'transparent'};color:${_queueGrouped?'#fff':'var(--muted)'};font-size:11px;cursor:pointer;">⊞ Grouped</button>
-      <button onclick="_queueGrouped=false;_renderQueue()" style="padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:${!_queueGrouped?'#1B2A47':'transparent'};color:${!_queueGrouped?'#fff':'var(--muted)'};font-size:11px;cursor:pointer;">≡ Flat list</button>
-      <button onclick="_queueBulkAction('reject')" style="padding:4px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:#dc2626;color:#fff;">✕ Reject</button>
-      <button onclick="_queueBulkAction('approve')" style="padding:4px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:#0d9488;color:#fff;">✓ Approve</button>
-    </div>
-  </div>`;
+  // v27: the in-body toolbar was a refactor leftover that duplicated the static
+  // toolbar in the modal chrome (and re-used its id="q_sel_count", creating a
+  // duplicate-id). All queue controls now live in the static toolbar, driven by
+  // setQView()/qToggleAll()/_queueExpandAll()/_queueCollapseAll(). No injected bar.
   let html='';
   if(_queueGrouped){
-    html=_groupedSubmissionHtml(_queueData, rowHtml, toolbar, _queueCollapsed, '_queueToggleCollapse');
+    html=_groupedSubmissionHtml(_queueData, rowHtml, '', _queueCollapsed, '_queueToggleCollapse');
   } else {
-    html=toolbar;
+    html='';
     if(!_queueData.length){html+='<div style="padding:32px;text-align:center;color:var(--muted);">No pending submissions.</div>';}
     else {
       const mods=_queueData.filter(r=>r.change_type==='modify');
@@ -4226,7 +4281,12 @@ function _mySubCollapseAll(){
   wbsKeys.forEach(k=>_mySubCollapsed.add(k));_renderMySubmissions();
 }
 function _queueSelectAll(checked){_queueSelected=checked?new Set(_queueData.map(r=>r.id)):new Set();_renderQueue();}
-function _queueUpdateSelCount(){const el=document.getElementById('q_sel_count');if(el)el.textContent=_queueSelected.size+' selected';}
+function _queueUpdateSelCount(){
+  const el=document.getElementById('q_sel_count');if(el)el.textContent=_queueSelected.size+' selected';
+  // v27: reflect select-all state on the static toolbar checkbox
+  const sa=document.getElementById('qSelAll');
+  if(sa){const n=_queueData.length,s=_queueSelected.size;sa.checked=n>0&&s===n;sa.indeterminate=s>0&&s<n;}
+}
 function _queueRowAction(id,action){
   if(action==='approve'){_queueBulkApprove([id]);}
   else{_pendingRejectIds=[id];document.getElementById('rej_subtitle').textContent='1 estimate selected';document.getElementById('rej_reason').value='';document.getElementById('estRejectOverlay').style.display='flex';}
