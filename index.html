@@ -4388,12 +4388,34 @@ function _buPick(i,code){
 let _mbCtx=null,_mbMode='edit',_mbEditLines=[],_mbAddLines=[],_mbLocSel=new Set(),_mbGrouped=true,_mbUid=0,_mbNonUniform=false,_mbLocCollapsed=new Set();
 function _mbErr(m){const e=document.getElementById('mb_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';}
 function _mbLineToBu(l){return {material_code:l.material_code||null,material_name:l.material_name,uom:l.uom||null,qty:Number(l.measured_qty)||0,wastage_pct:_buClampWastage(l.wastage_pct),qty_total:_r2(_mrQt(l)),rate:_r2(l.rate),amount:_r2(_mrAmt(l))};}
+function _mbMatType(kind,id,val){
+  const arr=(kind==='e'?_mbEditLines:_mbAddLines), l=arr.find(x=>x.id===id); if(!l)return;
+  l.material_name=val; _mbErr('');
+  const q=(val||'').toLowerCase().trim(), dd=_buSuggBox();
+  if(!q){dd.style.display='none';return;}
+  const hits=(_matMaster||[]).filter(m=>(m.material_name||'').toLowerCase().includes(q)||String(m.material_code||'').toLowerCase().includes(q)).slice(0,12);
+  if(!hits.length){dd.style.display='none';return;}
+  dd.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_mbPick('${kind}',${id},'${_esc(String(m.material_code))}')">
+    <div style="font-size:12px;">${_esc(m.material_name)}</div>
+    <div style="font-size:10px;color:var(--muted);">${_esc(m.material_code||'')} · ${_esc(m.uom||'')}${m.estimated_rate?` · ₹${_inr(m.estimated_rate)}`:''}</div></div>`).join('');
+  const inp=document.getElementById('mb_mat_'+kind+'_'+id);
+  if(inp){const r=inp.getBoundingClientRect();dd.style.left=Math.round(r.left)+'px';dd.style.top=Math.round(r.bottom+2)+'px';dd.style.minWidth=Math.max(r.width,260)+'px';dd.style.display='';}
+}
+function _mbPick(kind,id,code){
+  const arr=(kind==='e'?_mbEditLines:_mbAddLines), l=arr.find(x=>x.id===id); if(!l)return;
+  const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code)); if(!m)return;
+  l.material_code=m.material_code; l.material_name=m.material_name; l.uom=m.uom||'';
+  if(!(Number(l.rate)>0)&&m.estimated_rate)l.rate=_r2(m.estimated_rate);
+  _buHideSuggest();
+  if(kind==='e')_mbPaintEdit(); else _mbPaintAdd();
+}
 
 async function estMaterialBulkFill(wbsId){
   if(!_nodeLeased(wbsId)){toast('Unlock the line first','warn');return;}
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   const node=_wbsNodes.find(n=>n.id===wbsId);
   if(!node||(node.node_type||'')!=='material'){toast('Material packages only','warn');return;}
+  await _loadMatMaster();
   const eff=_effectiveLeavesJS(wbsId);
   const cols=_estCols().filter(c=>eff.has(c.id));
   if(!cols.length){toast('No eligible locations in the current filter','warn');return;}
@@ -4470,7 +4492,7 @@ function _mbRowE(l){
   const isNew=l.origin==='new',ed=(isNew||l.editing)&&!l.deleted,wo=(Number(l.wastage_pct)||0)>25;
   const flag=l.deleted?'<span class="mr-flag rem">REMOVED</span>':isNew?'<span class="mr-flag new">NEW</span>':l.editing?'<span class="mr-flag edt">EDITING</span>':'<span class="mr-flag lock">🔒 LOCKED</span>';
   const cls=l.deleted?'mr-removed':isNew?'mr-new':l.editing?'mr-editing':'mr-existing';
-  if(ed)return `<tr class="${cls}"><td><input class="mr-mat" value="${_esc(l.material_name)}" placeholder="Material name" oninput="_mbEIn(${l.id},'material_name',this.value)">${flag}</td>
+  if(ed)return `<tr class="${cls}"><td><input id="mb_mat_e_${l.id}" class="mr-mat" value="${_esc(l.material_name)}" placeholder="type material…" autocomplete="off" oninput="_mbMatType('e',${l.id},this.value)" onblur="setTimeout(_buHideSuggest,200)">${flag}</td>
     <td><input class="mr-u" value="${_esc(l.uom)}" oninput="_mbEIn(${l.id},'uom',this.value)"></td>
     <td class="num"><input class="mr-q" type="number" step="0.001" min="0" value="${l.measured_qty}" oninput="_mbEIn(${l.id},'measured_qty',this.value)"></td>
     <td class="num"><input class="mr-q" type="number" step="0.01" min="0" max="25" value="${l.wastage_pct}" oninput="_mbEIn(${l.id},'wastage_pct',this.value)"><span id="mb_ew_${l.id}" class="mr-wmax" style="display:${wo?'':'none'};">max 25%</span></td>
@@ -4493,7 +4515,7 @@ function _mbERemoveNew(id){_mbEditLines=_mbEditLines.filter(x=>x.id!==id);_mbPai
 function _mbAddEdit(){_mbEditLines.push({id:++_mbUid,origin:'new',editing:true,deleted:false,material_code:null,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,orig:null});_mbPaintEdit();_mbErr('');setTimeout(()=>{const i=document.querySelectorAll('#mb_ebody input.mr-mat');if(i.length)i[i.length-1].focus();},0);}
 /* add-new rows */
 function _mbRowA(l){const wo=(Number(l.wastage_pct)||0)>25;
-  return `<tr class="mr-new"><td><input class="mr-mat" value="${_esc(l.material_name)}" placeholder="Material name" oninput="_mbAIn(${l.id},'material_name',this.value)"><span class="mr-flag new">NEW</span></td>
+  return `<tr class="mr-new"><td><input id="mb_mat_a_${l.id}" class="mr-mat" value="${_esc(l.material_name)}" placeholder="type material…" autocomplete="off" oninput="_mbMatType('a',${l.id},this.value)" onblur="setTimeout(_buHideSuggest,200)"><span class="mr-flag new">NEW</span></td>
     <td><input class="mr-u" value="${_esc(l.uom)}" oninput="_mbAIn(${l.id},'uom',this.value)"></td>
     <td class="num"><input class="mr-q" type="number" step="0.001" min="0" value="${l.measured_qty}" oninput="_mbAIn(${l.id},'measured_qty',this.value)"></td>
     <td class="num"><input class="mr-q" type="number" step="0.01" min="0" max="25" value="${l.wastage_pct}" oninput="_mbAIn(${l.id},'wastage_pct',this.value)"><span id="mb_aw_${l.id}" class="mr-wmax" style="display:${wo?'':'none'};">max 25%</span></td>
