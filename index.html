@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v32 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v34 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -471,9 +471,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               style="padding:5px 10px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">⊞ Expand all</button>
             <button onclick="estCollapseAll()" title="Collapse all WBS rows"
               style="padding:5px 10px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">⊟ Collapse all</button>
-            <button id="est_lock_btn" onclick="estToggleLock()"
-              style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:1px solid #D4AF37;background:#1B2A47;color:#D4AF37;cursor:pointer;font-size:12px;font-weight:500;">
-              <span id="est_lock_icon">🔒</span><span id="est_lock_label">Locked</span>
+            <button id="est_lock_btn" onclick="estLockAll()" title="Lock every estimate line — revokes all current unlocks at once"
+              style="display:none;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:1px solid #D4AF37;background:#1B2A47;color:#D4AF37;cursor:pointer;font-size:12px;font-weight:500;">
+              <span id="est_lock_icon">🔒</span><span id="est_lock_label">Lock all</span>
+            </button>
+            <button id="est_csv_btn" onclick="estExportCSV()" title="Download the visible grid as CSV (opens in Excel)"
+              style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:0.5px solid #334155;background:#1B2A47;color:#8fa8cc;cursor:pointer;font-size:12px;">
+              ⬇ CSV
             </button>
             <button id="est_submit_btn" onclick="estOpenSubmit()" title="Submit draft estimates for PM approval"
               style="display:none;align-items:center;gap:6px;padding:5px 14px;border-radius:4px;border:none;background:#0d9488;color:#fff;cursor:pointer;font-size:12px;font-weight:600;">
@@ -483,12 +487,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
               style="display:none;align-items:center;gap:6px;padding:5px 14px;border-radius:4px;border:none;background:#D4AF37;color:#3a2e00;cursor:pointer;font-size:12px;font-weight:600;">
               🗂️ Approval Queue <span id="est_queue_count" style="background:rgba(0,0,0,.15);border-radius:10px;padding:0 6px;font-size:11px;"></span>
             </button>
-            <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="exportEstimation()" title="Export estimation to CSV">⬇</button>
             <button class="btn btn-ghost btn-sm" style="color:#8fa8cc;border-color:#334155;" onclick="loadEstimation()">↻</button>
-            <button id="est_my_sub_link" onclick="estOpenMySubmissions()" title="View and withdraw your pending submissions"
-              style="display:none;padding:5px 10px;border-radius:4px;border:0.5px solid #4A6FA5;background:transparent;color:#8fa8cc;cursor:pointer;font-size:11px;white-space:nowrap;">
-              📋 My submissions
-            </button>
             <button onclick="estOpenHistory()" title="Full submission history — all estimates submitted, approved, rejected"
               style="padding:5px 10px;border-radius:4px;border:0.5px solid #4A6FA5;background:transparent;color:#8fa8cc;cursor:pointer;font-size:11px;white-space:nowrap;">
               🕓 History
@@ -553,7 +552,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
         <div id="est_status_strip" style="display:none;background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:6px 14px;font-size:12px;color:#1e40af;align-items:center;gap:16px;flex-wrap:wrap;">
           <span>🗂️ <b id="ss_local_drafts">0</b> unsent local edit(s)</span>
           <span>🕓 <b id="ss_pending">0</b> pending PM approval</span>
-          <span id="ss_rejected_seg" style="display:none;">❌ <b id="ss_rejected">0</b> rejected — <a href="#" onclick="estOpenMySubmissions();return false;" style="color:#dc2626;">review</a></span>
+          <span id="ss_rejected_seg" style="display:none;">❌ <b id="ss_rejected">0</b> rejected — <a href="#" onclick="estOpenHistory('rejected');return false;" style="color:#dc2626;">review</a></span>
           <span id="ss_unapproved_seg" style="display:none;">↩ <b id="ss_unapproved">0</b> unapproved by PM — <a href="#" onclick="estFilterUnapproved();return false;" style="color:#92400e;">view</a></span>
         </div>
         <div style="overflow-x:auto;overflow-y:auto;max-height:65vh;">
@@ -638,6 +637,60 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
       <div id="evm_detail"></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:#fafbfd;" id="evm_footer"></div>
+  </div>
+</div>
+
+<!-- ░░ v33 · Revise approved estimate (floor-gated revision) ░░ -->
+<div id="estReviseOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4600;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1B2A47;" id="rev_title">Revise approved estimate</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6;" id="rev_path"></div>
+      </div>
+      <button type="button" onclick="estCloseRevise()" style="background:transparent;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <div style="padding:18px 20px;">
+      <div id="rev_floorbox" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;"></div>
+      <div id="rev_qtyfields">
+        <div style="display:flex;gap:14px;">
+          <div style="flex:1;"><label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">New quantity</label>
+            <input id="rev_qty" type="number" step="0.001" oninput="revValidate()" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;margin-top:5px;font-size:13px;"></div>
+          <div style="flex:1;"><label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">Rate ₹ <span id="rev_ratefrozen" style="display:none;color:#b45309;">· frozen (certified)</span></label>
+            <input id="rev_rate" type="number" step="0.01" oninput="revValidate()" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;margin-top:5px;font-size:13px;"></div>
+        </div>
+      </div>
+      <div id="rev_lsfields" style="display:none;">
+        <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">New LS budget ₹</label>
+        <input id="rev_ls" type="number" step="1" oninput="revValidate()" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;margin-top:5px;font-size:13px;">
+      </div>
+      <div style="margin-top:14px;"><label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">Reason for revision (kept in history)</label>
+        <input id="rev_reason" type="text" placeholder="e.g. scope increase per RFI-118" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;margin-top:5px;font-size:13px;"></div>
+      <div id="rev_err" style="display:none;margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:9px 12px;font-size:12px;color:#b91c1c;"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:#fafbfd;">
+      <button class="btn btn-ghost" onclick="estCloseRevise()">Cancel</button>
+      <button class="btn btn-primary" id="rev_reviewbtn" onclick="revReview()">Review changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ v33 · Revision change-summary confirm ░░ -->
+<div id="estRevDiffOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.6);z-index:4700;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:520px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid var(--border);">
+      <div style="font-size:15px;font-weight:700;color:#1B2A47;">Confirm the revision</div>
+      <button type="button" onclick="estCloseRevDiff()" style="background:transparent;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <div style="padding:18px 20px;">
+      <div id="revdiff_path" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
+      <div id="revdiff_table"></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Files as a revision pending PM approval. The approved value stays live for any order until the PM approves the new one.</div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:#fafbfd;">
+      <button class="btn btn-ghost" onclick="estBackToRevise()">Back</button>
+      <button class="btn btn-primary" id="revdiff_confirm" onclick="revCommit()">Submit for approval</button>
+    </div>
   </div>
 </div>
 
@@ -2344,6 +2397,8 @@ function _flashLockWarning(){
 
 async function loadRules(){
   await Promise.all([apiLoadWBS(),apiLoadLoc(),apiLoadRules()]);
+  _matrixWbsCollapsed.clear();
+  _wbsNodes.filter(n=>!n.is_leaf).forEach(n=>_matrixWbsCollapsed.add(n.id));   // collapsed by default
   renderRulesMatrix();
 }
 
@@ -2368,6 +2423,88 @@ const _estCollapsed=new Set(); // non-leaf WBS nodes explicitly collapsed in the
 let _estRelockInt=null,_estRelockSecs=0;
 const EST_RELOCK_SECS=180;
 let _estActMode={};   // v26: wbsId -> 'qty'|'ls' (activity-level estimate mode, client-derived)
+// v34: per-node 24h editing lease (activity/material/hire) — one lease covers ALL the node's locations
+let _estLeases=new Map();   // wbs_node_id -> unlocked_until (ms epoch)
+function _nodeLeased(w){const u=_estLeases.get(String(w));return !!(u&&u>Date.now());}
+function _nodeLeaseLeft(w){const u=_estLeases.get(String(w));if(!u||u<=Date.now())return'';const h=(u-Date.now())/3600000;return ' · '+(h>=1?h.toFixed(1)+'h':Math.max(1,Math.round(h*60))+'m')+' left';}
+async function _estLoadLocks(){
+  const m=new Map();
+  try{let from=0;const ps=1000;
+    while(true){const{data,error}=await sb.from('wbs_scope_leases').select('wbs_node_id,unlocked_until').range(from,from+ps-1);
+      if(error)break;(data||[]).forEach(r=>{const t=new Date(r.unlocked_until).getTime();if(t>Date.now())m.set(String(r.wbs_node_id),t);});
+      if(!data||data.length<ps)break;from+=ps;}
+  }catch(e){}
+  _estLeases=m;
+}
+async function estSetNodeLock(wbsId,unlock){
+  if(!canApprove()){toast('Only the Manager or Admin can lock/unlock a line','error');return;}
+  pbShow(unlock?'Unlocking line…':'Locking line…');
+  try{
+    const{error}=await sb.rpc('rpc_set_node_lock',{p_wbs_node_id:Number(wbsId),p_unlock:unlock,p_user:state.userName});
+    if(error)throw error;
+    await _estLoadLocks();
+    toast(unlock?'Line unlocked for 24 h — all its locations are now editable':'Line locked','info');
+    renderEstimation();
+  }catch(e){toast('Lock change failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+function _estSetupToolbar(){
+  const b=document.getElementById('est_lock_btn'); if(b)b.style.display=canApprove()?'flex':'none';  // "Lock all" — managers only
+  const bn=document.getElementById('est_lock_banner'); if(bn)bn.style.display='none';
+  const t=document.getElementById('est_relock_timer'); if(t)t.style.display='none';
+}
+// v34: Lock ALL estimate lines in one action (manager safety net) — confirms with the unlocked count
+async function estLockAll(){
+  if(!canApprove()){toast('Only the Manager or Admin can lock all','error');return;}
+  const n=_estLeases.size;
+  if(n===0){toast('All estimate lines are already locked','info');return;}
+  if(!window.confirm(n+' estimate line'+(n>1?'s are':' is')+' currently unlocked.\n\nLock all of them now? Anyone editing them will lose access until you unlock again.')) return;
+  pbShow('Locking all lines…');
+  try{
+    const{data,error}=await sb.rpc('rpc_lock_all_nodes',{p_user:state.userName});
+    if(error)throw error;
+    await _estLoadLocks(); renderEstimation();
+    toast('Locked all lines'+(data&&data.were_unlocked!=null?' ('+data.were_unlocked+' were unlocked)':''),'info');
+  }catch(e){toast('Lock-all failed: '+e.message,'error');}
+  finally{pbDone();}
+}
+// v34: download exactly the visible grid (respects collapsed groups + columns in view) as CSV
+function estExportCSV(){
+  const tbl=document.getElementById('est_table');
+  if(!tbl){toast('Nothing to export','warn');return;}
+  const trs=[];
+  tbl.querySelectorAll('thead tr').forEach(tr=>trs.push(tr));                                  // header always
+  tbl.querySelectorAll('tbody tr').forEach(tr=>{ if(tr.getClientRects().length) trs.push(tr); }); // visible (non-collapsed) only
+  tbl.querySelectorAll('tfoot tr').forEach(tr=>{ if(tr.getClientRects().length) trs.push(tr); }); // totals
+  if(trs.length<=1){toast('Nothing visible to export','warn');return;}
+  const rows=_estTableToGrid(trs);
+  _csvDownload('Penguin_Estimate_'+_exportDate()+'.csv',rows);
+  toast('Exported '+(rows.length-1)+' visible row(s) to CSV','info');
+}
+// faithful DOM->grid: expands colspan/rowspan so header and body columns line up
+function _estTableToGrid(trs){
+  const grid=[],occ={};
+  trs.forEach((tr,r)=>{
+    if(!grid[r])grid[r]=[];
+    let c=0;
+    Array.from(tr.children).forEach(cell=>{
+      while(occ[r+','+c])c++;
+      const cs=cell.colSpan||1, rs=cell.rowSpan||1, text=_estCellText(cell);
+      for(let i=0;i<rs;i++)for(let j=0;j<cs;j++){
+        if(!grid[r+i])grid[r+i]=[];
+        grid[r+i][c+j]=(i===0&&j===0)?text:'';
+        if(i||j)occ[(r+i)+','+(c+j)]=true;
+      }
+      c+=cs;
+    });
+  });
+  const w=Math.max(0,...grid.map(g=>g.length));
+  grid.forEach(g=>{for(let k=0;k<w;k++)if(g[k]==null)g[k]='';});
+  return grid;
+}
+function _estCellText(cell){
+  return (cell.textContent||'').replace(/[\u{1F500}-\u{1FAFF}\u{2190}-\u{21FF}\u{2700}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu,'').replace(/\s+/g,' ').trim();
+}
 
 function _inr(v){return Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
 // LS-aware effective amount for a scope/merged row (budget for LS, est_amount otherwise)
@@ -2391,10 +2528,16 @@ async function apiLoadScope(){
 async function loadEstimation(){
   pbShow('Loading estimation…');
   try{
-    await Promise.all([apiLoadWBS(),apiLoadLoc(),apiLoadRules(),apiLoadScope()]);
+    await Promise.all([apiLoadWBS(),apiLoadLoc(),apiLoadRules(),apiLoadScope(),_estLoadLocks()]);
     _estBuildFilters();
     await _estLoadSubmissionMeta();  // populates _estPendingSet, _estRejectedMap, status strip
     _estUpdateSubmitUI();            // show/hide Submit+Queue buttons
+    _estSetupToolbar();
+    // collapsed by default: rows → top packages, columns → top stages
+    _estCollapsed.clear();
+    _wbsNodes.filter(n=>!_isEstimableLeaf(n)).forEach(n=>_estCollapsed.add(n.id));
+    _estColCollapsed=new Set();
+    _locNodes.filter(n=>n.parent_id==null&&!n.is_leaf).forEach(n=>_estColCollapsed.add(String(n.id)));
     renderEstimation();
   }catch(e){toast('Error: '+e.message,'error');}
   finally{pbDone();}
@@ -2439,7 +2582,6 @@ function estCollapseAll(){
   renderEstimation();
 }
 function estToggleSelectMode(){
-  if(_estLocked){_estFlashLock();return;}
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   _estSelectMode=!_estSelectMode;_estSelected.clear();renderEstimation();
 }
@@ -2726,7 +2868,7 @@ function renderEstimation(){
         const _amode=_estActMode[node.id]||(_rAnyLS?'ls':'qty');
         if(_estActMode[node.id]===undefined)_estActMode[node.id]=_amode;
         const _modeLocked=_rApproved||_rPending;
-        if(!_estLocked&&!_estSelectMode&&canEdit()){
+        if(_nodeLeased(node.id)&&!_estSelectMode&&canEdit()){
           const segS=(on,onBg,onTx)=>`padding:1px 6px;font-size:9px;font-weight:700;cursor:${_modeLocked?'not-allowed':'pointer'};background:${on?onBg:'#fff'};color:${on?onTx:'#94a3b8'};`;
           modeToggle=`<span style="display:inline-flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;margin-left:6px;vertical-align:middle;${_modeLocked?'opacity:.55;':''}" title="${_modeLocked?'Mode locked — approved/pending location(s) exist; un-approve/withdraw to change':'Estimate mode for this activity — applies to all its locations'}">
             <span ${_modeLocked?'':`onclick="event.stopPropagation();estSetActivityMode(${node.id},'qty')"`} style="${segS(_amode!=='ls','#1e3a5f','#fff')}">QTY</span>
@@ -2755,10 +2897,11 @@ function renderEstimation(){
             ${coveragePill}
             ${modeToggle}
             <span style="display:inline-flex;gap:3px;vertical-align:middle;">
-              ${isAct&&!_estLocked&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" title="${isMat?'Bulk-fill build-up sheet across units':'Bulk-fill across units'}" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
+              ${isAct?`<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;vertical-align:middle;${_nodeLeased(node.id)?'background:#e7f6f0;color:#15803d;':'background:#eef2f6;color:#94a3b8;'}" title="${_nodeLeased(node.id)?'Unlocked for editing'+_nodeLeaseLeft(node.id):'Locked — Manager can unlock for 24h'}">${_nodeLeased(node.id)?'🔓':'🔒'}</span>`:''}
+              ${isAct&&canApprove()?`<button class="btn btn-ghost btn-xs" title="${_nodeLeased(node.id)?'Lock this line':'Unlock this line for 24h (covers all its locations)'}" onclick="event.stopPropagation();estSetNodeLock(${node.id},${_nodeLeased(node.id)?'false':'true'})" style="color:${_nodeLeased(node.id)?'#b91c1c':'#b45309'};">${_nodeLeased(node.id)?'🔒':'🔓'}</button>`:''}
+              ${isAct&&_nodeLeased(node.id)&&!_estSelectMode&&canEdit()?`<button class="btn btn-ghost btn-xs" title="${isMat?'Bulk-fill build-up sheet across units':'Bulk-fill across units'}" onclick="event.stopPropagation();estBulkFill(${node.id})">⇉</button>`:''}
               ${isMat?`<button class="btn btn-ghost btn-xs" title="Material take-off — total qty per material across units in view" onclick="event.stopPropagation();estMaterialBreakup(${node.id})">📋</button>`:''}
               ${(isAct&&!isMat)?`<button class="btn btn-ghost btn-xs" title="${isHire?'Hire equipment summary — qty and amount across units in view':'Activity summary — qty and amount across units in view'}" onclick="event.stopPropagation();estActivitySummary(${node.id})">📋</button>`:''}
-              ${isPkg&&!_estLocked&&!_estSelectMode&&canApprove()?`<button class="btn btn-ghost btn-xs" title="Un-approve all approved estimates in this package — reopens for QS to edit and resubmit" onclick="event.stopPropagation();estApprovePkg(${node.id})" style="color:#b45309;">↩</button>`:''}
             </span>
           </div>
         </div>
@@ -3121,28 +3264,34 @@ function estViewCell(wbsId,locId){
     ${dispNotes?`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12.5px;"><span style="color:var(--muted);">Notes</span><span style="font-weight:600;">${_esc(dispNotes)}</span></div>`:''}`;
   }
 
-  // Footer buttons
+  // Footer buttons (v34: per-node lease gating)
   const footer=document.getElementById('evm_footer');
+  const _leased=_nodeLeased(wbsId), _mgr=canApprove();
+  let _left = _leased
+    ? `<span style="background:#e7f6f0;color:#15803d;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;">🔓 Unlocked${_nodeLeaseLeft(wbsId)}</span>`
+    : `<span style="background:#eef2f6;color:#64748b;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;">🔒 Locked</span>`;
+  if(_mgr){
+    _left += _leased
+      ? `<button class="btn btn-ghost btn-xs" style="color:#b91c1c;border:1px solid #e8b6b0;margin-left:6px;" onclick="estSetNodeLock(${wbsId},false).then(()=>estViewCell(${wbsId},'${locId}'))">Lock line</button>`
+      : `<button class="btn btn-ghost btn-xs" style="color:#b45309;border:1px solid #f0d9b8;margin-left:6px;" onclick="estSetNodeLock(${wbsId},true).then(()=>estViewCell(${wbsId},'${locId}'))">Unlock 24h</button>`;
+  }
   let btns=`<button class="btn btn-ghost" onclick="estCloseView()">Close</button>`;
   if(canEdit()){
     if(dispStatus==='empty'||dispStatus==='_local_draft'||dispStatus==='draft'||dispStatus==='rejected'||dispStatus==='unapproved'){
-      if(_estLocked){
-        btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">Unlock grid to edit</span>`;
-      } else {
+      if(_leased){
         const btnLabel=dispStatus==='empty'?'Add Estimate':'Edit Estimate';
-        if(isMaterial||_isLS||_actLS){
-          btns+=`<button class="btn btn-primary" onclick="estCloseView();estMaterialBuildup(${wbsId},'${locId}')">${btnLabel} ${(_isLS||_actLS)?'(LS package)':'(build-up)'}</button>`;
-        } else {
-          btns+=`<button class="btn btn-primary" onclick="estCloseView();estEditCellDirect(${wbsId},'${locId}')">${btnLabel}</button>`;
-        }
-      }
+        if(isMaterial||_isLS||_actLS){ btns+=`<button class="btn btn-primary" onclick="estCloseView();estMaterialBuildup(${wbsId},'${locId}')">${btnLabel} ${(_isLS||_actLS)?'(LS package)':'(build-up)'}</button>`; }
+        else { btns+=`<button class="btn btn-primary" onclick="estCloseView();estEditCellDirect(${wbsId},'${locId}')">${btnLabel}</button>`; }
+      } else { btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">${_mgr?'Unlock the line to edit':'Locked — ask the Manager to unlock this line'}</span>`; }
     } else if(dispStatus==='pending'){
       btns=`<button style="padding:7px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #dc2626;background:transparent;color:#dc2626;" onclick="estCloseView();estWithdrawOne('${draftKey}')">↩ Withdraw submission</button>`+btns;
     } else if(dispStatus==='approved'){
-      btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">Approved — PM can un-approve via package ✔ button</span>`;
+      if(isMaterial){ btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">Material build-up revision — coming in a later update</span>`; }
+      else if(_leased){ btns+=`<button class="btn btn-primary" onclick="estCloseView();estReviseApproved(${wbsId},'${locId}')">✎ Revise estimate</button>`; }
+      else { btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">${_mgr?'Unlock the line to revise':'Locked — ask the Manager to unlock this line'}</span>`; }
     }
   }
-  footer.innerHTML=btns;
+  footer.innerHTML=`<span style="margin-right:auto;display:inline-flex;align-items:center;">${_left}</span>`+btns;
 
   overlay.style.display='flex';
 }
@@ -3233,6 +3382,130 @@ function _evmRenderLSDetail(detail,{ex,draft,act,dispStatus,budget,wbsId,locId,b
   }
 }
 
+// ░░ v33 · Revise an approved estimate → floor-gated revision (rpc_submit_scope_revision) ░░
+let _revCtx=null;
+async function estReviseApproved(wbsId,locId){
+  const act=_wbsNodes.find(n=>n.id===wbsId), loc=_locNodes.find(n=>n.id===locId);
+  if(!act||!loc)return;
+  const ex=_scopeMap()[String(wbsId)+'|'+String(locId)]||null;
+  if(!ex||ex.scope_status!=='approved'){toast('Only an approved estimate can be revised','warn');return;}
+  if((act.node_type||'')==='material'){toast('Material build-up revisions come in a later update','info');return;}
+  const isLS=ex.estimate_mode==='ls';
+  _revCtx={wbsId,locId,isLS,mode:ex.estimate_mode,
+    cur:{qty:Number(ex.est_qty)||0,rate:Number(ex.est_rate)||0,budget:Number(ex.ls_budget_amount)||0},
+    floor:0,certified:0,uom:act.uom||''};
+  document.getElementById('rev_path').innerHTML=`<b>WBS:</b> ${_esc(_wbsPathJS(wbsId))}<br><b>Location:</b> ${_esc(_locPathJS(locId))}`;
+  document.getElementById('rev_reason').value='';
+  document.getElementById('rev_err').style.display='none';
+  const fb=document.getElementById('rev_floorbox');
+  fb.innerHTML='<span style="color:var(--muted);">Loading floor…</span>';
+  document.getElementById('estReviseOverlay').style.display='flex';
+  try{
+    if(isLS){
+      document.getElementById('rev_qtyfields').style.display='none';
+      document.getElementById('rev_lsfields').style.display='';
+      document.getElementById('rev_ls').value=_revCtx.cur.budget;
+      const {data,error}=await sb.rpc('fn_package_consumed',{p_wbs_node_id:Number(wbsId),p_loc_node_id:locId});
+      if(error)throw error;
+      _revCtx.floor=Number(data)||0;
+      fb.innerHTML=`<div style="display:flex;justify-content:space-between;padding:2px 0;"><span>Current LS budget</span><b>₹${_inr(_revCtx.cur.budget)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;"><span>Consumed — cannot go below</span><b>₹${_inr(_revCtx.floor)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;color:#15803d;"><span>Increases</span><b>always allowed</b></div>`;
+    }else{
+      document.getElementById('rev_qtyfields').style.display='';
+      document.getElementById('rev_lsfields').style.display='none';
+      document.getElementById('rev_qty').value=_revCtx.cur.qty;
+      document.getElementById('rev_rate').value=_revCtx.cur.rate;
+      const [fl,ct]=await Promise.all([
+        sb.rpc('fn_scope_floor_qty',{p_wbs_node_id:Number(wbsId),p_loc_node_id:locId}),
+        sb.rpc('fn_certified_qty',{p_wbs_node_id:Number(wbsId),p_loc_node_id:locId})
+      ]);
+      if(fl.error)throw fl.error;
+      _revCtx.floor=Number(fl.data)||0;
+      _revCtx.certified=Number(ct.data)||0;
+      const rateFrozen=_revCtx.certified>0;
+      document.getElementById('rev_rate').disabled=rateFrozen;
+      document.getElementById('rev_ratefrozen').style.display=rateFrozen?'':'none';
+      fb.innerHTML=`<div style="display:flex;justify-content:space-between;padding:2px 0;"><span>Current</span><b>${_inr(_revCtx.cur.qty)} ${_esc(_revCtx.uom)} × ₹${_inr(_revCtx.cur.rate)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;"><span>Floor — cannot go below</span><b>${_inr(_revCtx.floor)} ${_esc(_revCtx.uom)}</b></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${_inr(_revCtx.certified)} certified + reserved. Increases always allowed.</div>`;
+    }
+    revValidate();
+  }catch(e){fb.innerHTML='<span style="color:#b91c1c;">Could not load floor: '+_esc(e.message)+'</span>';}
+}
+function revValidate(){
+  if(!_revCtx)return;
+  const err=document.getElementById('rev_err'),btn=document.getElementById('rev_reviewbtn');
+  let msg='';
+  if(_revCtx.isLS){
+    const v=parseFloat(document.getElementById('rev_ls').value);
+    if(isNaN(v)||v<=0)msg='Enter an LS budget greater than 0.';
+    else if(v<_revCtx.floor-0.001)msg='Cannot set budget ₹'+_inr(v)+' below consumed ₹'+_inr(_revCtx.floor)+'.';
+  }else{
+    const q=parseFloat(document.getElementById('rev_qty').value);
+    const r=parseFloat(document.getElementById('rev_rate').value);
+    if(isNaN(q)||q<0)msg='Enter a valid quantity.';
+    else if(q<_revCtx.floor-0.001)msg='Cannot set qty '+_inr(q)+' below floor '+_inr(_revCtx.floor)+' (certified + reserved).';
+    if(_revCtx.certified>0&&r!==_revCtx.cur.rate)msg='Rate is frozen — certified work exists.';
+  }
+  if(msg){err.textContent=msg;err.style.display='';btn.disabled=true;btn.style.opacity=.5;}
+  else{err.style.display='none';btn.disabled=false;btn.style.opacity=1;}
+}
+function revReview(){
+  if(!_revCtx)return;
+  const tbl=document.getElementById('revdiff_table');
+  document.getElementById('revdiff_path').innerHTML='<b>'+_esc(_wbsPathJS(_revCtx.wbsId))+'</b>';
+  const row=(lbl,o,n,cur)=>{
+    const up=n>o,same=Math.abs(n-o)<1e-6,c=cur?'₹':'';
+    const col=same?'#64748b':(up?'#15803d':'#b91c1c');
+    return '<tr><td style="padding:7px 8px;color:var(--muted);">'+lbl+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;text-decoration:line-through;color:#94a3b8;">'+c+_inr(o)+'</td>'
+      +'<td style="padding:7px 8px;text-align:center;color:#cbd5e1;">→</td>'
+      +'<td style="padding:7px 8px;text-align:right;font-weight:700;">'+c+_inr(n)+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:'+col+';font-size:11px;">'+(same?'—':(up?'▲ +':'▼ ')+c+_inr(Math.abs(n-o)))+'</td></tr>';
+  };
+  let rows='';
+  if(_revCtx.isLS){
+    const v=parseFloat(document.getElementById('rev_ls').value);
+    rows=row('LS budget',_revCtx.cur.budget,v,true);
+    _revCtx.next={budget:v};
+  }else{
+    const q=parseFloat(document.getElementById('rev_qty').value),r=parseFloat(document.getElementById('rev_rate').value);
+    rows=row('Quantity',_revCtx.cur.qty,q,false)+row('Rate',_revCtx.cur.rate,r,true)+row('Amount',_revCtx.cur.qty*_revCtx.cur.rate,q*r,true);
+    _revCtx.next={qty:q,rate:r};
+  }
+  tbl.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px;"><thead><tr style="background:#f1f5f9;">'
+    +'<th style="padding:6px 8px;text-align:left;font-size:10.5px;color:var(--muted);text-transform:uppercase;">Field</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10.5px;color:var(--muted);text-transform:uppercase;">Was</th><th></th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10.5px;color:var(--muted);text-transform:uppercase;">New</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10.5px;color:var(--muted);text-transform:uppercase;">&Delta;</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  document.getElementById('estReviseOverlay').style.display='none';
+  document.getElementById('estRevDiffOverlay').style.display='flex';
+}
+function estBackToRevise(){document.getElementById('estRevDiffOverlay').style.display='none';document.getElementById('estReviseOverlay').style.display='flex';}
+async function revCommit(){
+  if(!_revCtx)return;
+  const btn=document.getElementById('revdiff_confirm');btn.disabled=true;
+  const payload={wbs_node_id:Number(_revCtx.wbsId),loc_node_id:_revCtx.locId,estimate_mode:_revCtx.mode,
+    new_notes:'',reason:document.getElementById('rev_reason').value||null};
+  if(_revCtx.isLS){payload.ls_budget_amount=_revCtx.next.budget;}
+  else{payload.new_qty=_revCtx.next.qty;payload.new_rate=_revCtx.next.rate;}
+  pbShow('Submitting revision…');
+  try{
+    const {data,error}=await sb.rpc('rpc_submit_scope_revision',{p_rows:[payload],p_user:state.userName});
+    if(error)throw error;
+    const rej=(data&&data.rejected)||[];
+    if(rej.length){toast('Revision blocked: '+(rej[0].reason||'floor'),'error');btn.disabled=false;pbDone();return;}
+    document.getElementById('estRevDiffOverlay').style.display='none';
+    _revCtx=null;
+    toast('Revision submitted for PM approval. Approved value stays live until approved.','success');
+    await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
+  }catch(e){toast('Revision failed: '+e.message,'error');btn.disabled=false;}
+  finally{pbDone();}
+}
+function estCloseRevise(){document.getElementById('estReviseOverlay').style.display='none';_revCtx=null;}
+function estCloseRevDiff(){document.getElementById('estRevDiffOverlay').style.display='none';}
+
 // Sets of pending/rejected pairs for quick render-time lookup
 // (populated by _estLoadSubmissionMeta on tab enter and after any submit/withdraw)
 let _estPendingSet=new Set();  // Set of 'wbsId|locId' strings
@@ -3313,7 +3586,7 @@ function estEditCellDirect(wbsId,locId){
 }
 
 function estEditCell(wbsId,locId){
-  if(_estLocked){_estFlashLock();return;}
+  if(!_nodeLeased(wbsId)){_estFlashLock();return;}
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   _estResetRelock();
   const act=_wbsNodes.find(n=>n.id===wbsId),loc=_locNodes.find(n=>n.id===locId);
@@ -3403,7 +3676,7 @@ async function _loadMatMaster(){
 // and hire_equipment leaves alike.
 async function estSetActivityMode(wbsId,mode){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
-  if(_estLocked){_estFlashLock();return;}
+  if(!_nodeLeased(wbsId)){_estFlashLock();return;}
   const act=_wbsNodes.find(n=>n.id===wbsId); if(!act)return;
   const eff=_effectiveLeavesJS(wbsId);
   const sm=_estDraftScopeMap();
@@ -3890,7 +4163,7 @@ function estActivitySummary(wbsId){
 }
 
 function estBulkFill(wbsId){
-  if(_estLocked){_estFlashLock();return;}
+  if(!_nodeLeased(wbsId)){_estFlashLock();return;}
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   _estResetRelock();
   const act=_wbsNodes.find(n=>n.id===wbsId);if(!act)return;
@@ -3930,27 +4203,6 @@ function estBulkFill(wbsId){
 }
 
 // v22: simplified unapprove — no modal, direct confirm dialog
-async function estApprovePkg(pkgId){
-  if(_estLocked){_estFlashLock();return;}
-  if(!canApprove()){toast('Admin or Project Manager only','error');return;}
-  _estResetRelock();
-  const pkg=_wbsNodes.find(n=>n.id===pkgId);if(!pkg)return;
-  const actIds=new Set(_estActivityDescIds(pkgId));
-  const colIds=new Set(_estCols().map(c=>c.id));
-  const rows=_scope.filter(r=>actIds.has(r.wbs_node_id)&&colIds.has(r.loc_node_id));
-  const approved=rows.filter(r=>r.scope_status==='approved');
-  if(!approved.length){toast('No approved estimates in this package (current filter)','warn');return;}
-  const total='₹'+_inr(approved.reduce((s,r)=>s+Number(r.est_amount||0),0));
-  if(!confirm(`Un-approve ${approved.length} estimate(s) in "${pkg.name}"?\n\nTotal: ${total}\n\nThis reopens them for Planning/QS to edit and resubmit. Downstream budget gates will stop reading these values until re-approved.`))return;
-  pbShow('Un-approving…');
-  try{
-    const{data,error}=await sb.rpc('rpc_set_scope_status',{p_ids:approved.map(r=>r.id),p_status:'draft',p_user:state.userName});
-    if(error)throw error;
-    toast(`${(data&&data.updated)||0} estimate(s) opened for revision — Planning/QS can now edit and resubmit`,'success',5000);
-    await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
-  }catch(e){toast('Un-approve failed: '+e.message,'error');}
-  finally{pbDone();}
-}
 
 // ── submit modal state ──
 let _subSelected=new Set();  // Set of draft keys (String(wbsId)+'|'+String(locId))
@@ -3991,6 +4243,38 @@ function setSubView(v){
 // LS-aware amount for a local draft (budget for LS, qty×rate otherwise)
 function _estDraftAmt(d){ return d&&d.estimate_mode==='ls' ? (Number(d.ls_budget_amount)||0) : ((Number(d.est_qty)||0)*(Number(d.est_rate)||0)); }
 
+// ── Phase C: shared estimate-breakdown renderer (used by submit / queue / history) ──
+function _estBreakdownHtml(o){
+  const isLS=o.estimate_mode==='ls';
+  const isNew=o.change_type==='new'||o._isNew;
+  const newAmt=Number(o.new_amount!=null?o.new_amount:(isLS?o.ls_budget_amount:(o.new_qty*o.new_rate)))||0;
+  const oldAmt=Number(o.old_amount||0);
+  const f=(v,cur)=>cur?'₹'+_inr(Number(v)||0):_inr(Number(v)||0);
+  const rowD=(lbl,ov,nv,cur)=>{
+    if(isNew||ov==null||ov==='') return `<tr><td style="padding:4px 8px;color:var(--muted);">${lbl}</td><td colspan="2"></td><td style="padding:4px 8px;text-align:right;font-weight:700;">${f(nv,cur)}</td></tr>`;
+    const o2=Number(ov)||0,n2=Number(nv)||0,same=Math.abs(n2-o2)<1e-6,col=same?'#64748b':(n2>o2?'#15803d':'#b91c1c');
+    return `<tr><td style="padding:4px 8px;color:var(--muted);">${lbl}</td><td style="padding:4px 8px;text-align:right;text-decoration:line-through;color:#94a3b8;">${f(o2,cur)}</td><td style="padding:4px;color:#cbd5e1;">→</td><td style="padding:4px 8px;text-align:right;font-weight:700;color:${col};">${f(n2,cur)}</td></tr>`;
+  };
+  let rws;
+  if(isLS){ rws=rowD('LS budget',oldAmt,newAmt,true); }
+  else{ rws=rowD('Quantity',o.old_qty,o.new_qty,false)+rowD('Rate',o.old_rate,o.new_rate,true)+rowD('Amount',oldAmt,newAmt,true); }
+  let bu=o.buildup_rows;
+  if(bu&&typeof bu==='string'){ try{bu=JSON.parse(bu);}catch(e){bu=null;} }
+  let buHtml='';
+  if(Array.isArray(bu)&&bu.length){
+    buHtml=`<div style="margin-top:6px;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;">Build-up (${bu.length})</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11.5px;"><tbody>`+bu.map(b=>{
+        const name=b.material_name||b.name||b.material||(Array.isArray(b)?b[0]:'')||'';
+        const q=b.qty!=null?b.qty:(b.quantity!=null?b.quantity:(Array.isArray(b)?b[2]:''));
+        const u=b.uom||b.unit||(Array.isArray(b)?b[1]:'')||'';
+        const rate=b.rate!=null?b.rate:(Array.isArray(b)?b[3]:0);
+        return `<tr><td style="padding:3px 8px;border-top:1px solid #eef2f6;">${_esc(String(name))}</td><td style="padding:3px 8px;text-align:right;border-top:1px solid #eef2f6;">${_esc(String(q))} ${_esc(String(u))}</td><td style="padding:3px 8px;text-align:right;border-top:1px solid #eef2f6;">₹${_inr(Number(rate)||0)}</td></tr>`;
+      }).join('')+`</tbody></table>`;
+  }
+  return `<div style="background:#fbfdff;border-top:1px dashed var(--border);padding:8px 14px 10px 30px;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><tbody>${rws}</tbody></table>${buHtml}</div>`;
+}
+let _subExpanded=new Set();
+function _subToggleExp(key){_subExpanded.has(key)?_subExpanded.delete(key):_subExpanded.add(key);_renderSubmitBody();}
 function _renderSubmitBody(){
   const drafts=[..._localDrafts.entries()].map(([key,d])=>({key,...d}));
   const n=drafts.length, sel=_subSelected.size;
@@ -4029,8 +4313,11 @@ function _renderSubmitBody(){
     const rejBadge=d._isRejected
       ?`<span style="font-size:10px;background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:3px;margin-left:4px;">❌ Rejected — resubmitting</span>`:'';
     const typeBadge=`<span style="font-size:10px;background:#eef2f7;color:var(--muted);padding:1px 5px;border-radius:3px;margin-left:4px;">${d._isNew?'New':'Modified'}</span>`;
+    const _open=_subExpanded.has(d.key);
+    const _bd={change_type:d._isNew?'new':'modify',estimate_mode:d.estimate_mode,old_qty:d._oldQty,old_rate:d._oldRate,old_amount:d._oldAmt,new_qty:d.est_qty,new_rate:d.est_rate,new_amount:_estDraftAmt(d),ls_budget_amount:d.ls_budget_amount,buildup_rows:d.buildup_rows};
     return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f1f5f9;background:${d._isRejected?'#fff5f5':sel?'#eff6ff':'#fff'};cursor:pointer;" onclick="_subToggleRow('${d.key}')">
       <input type="checkbox" style="width:auto;cursor:pointer;" ${sel?'checked':''} onclick="event.stopPropagation();" onchange="_subToggleRow('${d.key}')">
+      <span onclick="event.stopPropagation();_subToggleExp('${d.key}')" style="cursor:pointer;color:#94a3b8;width:14px;text-align:center;user-select:none;font-size:11px;" title="Show breakdown">${_open?'▾':'▸'}</span>
       <div style="flex:1;min-width:0;">
         ${pathLine}
         <div style="font-size:12px;color:#1B2A47;">${_esc(act?act.name:'?')}
@@ -4039,7 +4326,7 @@ function _renderSubmitBody(){
         ${locLine}
       </div>
       <div style="font-size:12px;text-align:right;white-space:nowrap;">${diffHtml}</div>
-    </div>`;
+    </div>${_open?_estBreakdownHtml(_bd):''}`;
   };
 
   if(_subView==='flat'){
@@ -4196,12 +4483,12 @@ async function estOpenQueue(){
   pbShow('Loading queue…');
   try{
     const{data,error}=await sb.from('wbs_scope_submissions')
-      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_qty,new_rate,new_amount,submitted_by,submitted_at,status')
+      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_qty,new_rate,new_amount,estimate_mode,ls_budget_amount,buildup_rows,submitted_by,submitted_at,status')
       .eq('status','pending')
       .order('submitted_at',{ascending:false});
     if(error)throw error;
     _queueData=data||[];
-    _queueSelected=new Set();
+    _queueSelected=new Set();_queueExpanded=new Set();
     _queueGrouped=true;                 // v27: predictable default each open
     document.getElementById('estQueueOverlay').style.display='flex';
     setQView('grouped');                // syncs qGrpBtn/qFlatBtn styling + renders
@@ -4239,13 +4526,15 @@ function _renderQueue(){
       :`<div style="font-size:11px;color:var(--muted);"><b>WBS:</b> ${_esc(act?_wbsPathJS(r.wbs_node_id):'?')}</div>
        <div style="font-size:11px;color:var(--muted);"><b>Location:</b> ${_esc(_locPathJS(r.loc_node_id))}</div>
        <div style="font-size:10.5px;color:var(--muted);">By ${_esc(r.submitted_by)}, ${new Date(r.submitted_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>`;
+    const open=_queueExpanded.has(r.id);
     return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f1f5f9;background:${sel?'#eff6ff':'#fff'};">
       <input type="checkbox" style="width:auto;" ${sel?'checked':''} onchange="_queueToggle('${r.id}',this.checked)">
+      <span onclick="_queueToggleExp('${r.id}')" style="cursor:pointer;color:#94a3b8;width:14px;text-align:center;user-select:none;font-size:11px;" title="Show breakdown">${open?'▾':'▸'}</span>
       <div style="flex:1;min-width:0;">${pathHtml}</div>
       <div style="font-size:12px;white-space:nowrap;margin:0 4px;">${diff}</div>
       <button onclick="_queueRowAction('${r.id}','approve')" style="padding:3px 8px;border-radius:4px;border:1px solid #16a34a;background:transparent;color:#16a34a;font-size:11px;cursor:pointer;font-weight:600;">✓</button>
       <button onclick="_queueRowAction('${r.id}','reject')" style="padding:3px 8px;border-radius:4px;border:1px solid #dc2626;background:transparent;color:#dc2626;font-size:11px;cursor:pointer;font-weight:600;">✕</button>
-    </div>`;
+    </div>${open?_estBreakdownHtml(r):''}`;
   };
   // v27: the in-body toolbar was a refactor leftover that duplicated the static
   // toolbar in the modal chrome (and re-used its id="q_sel_count", creating a
@@ -4253,7 +4542,7 @@ function _renderQueue(){
   // setQView()/qToggleAll()/_queueExpandAll()/_queueCollapseAll(). No injected bar.
   let html='';
   if(_queueGrouped){
-    html=_groupedSubmissionHtml(_queueData, rowHtml, '', _queueCollapsed, '_queueToggleCollapse');
+    html=_groupedSubmissionHtml(_queueData, rowHtml, '', _queueCollapsed, '_queueToggleCollapse', {groupSel:true, groupToggleFn:'_queueToggleGroup', isGroupSel:(grows)=>{const ids=grows.map(r=>r.id);const sc=ids.filter(id=>_queueSelected.has(id)).length;return sc===0?'none':(sc===ids.length?'all':'some');}});
   } else {
     html='';
     if(!_queueData.length){html+='<div style="padding:32px;text-align:center;color:var(--muted);">No pending submissions.</div>';}
@@ -4268,6 +4557,15 @@ function _renderQueue(){
   _queueUpdateSelCount();
 }
 function _queueToggle(id,checked){if(checked)_queueSelected.add(id);else _queueSelected.delete(id);_renderQueue();}
+let _queueExpanded=new Set();
+function _queueToggleExp(id){_queueExpanded.has(id)?_queueExpanded.delete(id):_queueExpanded.add(id);_renderQueue();}
+function _queueToggleGroup(ek){
+  const key=decodeURIComponent(ek);
+  const ids=_queueData.filter(r=>{const a=_wbsNodes.find(n=>n.id===r.wbs_node_id);return (a?_wbsPathJS(r.wbs_node_id):'Unknown WBS')===key;}).map(r=>r.id);
+  const allSel=ids.length&&ids.every(id=>_queueSelected.has(id));
+  ids.forEach(id=>allSel?_queueSelected.delete(id):_queueSelected.add(id));
+  _renderQueue();
+}
 function _queueToggleCollapse(ek){if(_queueCollapsed.has(ek))_queueCollapsed.delete(ek);else _queueCollapsed.add(ek);_renderQueue();}
 function _queueExpandAll(){_queueCollapsed.clear();_renderQueue();}
 function _queueCollapseAll(){
@@ -4363,19 +4661,71 @@ async function estOpenMySubmissions(){
   }catch(e){toast('Load failed: '+e.message,'error');}
   finally{pbDone();}
 }
-async function estOpenHistory(){
+async function estOpenHistory(filterStatus){
   pbShow('Loading…');
   try{
     const{data,error}=await sb.from('wbs_scope_submissions')
-      .select('id,wbs_node_id,loc_node_id,change_type,old_amount,new_amount,new_qty,new_rate,status,submitted_at,decided_at,decided_by,decision_reason,submitted_by')
-      .order('submitted_at',{ascending:false}).limit(200);
+      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_amount,new_qty,new_rate,estimate_mode,ls_budget_amount,buildup_rows,status,submitted_at,decided_at,decided_by,decision_reason,submitted_by')
+      .order('submitted_at',{ascending:false}).limit(500);
     if(error)throw error;
-    _mySubData=data||[];_mySubSelected=new Set();
-    document.getElementById('mysub_title').textContent='Full Submission History';
-    _renderMySubmissions(true);
+    _mySubData=data||[];_histExpanded=new Set();_histFilter=filterStatus||'all';
+    document.getElementById('mysub_title').textContent='Estimation history';
+    const wb=document.getElementById('mysub_withdraw_all_btn'); if(wb)wb.style.display='none';
+    _renderHistoryTable();
     document.getElementById('estMySubOverlay').style.display='flex';
   }catch(e){toast('Load failed: '+e.message,'error');}
   finally{pbDone();}
+}
+// Phase C item 10: tabular, sortable, status-filter-in-header, row-dropdown breakdown
+let _histSort={col:'date',dir:'desc'}, _histFilter='all', _histExpanded=new Set();
+function _histSortClick(col){ if(_histSort.col===col)_histSort.dir=(_histSort.dir==='asc'?'desc':'asc'); else {_histSort.col=col;_histSort.dir=(col==='date'||col==='amt')?'desc':'asc';} _renderHistoryTable(); }
+function _histSetFilter(v){_histFilter=v;_renderHistoryTable();}
+function _histToggle(id){ _histExpanded.has(id)?_histExpanded.delete(id):_histExpanded.add(id); _renderHistoryTable(); }
+function _renderHistoryTable(){
+  const amtOf=r=>Number(r.new_amount!=null?r.new_amount:(r.estimate_mode==='ls'?r.ls_budget_amount:(r.new_qty*r.new_rate)))||0;
+  let rows=(_mySubData||[]).slice();
+  if(_histFilter!=='all') rows=rows.filter(r=>(r.status||'pending')===_histFilter);
+  const sval=r=>{switch(_histSort.col){
+    case 'est':{const a=_wbsNodes.find(n=>n.id===r.wbs_node_id);return ((a?a.name:'')+' '+_locPathJS(r.loc_node_id)).toLowerCase();}
+    case 'type':return r.change_type==='new'?'0':'1';
+    case 'amt':return amtOf(r);
+    case 'status':return r.status||'';
+    default:return new Date(r.submitted_at).getTime();
+  }};
+  rows.sort((a,b)=>{const x=sval(a),y=sval(b);let c=x<y?-1:x>y?1:0;return _histSort.dir==='asc'?c:-c;});
+  const counts=(_mySubData||[]).reduce((m,r)=>{const s=r.status||'pending';m[s]=(m[s]||0)+1;return m;},{});
+  const car=c=>_histSort.col===c?`<span style="font-size:8px;color:#0d9488;">${_histSort.dir==='asc'?'▲':'▼'}</span>`:'<span style="font-size:8px;color:#cbd5e1;">▾</span>';
+  const sp=s=>{const m={pending:['#dbeafe','#1e40af','Pending'],approved:['#dcfce7','#15803d','Approved'],rejected:['#fee2e2','#b91c1c','Rejected'],withdrawn:['#f1f5f9','#64748b','Withdrawn']}[s]||['#dbeafe','#1e40af','Pending'];return `<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;background:${m[0]};color:${m[1]};white-space:nowrap;">${m[2]}</span>`;};
+  const th=(col,lbl,align)=>`<th onclick="_histSortClick('${col}')" style="text-align:${align};padding:8px 10px;font-size:10.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none;">${lbl} ${car(col)}</th>`;
+  const stSel=`<select onclick="event.stopPropagation()" onchange="_histSetFilter(this.value)" style="font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:6px;padding:2px 6px;margin-left:6px;text-transform:none;">`+
+    ['all','pending','approved','rejected','withdrawn'].map(s=>`<option value="${s}" ${_histFilter===s?'selected':''}>${s==='all'?'All':s[0].toUpperCase()+s.slice(1)}${s!=='all'&&counts[s]?' ('+counts[s]+')':''}</option>`).join('')+`</select>`;
+  let tbl;
+  if(!rows.length){ tbl='<div style="padding:32px;text-align:center;color:var(--muted);">No records.</div>'; }
+  else { tbl=`<table style="width:100%;border-collapse:collapse;">
+    <thead><tr style="background:#f4f7fa;border-bottom:1px solid var(--border);">
+      <th style="width:18px;"></th>${th('date','Date','left')}${th('est','Estimate','left')}${th('type','Type','left')}${th('amt','Amount','right')}
+      <th style="text-align:left;padding:8px 10px;font-size:10.5px;text-transform:uppercase;color:var(--muted);">Status${stSel}</th>
+    </tr></thead><tbody>`+rows.map(r=>{
+      const a=_wbsNodes.find(n=>n.id===r.wbs_node_id), isNew=r.change_type==='new';
+      const amt=amtOf(r), old=Number(r.old_amount||0), open=_histExpanded.has(r.id);
+      const dt=new Date(r.submitted_at).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const tt=isNew?'<span style="font-size:10px;font-weight:700;background:#e7f6f0;color:#0d9488;padding:1px 6px;border-radius:5px;">NEW</span>':'<span style="font-size:10px;font-weight:700;background:#fff4e5;color:#b45309;padding:1px 6px;border-radius:5px;">REVISION</span>';
+      const amtCell=isNew?('₹'+_inr(amt)):`<span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(old)}</span> ₹${_inr(amt)}`;
+      let meta=`Submitted by ${_esc(r.submitted_by||'?')} · ${dt}`;
+      if(r.decided_by)meta+=` · decided by ${_esc(r.decided_by)}`;
+      if(r.decision_reason)meta+=` · <span style="color:#b91c1c;">${_esc(r.decision_reason)}</span>`;
+      const canWd=(r.status||'pending')==='pending'&&r.submitted_by===state.userName;
+      const wdBtn=canWd?`<button onclick="event.stopPropagation();estWithdrawOne('${r.wbs_node_id}|${r.loc_node_id}').then(()=>estOpenHistory(_histFilter))" style="margin:6px 0 0 30px;padding:4px 10px;border-radius:4px;border:1px solid #dc2626;background:transparent;color:#dc2626;font-size:11px;cursor:pointer;">↩ Withdraw this submission</button>`:'';
+      return `<tr onclick="_histToggle('${r.id}')" style="cursor:pointer;border-bottom:1px solid #f1f5f9;">
+        <td style="text-align:center;color:#94a3b8;">${open?'▾':'▸'}</td>
+        <td style="padding:8px 10px;white-space:nowrap;font-size:12px;">${dt}</td>
+        <td style="padding:8px 10px;"><div style="font-weight:600;font-size:12.5px;">${_esc(a?a.name:'?')}</div><div style="font-size:11px;color:var(--muted);">📍 ${_esc(_locPathJS(r.loc_node_id))}</div></td>
+        <td style="padding:8px 10px;">${tt}</td>
+        <td style="padding:8px 10px;text-align:right;white-space:nowrap;font-size:12.5px;">${amtCell}</td>
+        <td style="padding:8px 10px;">${sp(r.status||'pending')}</td>
+      </tr>`+(open?`<tr><td colspan="6" style="padding:0;">${_estBreakdownHtml(r)}<div style="font-size:11px;color:var(--muted);padding:2px 14px 4px 30px;">${meta}</div>${wdBtn}<div style="height:8px;"></div></td></tr>`:'');
+    }).join('')+`</tbody></table>`; }
+  document.getElementById('mysub_body').innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${rows.length} record(s)${_histFilter!=='all'?' · '+_histFilter:''} — sort any column, filter from the Status header, click a row for the breakdown</div>`+tbl;
 }
 // ── grouping state: true = group by WBS then location, false = flat list ──
 let _mySubGrouped=true;
@@ -4384,7 +4734,7 @@ let _queueCollapsed=new Set();
 let _mySubCollapsed=new Set();
 
 // ── shared grouping helper: takes rows array, returns html string ──
-function _groupedSubmissionHtml(rows, rowHtmlFn, toolbar='', collapsedSet=null, toggleFn=''){
+function _groupedSubmissionHtml(rows, rowHtmlFn, toolbar='', collapsedSet=null, toggleFn='', opts={}){
   // Group by WBS path → then by loc path within each WBS group
   const wbsOrder=[], wbsMap={};
   rows.forEach(r=>{
@@ -4402,9 +4752,10 @@ function _groupedSubmissionHtml(rows, rowHtmlFn, toolbar='', collapsedSet=null, 
     const isCollapsed=collapsedSet&&collapsedSet.has(ek);
     const chevron=`<span style="font-size:10px;color:#64748b;user-select:none;width:12px;text-align:center;">${isCollapsed?'▸':'▾'}</span>`;
     const clickAttr=toggleFn?`onclick="${toggleFn}('${ek}')" style="cursor:pointer;"`:'';
+    const grpCb=opts.groupSel?`<input type="checkbox" style="width:auto;margin:0;cursor:pointer;" ${opts.isGroupSel(group.rows)==='all'?'checked':''} onclick="event.stopPropagation();${opts.groupToggleFn}('${ek}')" title="Select all in this WBS group">`:'';
     html+=`<div style="margin-bottom:14px;border-radius:6px;overflow:hidden;border:1px solid #c8d3e8;">
       <div ${clickAttr} style="background:#e7ecf5;padding:8px 12px;display:flex;align-items:center;gap:8px;${toggleFn?'cursor:pointer;':''}">
-        ${chevron}
+        ${grpCb}${chevron}
         <span style="font-size:12px;font-weight:700;color:#1B2A47;flex:1;">📂 ${_esc(wbsKey)}</span>
         <span style="font-size:11px;color:var(--muted);">${group.rows.length} estimate(s)</span>
         <span style="font-size:12px;font-weight:700;color:#0d9488;">₹${_inr(total)}</span>
@@ -4521,41 +4872,13 @@ async function _doWithdraw(ids){
   finally{pbDone();}
 }
 
-// ─── lock / auto-relock (unchanged) ───
-function estToggleLock(){
-  if(!canEdit()&&!canApprove()){toast('Admin, Planning/QS, or Project Manager only','error');return;}
-  _estLocked=!_estLocked;_estUpdateLockUI();
-  if(!_estLocked)_estStartRelock();else _estStopRelock();
-}
-function _estUpdateLockUI(){
-  const icon=document.getElementById('est_lock_icon'),label=document.getElementById('est_lock_label');
-  const btn=document.getElementById('est_lock_btn'),banner=document.getElementById('est_lock_banner');
-  if(!btn)return;
-  if(_estLocked){icon.textContent='🔒';label.textContent='Locked';btn.style.color='#D4AF37';btn.style.borderColor='#D4AF37';if(banner)banner.style.display='';
-    _estSelectMode=false;_estSelected.clear();}
-  else{icon.textContent='🔓';label.textContent='Editing';btn.style.color='#4ade80';btn.style.borderColor='#4ade80';if(banner)banner.style.display='none';}
-  renderEstimation();
-}
-function _estStartRelock(){
-  _estStopRelock();_estRelockSecs=EST_RELOCK_SECS;
-  const t=document.getElementById('est_relock_timer');if(t)t.style.display='';
-  _estRelockInt=setInterval(()=>{
-    _estRelockSecs--;
-    const t2=document.getElementById('est_relock_timer');
-    if(t2)t2.textContent=`Auto-locks in ${Math.floor(_estRelockSecs/60)}:${String(_estRelockSecs%60).padStart(2,'0')}`;
-    if(_estRelockSecs<=0){_estLocked=true;_estUpdateLockUI();_estStopRelock();toast('Estimation grid auto-locked','info');}
-  },1000);
-}
-function _estStopRelock(){
-  if(_estRelockInt){clearInterval(_estRelockInt);_estRelockInt=null;}
-  const t=document.getElementById('est_relock_timer');if(t){t.style.display='none';t.textContent='';}
-}
-function _estResetRelock(){if(!_estLocked&&_estRelockInt)_estStartRelock();}
-function _estFlashLock(){
-  const btn=document.getElementById('est_lock_btn');
-  if(btn){const o=btn.style.background;btn.style.background='#7a1c1c';setTimeout(()=>{btn.style.background=o||'#1B2A47';},500);}
-  toast('Grid is locked — click Locked to enable editing','warn');
-}
+// ─── v34: estimation has no screen master — every estimable line locks per WBS node (24h lease) ───
+function estToggleLock(){ estLockAll(); }                       // toolbar button now triggers Lock-all
+function _estUpdateLockUI(){ _estSetupToolbar(); renderEstimation(); }
+function _estStartRelock(){}
+function _estStopRelock(){const t=document.getElementById('est_relock_timer');if(t){t.style.display='none';t.textContent='';}}
+function _estResetRelock(){}
+function _estFlashLock(){ toast('This line is locked — ask the Manager to unlock it (24 h)','warn'); }
 
 // ============================================================
 // MODAL
@@ -4793,43 +5116,7 @@ function exportRules(){
   toast('Allocation rules exported — '+(rows.length-1)+' rows','success');
 }
 
-function exportEstimation(){
-  if(!_scope.length){toast('No estimation data loaded — open the Estimation tab first','warn');return;}
-  const typeLabel={activity:'Activity',material:'Material',hire_equipment:'HireEquip'};
-  const filtered=_scope.filter(r=>{
-    if(_estNodeType==='__all__')return true;
-    const wn=_wbsNodes.find(x=>x.id===r.wbs_node_id);
-    return wn&&(wn.node_type||'group')===_estNodeType;
-  });
-  if(!filtered.length){toast('No rows match the current type filter','warn');return;}
-  const rows=[['Scope Code','WBS Dot Path','WBS Full Path','Activity Name','Node Type','UOM',
-               'Loc Dot Path','Loc Full Path','Loc Name','Loc Code',
-               'Est Qty','Est Rate','Est Amount','Status','Notes']];
-  filtered.forEach(r=>{
-    const w=_wbsNodes.find(n=>n.id===r.wbs_node_id)||{};
-    const l=_locNodes.find(n=>n.id===r.loc_node_id)||{};
-    rows.push([
-      r.scope_code||'',
-      w.id?computeDotPath(_wbsNodes,w.id):'',
-      w.id?_wbsPathJS(w.id):'',
-      w.name||'',
-      w.node_type||'',
-      r.uom||w.uom||'',
-      l.id?computeDotPath(_locNodes,l.id):'',
-      l.id?_locPathJS(l.id):'',
-      l.name||'',
-      l.location_code||'',
-      r.est_qty!=null?r.est_qty:'',
-      r.est_rate!=null?r.est_rate:'',
-      r.est_amount!=null?r.est_amount:'',
-      r.scope_status||'draft',
-      r.notes||''
-    ]);
-  });
-  const suffix=_estNodeType==='__all__'?'All':(typeLabel[_estNodeType]||_estNodeType);
-  _csvDownload('Estimation_'+suffix+'_'+_exportDate()+'.csv',rows);
-  toast('Estimation exported ('+suffix+') — '+(rows.length-1)+' rows','success');
-}
+
 
 async function mastersToggleProject(id,currentActive){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
