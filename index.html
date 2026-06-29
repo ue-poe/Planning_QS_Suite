@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v35 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v36 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -670,7 +670,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:#fafbfd;">
       <button class="btn btn-ghost" onclick="estCloseRevise()">Cancel</button>
-      <button class="btn btn-primary" id="rev_reviewbtn" onclick="revReview()">Review changes</button>
+      <button class="btn btn-primary" id="rev_reviewbtn" onclick="revReview()">Review</button>
     </div>
   </div>
 </div>
@@ -697,8 +697,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 
 <!-- ░░ v35 · Revise approved MATERIAL build-up (full sheet, per-line lock) ░░ -->
 <style>
+input[type=number]{-moz-appearance:textfield;}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 #estMatRevOverlay .mr-modal,#estMatRevDiffOverlay .mr-modal{background:#fff;border-radius:12px;width:880px;max-width:96vw;max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(20,28,46,.3);}
 #estMatBulkOverlay .mr-modal,#estMatBulkDiffOverlay .mr-modal{background:#fff;border-radius:12px;max-width:96vw;max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(20,28,46,.3);}
+#estActBulkOverlay .mr-modal,#estActBulkDiffOverlay .mr-modal{background:#fff;border-radius:12px;max-width:96vw;max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(20,28,46,.3);}
 .mr-hd{padding:18px 22px 0;display:flex;justify-content:space-between;align-items:flex-start;}
 .mr-ttl{font-size:16px;font-weight:700;color:#1B2A47;}
 .mr-path{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6;}
@@ -758,6 +761,17 @@ table.mr-diff td{padding:7px 8px;border-bottom:1px solid #eef2f6;vertical-align:
 .mr-tot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:13px 15px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;}
 .mr-tot .lbl{font-size:11px;color:var(--muted);}
 .mr-tot .big{font-size:15px;font-weight:700;color:#1B2A47;}
+.diff-tree{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px;}
+.diff-th,.diff-fh{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;padding:7px 11px;user-select:none;}
+.diff-th{background:#eef2f7;font-weight:600;color:var(--navy);}
+.diff-t+.diff-t .diff-th,.diff-f+.diff-f .diff-fh{border-top:1px solid #eef2f7;}
+.diff-fh{background:#f8fafc;padding-left:26px;color:#334155;border-top:1px solid #eef2f7;}
+.diff-u{display:flex;align-items:center;justify-content:space-between;padding:5px 11px 5px 42px;font-size:12px;border-top:1px solid #f1f5f9;}
+.diff-tree .cr{font-size:10px;color:var(--muted);width:11px;display:inline-block;}
+.diff-tree .ct{font-size:10.5px;color:var(--muted);font-weight:500;}
+.diff-th .r,.diff-fh .r{margin-left:auto;font-weight:600;}
+.diff-u .nm{font-weight:500;color:var(--text);}
+.diff-u .r{font-weight:600;color:var(--navy);}
 .mr-note{font-size:11.5px;color:var(--muted);margin-top:13px;line-height:1.6;}
 </style>
 <div id="estMatRevOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4600;display:none;align-items:center;justify-content:center;padding:20px;">
@@ -786,7 +800,7 @@ table.mr-diff td{padding:7px 8px;border-bottom:1px solid #eef2f6;vertical-align:
     <div class="mr-ft">
       <span class="mr-lockchip">🔓 Unlocked</span>
       <button class="btn btn-ghost" onclick="_matRevClose()">Cancel</button>
-      <button class="btn btn-primary" onclick="_matRevReview()">Review changes</button>
+      <button class="btn btn-primary" onclick="_matRevReview()">Review</button>
     </div>
   </div>
 </div>
@@ -849,19 +863,23 @@ table.mr-diff td{padding:7px 8px;border-bottom:1px solid #eef2f6;vertical-align:
 </style>
 <div id="estMatBulkOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4500;display:none;align-items:center;justify-content:center;padding:20px;">
   <div class="mr-modal" style="width:940px;">
-    <div class="mr-hd"><div><div class="mr-ttl">↻ Revise — material package</div><div class="mr-path" id="mb_path"></div></div>
+    <div class="mr-hd"><div><div class="mr-ttl" id="mb_ttl">↻ Bulk — material package</div><div class="mr-path" id="mb_path"></div></div>
       <button class="mr-x" onclick="_mbClose()" aria-label="Close">✕</button></div>
     <div class="mr-bd">
       <div class="mb-tabs">
-        <div class="mb-tab" id="mb_tab_edit" onclick="_mbSetMode('edit')">✎ Edit existing estimate<span class="sub">change locked lines · locations locked</span></div>
         <div class="mb-tab" id="mb_tab_add" onclick="_mbSetMode('add')">＋ Add new materials<span class="sub">fresh lines · choose locations freely</span></div>
+        <div class="mb-tab" id="mb_tab_edit" onclick="_mbSetMode('edit')">✎ Edit existing estimate<span class="sub">grouped by a chosen material · locations locked</span></div>
       </div>
       <div id="mb_build"></div>
-      <div class="mr-field" style="margin-top:16px;"><label>Reason for revision (kept in history)</label>
+      <div class="mr-field" id="mb_reasonWrap" style="margin-top:16px;display:none;"><label>Reason — appending to an already-approved estimate (kept in history)</label>
         <input id="mb_reason" type="text" placeholder="e.g. scope increase per RFI-118" oninput="_mbErr('')"></div>
       <div class="mb-locwrap">
         <div class="mb-lochd"><span class="t" id="mb_loctitle">Locations</span>
           <span class="r"><span class="c" id="mb_loccount">0 selected</span><button class="mb-gbtn" id="mb_groupbtn" onclick="_mbToggleCollapseAll()">⊟ Collapse all</button></span></div>
+        <div class="ab-chiprow" id="mb_qfwrap" style="margin:2px 0 4px;"><span class="ab-chiplbl">⚡ Quick-select — Tower:</span><span id="mb_qfTower"></span></div>
+        <div class="ab-chiprow"><span class="ab-chiplbl">Unit line:</span><span id="mb_qfLine"></span>
+          <span style="width:10px;display:inline-block;"></span><span class="ab-chiplbl">All:</span>
+          <span class="ab-chip" onclick="_mbSelectAllLocs(true)">Select all</span><span class="ab-chip" onclick="_mbSelectAllLocs(false)">Clear</span></div>
         <div class="mb-search" id="mb_search_wrap"><input id="mb_search" placeholder="Search location…" oninput="_mbRenderLocs()"></div>
         <div class="mb-tree" id="mb_loctree"></div>
       </div>
@@ -871,7 +889,7 @@ table.mr-diff td{padding:7px 8px;border-bottom:1px solid #eef2f6;vertical-align:
     <div class="mr-ft">
       <span class="mr-lockchip">🔓 Node unlocked</span>
       <button class="btn btn-ghost" onclick="_mbClose()">Cancel</button>
-      <button class="btn btn-primary" onclick="_mbReview()">Review changes</button>
+      <button class="btn btn-primary" onclick="_mbReview()">Review</button>
     </div>
   </div>
 </div>
@@ -883,6 +901,129 @@ table.mr-diff td{padding:7px 8px;border-bottom:1px solid #eef2f6;vertical-align:
       <p class="mr-note">Files one revision per location, pending PM approval. Approved values stay live for any MIR / MIS or budget gate until the PM approves. New-estimate locations are saved as drafts to submit.</p></div>
     <div class="mr-ft"><button class="btn btn-ghost" style="margin-right:auto;" onclick="_mbBack()">← Back</button>
       <button class="btn btn-primary" id="mb_confirm" onclick="_mbCommit()">Confirm — file</button></div>
+  </div>
+</div>
+
+
+<!-- ░░ v35 · Activity/Hire BULK — group-by qty grid ░░ -->
+<style>
+#estActBulkOverlay .ab-tabs{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:14px;}
+#estActBulkOverlay .ab-tab{flex:1;padding:11px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;background:#f8fafc;color:var(--muted);border-right:1px solid var(--border);}
+#estActBulkOverlay .ab-tab:last-child{border-right:none;}
+#estActBulkOverlay .ab-tab.on{background:#0d9488;color:#fff;}
+#estActBulkOverlay .ab-tab .sub{display:block;font-size:10px;font-weight:400;margin-top:2px;opacity:.85;}
+.ab-batch{border:1px solid #cdeee6;background:#f0fdf9;border-radius:10px;padding:12px 14px;margin-bottom:14px;}
+.ab-batch .lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#0f766e;margin-bottom:8px;}
+.ab-groupby{display:flex;align-items:center;gap:8px;margin-bottom:11px;padding-bottom:10px;border-bottom:1px dashed #cdeee6;}
+.ab-groupby label{font-size:11px;font-weight:700;color:#0f766e;text-transform:uppercase;}
+.ab-groupby select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-weight:600;background:#fff;font-family:inherit;color:var(--navy);}
+.ab-chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px;align-items:center;}
+.ab-chiplbl{font-size:11px;color:var(--muted);font-weight:600;margin-right:2px;}
+.ab-none{font-size:11px;color:#94a3b8;}
+.ab-chip{font-size:11px;font-weight:600;border:1px solid var(--border);background:#fff;border-radius:99px;padding:3px 11px;cursor:pointer;color:var(--text);user-select:none;}
+.ab-chip:hover{border-color:var(--accent);background:#e7f6f0;}
+.ab-chip.on{background:#0d9488;color:#fff;border-color:#0d9488;}
+.ab-chip.part{background:#cdeee6;color:#0f766e;border-color:#0d9488;}
+.ab-applyrow{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
+.ab-fld{display:flex;flex-direction:column;gap:3px;}
+.ab-fld label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;}
+.ab-fld input{padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;width:110px;font-family:inherit;}
+.ab-selbadge{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:700;color:#0f766e;background:#d7f5ee;border:1px solid #99e0d8;border-radius:99px;padding:4px 12px;}
+.ab-matlist{margin-bottom:6px;}
+.ab-matlbl{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px;}
+.ab-matscroll{max-height:168px;overflow:auto;border:1px solid var(--border);border-radius:8px;background:#fff;}
+.ab-mattbl{width:100%;border-collapse:collapse;font-size:12px;}
+.ab-mattbl th{position:sticky;top:0;background:#f1f5f9;text-align:left;color:var(--muted);font-weight:600;font-size:10.5px;padding:7px 12px;border-bottom:1px solid var(--border);z-index:1;}
+.ab-mattbl th.num,.ab-mattbl td.num{text-align:right;}
+.ab-mattbl td{padding:7px 12px;border-bottom:1px solid #f1f5f9;}
+.ab-matrow{cursor:pointer;}
+.ab-matrow:hover{background:#f0fdfa;}
+.ab-matrow.on{background:#ecfdf5;}
+.ab-matrow.on td{font-weight:700;color:var(--navy);}
+.ab-matrow td:first-child::before{content:'○ ';color:#cbd5e1;}
+.ab-matrow.on td:first-child{box-shadow:inset 3px 0 0 var(--accent);}
+.ab-matrow.on td:first-child::before{content:'● ';color:var(--accent);}
+.ab-gridwrap{margin-top:4px;border:1px solid var(--border);border-radius:9px;overflow:hidden;}
+.ab-gridhd{background:#f1f5f9;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.ab-gridhd .t{font-size:12.5px;font-weight:700;color:var(--navy);}
+.ab-gridhd .r{display:flex;align-items:center;gap:10px;}
+.ab-gbtn{font-size:11px;font-weight:600;border:1px solid var(--border);background:#fff;border-radius:6px;padding:4px 9px;cursor:pointer;color:var(--muted);}
+.ab-gbtn:hover{border-color:var(--accent);color:var(--text);}
+.ab-gridscroll{max-height:330px;overflow:auto;}
+#estActBulkOverlay table.ab-g{width:100%;border-collapse:collapse;font-size:12.5px;}
+#estActBulkOverlay table.ab-g th{background:#fafbfd;padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;}
+#estActBulkOverlay table.ab-g th.num,#estActBulkOverlay table.ab-g td.num{text-align:right;}
+#estActBulkOverlay table.ab-g td{padding:5px 10px;border-bottom:1px solid #f1f5f9;}
+.ab-grp.qty td{background:#e7f6f0 !important;font-weight:700;color:var(--navy);font-size:11.5px;cursor:pointer;}
+.ab-grp.tower td{background:#eef2f7 !important;font-weight:700;color:var(--navy);font-size:11px;cursor:pointer;}
+.ab-grp.floor td{background:#f6f8fb !important;color:var(--navy);font-size:11px;cursor:pointer;}
+.ab-caret{display:inline-block;width:13px;color:#94a3b8;font-size:10px;}
+.ab-cnt{font-weight:400;font-size:10px;color:var(--muted);}
+.ab-estcnt{font-weight:600;font-size:10px;color:#0f766e;}
+tr.ab-sel td{background:#f0fdf9;}tr.ab-filled td{background:#fbfffe;}tr.ab-locked td{background:#fafafa;color:#9ca3af;}
+.ab-ck{width:15px;height:15px;border:1.5px solid var(--border);border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;background:#fff;vertical-align:middle;}
+.ab-ck.on{background:#0d9488;border-color:#0d9488;color:#fff;}.ab-ck.part{background:#cdeee6;border-color:#0d9488;color:#0f766e;}
+.ab-ck.lock{background:#e5e7eb;border-color:#d1d5db;color:#9ca3af;cursor:not-allowed;}
+#estActBulkOverlay table.ab-g input{width:90px;padding:4px 7px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:right;background:var(--input-bg);font-family:inherit;}
+#estActBulkOverlay table.ab-g input:focus{outline:2px solid rgba(13,148,136,.35);border-color:var(--accent);}
+.ab-lockval{font-size:11px;color:#64748b;}
+.ab-lockbadge{font-size:9px;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;border-radius:4px;padding:1px 5px;margin-left:6px;}
+.ab-hint{font-size:11px;color:#0f766e;background:#f0fdf9;border:1px solid #cdeee6;border-radius:7px;padding:8px 12px;margin-top:12px;}
+.ab-summ{display:flex;gap:18px;align-items:center;margin-top:12px;padding:10px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-size:12px;}
+.ab-summ b{color:var(--navy);font-size:14px;}
+</style>
+<div id="estActBulkOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4500;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div class="mr-modal" style="width:1000px;">
+    <div class="mr-hd"><div><div class="mr-ttl" id="ab_title">↻ Bulk</div><div class="mr-path" id="ab_path"></div></div>
+      <button class="mr-x" onclick="_abClose()" aria-label="Close">✕</button></div>
+    <div class="mr-bd">
+      <div class="ab-tabs">
+        <div class="ab-tab" id="ab_tab_add" onclick="setAbMode('add')">＋ Add new estimate<span class="sub">choose units freely · approved units locked</span></div>
+        <div class="ab-tab" id="ab_tab_edit" onclick="setAbMode('edit')">✎ Edit existing estimate<span class="sub">grouped by a chosen field · locations locked</span></div>
+      </div>
+      <div class="ab-batch">
+        <div class="lbl" id="ab_qfLbl">⚡ Quick fill — select a cluster, set qty &amp; rate, apply</div>
+        <div class="ab-groupby" id="ab_groupbyRow" style="display:none;"><label id="ab_dimLbl">Group / edit by:</label>
+          <select id="ab_dimSel" onchange="_abOnDim(this.value)"></select>
+          <span style="font-size:11px;color:var(--muted);" id="ab_dimNote"></span></div>
+        <div id="ab_matpick" style="display:none;"></div>
+        <div class="ab-chiprow" id="ab_chipTowerRow"><span class="ab-chiplbl">Tower:</span><span id="ab_towerChips"></span></div>
+        <div class="ab-chiprow" id="ab_chipLineRow"><span class="ab-chiplbl">Unit line:</span><span id="ab_lineChips"></span>
+          <span style="width:12px;"></span><span class="ab-chiplbl">All:</span>
+          <span class="ab-chip" onclick="_abSelectAll(true)">Select all</span><span class="ab-chip" onclick="_abSelectAll(false)">Clear</span></div>
+        <div class="ab-applyrow">
+          <div class="ab-fld"><label id="ab_qtylbl">Quantity</label><input id="ab_qty" type="number" min="0" step="0.01"></div>
+          <div class="ab-fld"><label>Rate ₹</label><input id="ab_rate" type="number" min="0" step="0.01"></div>
+          <button class="btn btn-primary" id="ab_applyBtn" onclick="_abApply()">Apply ▸</button>
+        </div>
+        <div class="ab-selbadge" id="ab_selbadge">0 units selected</div>
+      </div>
+      <div class="ab-gridwrap">
+        <div class="ab-gridhd"><span class="t" id="ab_gridtitle">Units</span>
+          <span class="r"><span style="font-size:11px;color:var(--muted);" id="ab_fill"></span>
+            <button class="ab-gbtn" id="ab_collapseBtn" onclick="_abToggleCollapseAll()">⊟ Collapse all</button></span></div>
+        <div class="ab-gridscroll"><table class="ab-g"><thead><tr>
+          <th style="width:22px;"></th><th>Unit</th><th class="num" id="ab_hQty">Qty</th><th class="num">Rate ₹</th><th class="num">Amount</th></tr></thead><tbody id="ab_gbody"></tbody></table></div>
+      </div>
+      <div class="ab-hint" id="ab_hint"></div>
+      <div class="mr-field" id="ab_reasonField" style="margin-top:14px;"><label>Reason for revision (kept in history)</label>
+        <input id="ab_reason" type="text" placeholder="e.g. scope increase per RFI-118"></div>
+      <div class="ab-summ" id="ab_summ"></div>
+      <div class="mr-err" id="ab_err"></div>
+    </div>
+    <div class="mr-ft"><span class="mr-lockchip">🔓 Node unlocked</span>
+      <button class="btn btn-ghost" onclick="_abClose()">Cancel</button>
+      <button class="btn btn-primary" onclick="_abReview()">Review</button></div>
+  </div>
+</div>
+<div id="estActBulkDiffOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.6);z-index:4750;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div class="mr-modal" style="width:680px;">
+    <div class="mr-hd"><div><div class="mr-ttl">Confirm the changes</div><div class="mr-path" id="ab_dpath"></div></div>
+      <button class="mr-x" onclick="_abBack()" aria-label="Close">✕</button></div>
+    <div class="mr-bd"><div id="ab_dbody"></div>
+      <p class="mr-note">Edit files one revision per changed location (pending PM approval). New units are saved as drafts to submit. Approved values stay live for any downstream gate until the PM approves.</p></div>
+    <div class="mr-ft"><button class="btn btn-ghost" style="margin-right:auto;" onclick="_abBack()">← Back</button>
+      <button class="btn btn-primary" id="ab_confirm" onclick="_abCommit()">Confirm — file</button></div>
   </div>
 </div>
 
@@ -3708,7 +3849,7 @@ function _mrQt(l){return (Number(l.measured_qty)||0)*(1+_buClampWastage(l.wastag
 function _mrAmt(l){return _mrQt(l)*(Number(l.rate)||0);}
 function _mrOrigAmt(l){if(!l.orig)return 0;return (Number(l.orig.measured_qty)||0)*(1+_buClampWastage(l.orig.wastage_pct)/100)*(Number(l.orig.rate)||0);}
 function _matRevTotal(){return _matRevLines.filter(l=>!l.deleted).reduce((s,l)=>s+_mrAmt(l),0);}
-function _matRevErr(m){const e=document.getElementById('mrev_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';}
+function _matRevErr(m){const e=document.getElementById('mrev_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';if(typeof toast==='function')toast(m,'warn');}
 
 async function estReviseMaterialBuildup(wbsId,locId){
   const node=_wbsNodes.find(n=>n.id===wbsId), loc=_locNodes.find(n=>n.id===locId);
@@ -3718,6 +3859,7 @@ async function estReviseMaterialBuildup(wbsId,locId){
   if((node.node_type||'')!=='material'){toast('This sheet is for material packages only','warn');return;}
   if(ex.estimate_mode==='ls'){return estReviseApproved(wbsId,locId);}   // LS → budget revise
   if(!_nodeLeased(wbsId)){toast('Unlock the line first','warn');return;}
+  await _loadMatMaster();
   pbShow('Loading build-up…');
   let rows=[];
   try{
@@ -3755,7 +3897,7 @@ function _mrRowHtml(l){
   const cls=l.deleted?'mr-removed':isNew?'mr-new':l.editing?'mr-editing':'mr-existing';
   if(editable){
     return `<tr class="${cls}">
-      <td><input class="mr-mat" value="${_esc(l.material_name)}" placeholder="Material name" oninput="_mrInput(${l.id},'material_name',this.value)">${flag}</td>
+      <td><input id="mrev_mat_${l.id}" class="mr-mat" value="${_esc(l.material_name)}" placeholder="type material…" autocomplete="off" oninput="_mrMatType(${l.id},this.value)" onblur="setTimeout(_buHideSuggest,200)">${flag}</td>
       <td><input class="mr-u" value="${_esc(l.uom)}" placeholder="uom" oninput="_mrInput(${l.id},'uom',this.value)"></td>
       <td class="num"><input class="mr-q" type="number" step="0.001" min="0" value="${l.measured_qty}" oninput="_mrInput(${l.id},'measured_qty',this.value)"></td>
       <td class="num"><input class="mr-q" type="number" step="0.01" min="0" max="25" value="${l.wastage_pct}" oninput="_mrInput(${l.id},'wastage_pct',this.value)"><span id="mr_wmax_${l.id}" class="mr-wmax" style="display:${wover?'':'none'};">max 25%</span></td>
@@ -3790,6 +3932,27 @@ function _mrInput(id,k,v){
   const l=_matRevLines.find(x=>x.id===id); if(!l)return;
   if(k==='material_name'||k==='uom') l[k]=v; else l[k]=(v===''?0:Number(v));
   _mrPatchRow(id); _mrPatchTotal(); _matRevErr('');
+}
+function _mrMatType(id,val){
+  const l=_matRevLines.find(x=>x.id===id); if(!l)return;
+  l.material_name=val; _matRevErr('');
+  const q=(val||'').toLowerCase().trim(), dd=_buSuggBox();
+  if(!q){dd.style.display='none';return;}
+  const hits=(_matMaster||[]).filter(m=>(m.material_name||'').toLowerCase().includes(q)||String(m.material_code||'').toLowerCase().includes(q)).slice(0,12);
+  if(!hits.length){dd.style.display='none';return;}
+  dd.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_mrPick(${id},'${_esc(String(m.material_code))}')">
+    <div style="font-size:12px;">${_esc(m.material_name)}</div>
+    <div style="font-size:10px;color:var(--muted);">${_esc(m.material_code||'')} · ${_esc(m.uom||'')}${m.estimated_rate?` · ₹${_inr(m.estimated_rate)}`:''}</div></div>`).join('');
+  const inp=document.getElementById('mrev_mat_'+id);
+  if(inp){const r=inp.getBoundingClientRect();dd.style.left=Math.round(r.left)+'px';dd.style.top=Math.round(r.bottom+2)+'px';dd.style.minWidth=Math.max(r.width,260)+'px';dd.style.display='';}
+}
+function _mrPick(id,code){
+  const l=_matRevLines.find(x=>x.id===id); if(!l)return;
+  const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code)); if(!m)return;
+  l.material_code=m.material_code; l.material_name=m.material_name; l.uom=m.uom||'';
+  if(!(Number(l.rate)>0)&&m.estimated_rate)l.rate=_r2(m.estimated_rate);
+  _buHideSuggest();
+  _matRevRenderAll();
 }
 function _mrUnlock(id){const l=_matRevLines.find(x=>x.id===id); if(l)l.editing=true; _matRevRenderAll(); _matRevErr('');}
 function _mrRelock(id){const l=_matRevLines.find(x=>x.id===id);
@@ -4385,11 +4548,11 @@ function _buPick(i,code){
 // Material bulk-fill: define ONE build-up (typical-unit take-off), choose units,
 // write that same build-up (total + detail rows) to every selected unit.
 // ░░ v35 · Material BULK revise — two modes (edit existing | add new) + grouped locations ░░
-let _mbCtx=null,_mbMode='edit',_mbEditLines=[],_mbAddLines=[],_mbLocSel=new Set(),_mbGrouped=true,_mbUid=0,_mbNonUniform=false,_mbLocCollapsed=new Set();
-function _mbErr(m){const e=document.getElementById('mb_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';}
+let _mbCtx=null,_mbMode='add',_mbAddLines=[],_mbLocSel=new Set(),_mbGrouped=true,_mbUid=0,_mbLocCollapsed=new Set();
+function _mbErr(m){const e=document.getElementById('mb_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';if(typeof toast==='function')toast(m,'warn');}
 function _mbLineToBu(l){return {material_code:l.material_code||null,material_name:l.material_name,uom:l.uom||null,qty:Number(l.measured_qty)||0,wastage_pct:_buClampWastage(l.wastage_pct),qty_total:_r2(_mrQt(l)),rate:_r2(l.rate),amount:_r2(_mrAmt(l))};}
 function _mbMatType(kind,id,val){
-  const arr=(kind==='e'?_mbEditLines:_mbAddLines), l=arr.find(x=>x.id===id); if(!l)return;
+  const arr=_mbAddLines, l=arr.find(x=>x.id===id); if(!l)return;
   l.material_name=val; _mbErr('');
   const q=(val||'').toLowerCase().trim(), dd=_buSuggBox();
   if(!q){dd.style.display='none';return;}
@@ -4402,15 +4565,15 @@ function _mbMatType(kind,id,val){
   if(inp){const r=inp.getBoundingClientRect();dd.style.left=Math.round(r.left)+'px';dd.style.top=Math.round(r.bottom+2)+'px';dd.style.minWidth=Math.max(r.width,260)+'px';dd.style.display='';}
 }
 function _mbPick(kind,id,code){
-  const arr=(kind==='e'?_mbEditLines:_mbAddLines), l=arr.find(x=>x.id===id); if(!l)return;
+  const arr=_mbAddLines, l=arr.find(x=>x.id===id); if(!l)return;
   const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code)); if(!m)return;
   l.material_code=m.material_code; l.material_name=m.material_name; l.uom=m.uom||'';
   if(!(Number(l.rate)>0)&&m.estimated_rate)l.rate=_r2(m.estimated_rate);
   _buHideSuggest();
-  if(kind==='e')_mbPaintEdit(); else _mbPaintAdd();
+  _mbPaintAdd();
 }
 
-async function estMaterialBulkFill(wbsId){
+async function estMaterialBulkFill(wbsId,forceMode){
   if(!_nodeLeased(wbsId)){toast('Unlock the line first','warn');return;}
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   const node=_wbsNodes.find(n=>n.id===wbsId);
@@ -4422,97 +4585,44 @@ async function estMaterialBulkFill(wbsId){
   const sm=_scopeMap();
   const estLocs=cols.filter(c=>{const ex=sm[wbsId+'|'+c.id];return ex&&ex.scope_status==='approved';}).map(c=>c.id);
   _mbCtx={wbsId,node,cols,estLocs};
-  _mbGrouped=true;_mbUid=0;_mbAddLines=[];_mbEditLines=[];_mbNonUniform=false;
+  _mbGrouped=true;_mbUid=0;_mbAddLines=[];
   _mbLocCollapsed=new Set(_locNodes.filter(n=>!n.is_leaf&&n.parent_id!=null).map(n=>n.id));
-  if(estLocs.length){
-    const amts=estLocs.map(id=>Math.round((sm[wbsId+'|'+id]?.est_amount||0)*100)/100);
-    _mbNonUniform=new Set(amts).size>1;
-    const ref=sm[wbsId+'|'+estLocs[0]];
-    pbShow('Loading build-up…');
-    try{const {data,error}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',ref.id).order('sno');if(error)throw error;
-      _mbEditLines=(data||[]).map(r=>{const o={measured_qty:Number(r.qty)||0,wastage_pct:Number(r.wastage_pct)||0,rate:Number(r.rate)||0,material_name:r.material_name||'',uom:r.uom||''};
-        return {id:++_mbUid,origin:'existing',editing:false,deleted:false,material_code:r.material_code||null,material_name:o.material_name,uom:o.uom,measured_qty:o.measured_qty,wastage_pct:o.wastage_pct,rate:o.rate,orig:o};});
-    }catch(e){pbDone();toast('Could not load build-up: '+e.message,'error');return;}
-    pbDone();
-  }
-  _mbMode=estLocs.length?'edit':'add';
-  if(_mbMode==='add')_mbAddLines=[{id:++_mbUid,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,material_code:null}];
-  _mbLocSel=new Set(_mbMode==='edit'?estLocs:[]);
+  _mbMode='add';   // this screen is add-only; editing is handled by the group-by screen (no edit-mode build-up load)
+  _mbAddLines=[{id:++_mbUid,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,material_code:null}];
+  _mbLocSel=new Set();
   document.getElementById('mb_path').innerHTML=_esc(_wbsPathJS(wbsId));
+  {const t=document.getElementById('mb_ttl');if(t)t.textContent='↻ Bulk — '+(node?node.name:'material package');}
   document.getElementById('mb_reason').value='';document.getElementById('mb_search').value='';_mbErr('');
   _mbRenderAll();
   document.getElementById('estMatBulkOverlay').style.display='flex';
 }
 function _mbSetMode(m){
   if(m===_mbMode)return;
-  if(m==='edit'&&!_mbCtx.estLocs.length){toast('No existing estimate to edit — use “Add new materials”','warn');return;}
-  _mbMode=m;
-  if(m==='edit')_mbLocSel=new Set(_mbCtx.estLocs);
-  else{_mbLocSel=new Set();if(!_mbAddLines.length)_mbAddLines=[{id:++_mbUid,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,material_code:null}];}
+  if(m==='edit'){if(!_mbCtx.estLocs.length){toast('No existing estimate yet — nothing to edit','warn');return;}const w=_mbCtx.wbsId;_mbClose();return estActivityBulkFill(w);}  // editing is handled by the group-by screen
+  _mbMode='add';
+  _mbLocSel=new Set();if(!_mbAddLines.length)_mbAddLines=[{id:++_mbUid,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,material_code:null}];
   _mbErr('');_mbRenderAll();
 }
 function _mbRenderAll(){
   const noEx=!_mbCtx.estLocs.length;
-  document.getElementById('mb_tab_edit').classList.toggle('on',_mbMode==='edit');
+  document.getElementById('mb_tab_edit').classList.remove('on');
   document.getElementById('mb_tab_edit').classList.toggle('disabled',noEx);
-  document.getElementById('mb_tab_add').classList.toggle('on',_mbMode==='add');
+  document.getElementById('mb_tab_add').classList.add('on');
   _mbRenderBuild();_mbRenderLocs();_mbRenderHint();
 }
 function _mbRenderHint(){
-  document.getElementById('mb_hint').innerHTML=_mbMode==='edit'
-    ? `🔒 Locations are <b>locked</b> while editing the existing estimate — the revision applies to the ${_mbCtx.estLocs.length} location(s) that already hold it.`
-    : `📍 Locations are <b>open</b> — choose any locations for the new materials, existing or not.`;
+  document.getElementById('mb_hint').innerHTML=`📍 Locations are <b>open</b> — choose any locations for the new materials, existing or not.`;
 }
 
 /* ----- build-up section ----- */
 function _mbRenderBuild(){
   const a=document.getElementById('mb_build');
-  if(_mbMode==='edit'){
-    const warn=_mbNonUniform?`<div class="mb-warn">⚠ The selected locations have <b>different</b> build-ups. Editing here sets them <b>all</b> to this one build-up. To revise a single location precisely, open its cell instead.</div>`:'';
-    a.innerHTML=warn+`<div class="mr-step" style="font-size:12.5px;font-weight:700;color:var(--navy);margin:2px 0 9px;">Existing build-up — locked, click ✎ to edit</div>
-      <div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:7px;"><table class="mr-tbl"><thead><tr><th>Material</th><th>UOM</th><th class="num">Measured qty</th><th class="num">Wastage %</th><th class="num">Total qty</th><th class="num">Rate ₹</th><th class="num">Amount</th><th></th></tr></thead><tbody id="mb_ebody"></tbody></table></div>
-      <div class="mr-addrow" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;"><button class="btn btn-ghost" onclick="_mbAddEdit()">+ Add material</button><div class="mr-total" style="font-size:13px;font-weight:700;color:var(--navy);">Package total: <b id="mb_etotal" style="color:var(--accent);">₹0</b></div></div>
-      <p style="font-size:11px;color:var(--muted);margin-top:9px;">Total qty = Measured qty × (1 + Wastage % ⁄ 100), capped at 25%. Amount is on Total qty.</p>`;
-    _mbPaintEdit();
-  } else {
-    a.innerHTML=`<div class="mr-step" style="font-size:12.5px;font-weight:700;color:var(--navy);margin:2px 0 9px;">New materials — appended to the chosen locations</div>
-      <div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:7px;"><table class="mr-tbl"><thead><tr><th>Material</th><th>UOM</th><th class="num">Measured qty</th><th class="num">Wastage %</th><th class="num">Total qty</th><th class="num">Rate ₹</th><th class="num">Amount</th><th></th></tr></thead><tbody id="mb_bbody"></tbody></table></div>
-      <div class="mr-addrow" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;"><button class="btn btn-ghost" onclick="_mbAddNew()">+ Add material</button><div class="mr-total" style="font-size:13px;font-weight:700;color:var(--navy);">Added per location: <b id="mb_btotal" style="color:var(--accent);">₹0</b></div></div>
-      <p style="font-size:11px;color:var(--muted);margin-top:9px;">Existing estimates are not changed — these lines are appended where present, or create a new estimate where absent.</p>`;
-    _mbPaintAdd();
-  }
+  a.innerHTML=`<div class="mr-step" style="font-size:12.5px;font-weight:700;color:var(--navy);margin:2px 0 9px;">New materials — appended to the chosen locations</div>
+    <div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:7px;"><table class="mr-tbl"><thead><tr><th>Material</th><th>UOM</th><th class="num">Measured qty</th><th class="num">Wastage %</th><th class="num">Total qty</th><th class="num">Rate ₹</th><th class="num">Amount</th><th></th></tr></thead><tbody id="mb_bbody"></tbody></table></div>
+    <div class="mr-addrow" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;"><button class="btn btn-ghost" onclick="_mbAddNew()">+ Add material</button><div class="mr-total" style="font-size:13px;font-weight:700;color:var(--navy);">Added per location: <b id="mb_btotal" style="color:var(--accent);">₹0</b></div></div>
+    <p style="font-size:11px;color:var(--muted);margin-top:9px;">Existing estimates are not changed — these lines are appended where present, or create a new estimate where absent.</p>`;
+  _mbPaintAdd();
 }
-function _mbActE(l){
-  if(l.deleted)return `<button class="mr-ic undo" onclick="_mbEUndo(${l.id})" title="Restore">↩</button>`;
-  if(l.origin==='new')return `<button class="mr-ic del" onclick="_mbERemoveNew(${l.id})" title="Remove">✕</button>`;
-  if(l.editing)return `<button class="mr-ic rev" onclick="_mbERelock(${l.id})" title="Revert & relock">↺</button><button class="mr-ic del" onclick="_mbEDel(${l.id})" title="Remove approved line">✕</button>`;
-  return `<button class="mr-ic edit" onclick="_mbEUnlock(${l.id})" title="Edit this line">✎</button>`;
-}
-function _mbRowE(l){
-  const isNew=l.origin==='new',ed=(isNew||l.editing)&&!l.deleted,wo=(Number(l.wastage_pct)||0)>25;
-  const flag=l.deleted?'<span class="mr-flag rem">REMOVED</span>':isNew?'<span class="mr-flag new">NEW</span>':l.editing?'<span class="mr-flag edt">EDITING</span>':'<span class="mr-flag lock">🔒 LOCKED</span>';
-  const cls=l.deleted?'mr-removed':isNew?'mr-new':l.editing?'mr-editing':'mr-existing';
-  if(ed)return `<tr class="${cls}"><td><input id="mb_mat_e_${l.id}" class="mr-mat" value="${_esc(l.material_name)}" placeholder="type material…" autocomplete="off" oninput="_mbMatType('e',${l.id},this.value)" onblur="setTimeout(_buHideSuggest,200)">${flag}</td>
-    <td><input class="mr-u" value="${_esc(l.uom)}" oninput="_mbEIn(${l.id},'uom',this.value)"></td>
-    <td class="num"><input class="mr-q" type="number" step="0.001" min="0" value="${l.measured_qty}" oninput="_mbEIn(${l.id},'measured_qty',this.value)"></td>
-    <td class="num"><input class="mr-q" type="number" step="0.01" min="0" max="25" value="${l.wastage_pct}" oninput="_mbEIn(${l.id},'wastage_pct',this.value)"><span id="mb_ew_${l.id}" class="mr-wmax" style="display:${wo?'':'none'};">max 25%</span></td>
-    <td class="num" id="mb_eq_${l.id}">${_inr(_mrQt(l))}</td><td class="num"><input class="mr-r" type="number" step="0.01" min="0" value="${l.rate}" oninput="_mbEIn(${l.id},'rate',this.value)"></td>
-    <td class="num" id="mb_ea_${l.id}"><b>₹${_inr(_mrAmt(l))}</b></td><td class="mr-act">${_mbActE(l)}</td></tr>`;
-  return `<tr class="${cls}"><td><span class="mr-name${l.deleted?' mr-strk':''}">${_esc(l.material_name)||'(blank)'}</span>${flag}</td><td>${_esc(l.uom)}</td>
-    <td class="num">${_inr(l.measured_qty)}</td><td class="num">${Number(l.wastage_pct)?_inr(l.wastage_pct)+'%':'—'}</td>
-    <td class="num">${_inr(_mrQt(l))}</td><td class="num">₹${_inr(l.rate)}</td><td class="num"><b>₹${_inr(_mrAmt(l))}</b></td><td class="mr-act">${_mbActE(l)}</td></tr>`;
-}
-function _mbPaintEdit(){const tb=document.getElementById('mb_ebody');if(!tb)return;tb.innerHTML=_mbEditLines.map(_mbRowE).join('');_mbETot();}
-function _mbETot(){const t=document.getElementById('mb_etotal');if(t)t.textContent='₹'+_inr(_mbEditLines.filter(l=>!l.deleted).reduce((s,l)=>s+_mrAmt(l),0));}
-function _mbEIn(id,k,v){const l=_mbEditLines.find(x=>x.id===id);if(!l)return;if(k==='material_name'||k==='uom')l[k]=v;else l[k]=(v===''?0:Number(v));
-  const q=document.getElementById('mb_eq_'+id);if(q)q.textContent=_inr(_mrQt(l));const a=document.getElementById('mb_ea_'+id);if(a)a.innerHTML='<b>₹'+_inr(_mrAmt(l))+'</b>';
-  const w=document.getElementById('mb_ew_'+id);if(w)w.style.display=((Number(l.wastage_pct)||0)>25)?'':'none';_mbETot();_mbErr('');}
-function _mbEUnlock(id){const l=_mbEditLines.find(x=>x.id===id);if(l)l.editing=true;_mbPaintEdit();_mbErr('');}
-function _mbERelock(id){const l=_mbEditLines.find(x=>x.id===id);if(l&&l.orig)Object.assign(l,{measured_qty:l.orig.measured_qty,wastage_pct:l.orig.wastage_pct,rate:l.orig.rate,material_name:l.orig.material_name,uom:l.orig.uom,editing:false});_mbPaintEdit();_mbErr('');}
-function _mbEDel(id){const l=_mbEditLines.find(x=>x.id===id);if(l){l.deleted=true;l.editing=false;}_mbPaintEdit();_mbErr('');}
-function _mbEUndo(id){const l=_mbEditLines.find(x=>x.id===id);if(l)l.deleted=false;_mbPaintEdit();_mbErr('');}
-function _mbERemoveNew(id){_mbEditLines=_mbEditLines.filter(x=>x.id!==id);_mbPaintEdit();_mbErr('');}
-function _mbAddEdit(){_mbEditLines.push({id:++_mbUid,origin:'new',editing:true,deleted:false,material_code:null,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,orig:null});_mbPaintEdit();_mbErr('');setTimeout(()=>{const i=document.querySelectorAll('#mb_ebody input.mr-mat');if(i.length)i[i.length-1].focus();},0);}
 /* add-new rows */
 function _mbRowA(l){const wo=(Number(l.wastage_pct)||0)>25;
   return `<tr class="mr-new"><td><input id="mb_mat_a_${l.id}" class="mr-mat" value="${_esc(l.material_name)}" placeholder="type material…" autocomplete="off" oninput="_mbMatType('a',${l.id},this.value)" onblur="setTimeout(_buHideSuggest,200)"><span class="mr-flag new">NEW</span></td>
@@ -4529,28 +4639,44 @@ function _mbAIn(id,k,v){const l=_mbAddLines.find(x=>x.id===id);if(!l)return;if(k
 function _mbARemove(id){_mbAddLines=_mbAddLines.filter(x=>x.id!==id);_mbPaintAdd();_mbErr('');}
 function _mbAddNew(){_mbAddLines.push({id:++_mbUid,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,material_code:null});_mbPaintAdd();_mbErr('');setTimeout(()=>{const i=document.querySelectorAll('#mb_bbody input.mr-mat');if(i.length)i[i.length-1].focus();},0);}
 
+/* ----- quick-select cluster chips (tower / unit-line) ----- */
+function _mbMetaMap(){if(_mbCtx&&_mbCtx._meta)return _mbCtx._meta;const map=Object.fromEntries(_locNodes.map(n=>[n.id,n]));const out={};(_mbCtx?_mbCtx.cols:[]).forEach(c=>{const leaf=map[c.id];const fl=leaf&&leaf.parent_id?map[leaf.parent_id]:null;const tw=fl&&fl.parent_id?map[fl.parent_id]:null;const nm=leaf?leaf.name:'';const mm=nm.match(/(\d+)\s*$/);out[c.id]={tower:tw?tw.id:'_none',towerName:tw?tw.name:'(no tower)',line:mm?mm[1].slice(-2):null};});if(_mbCtx)_mbCtx._meta=out;return out;}
+function _mbClusterUnits(kind,key){const m=_mbMetaMap();const free=_mbFreeSet();return (_mbCtx?_mbCtx.cols:[]).filter(c=>free.has(c.id)&&String(kind==='tower'?m[c.id].tower:m[c.id].line)===String(key)).map(c=>c.id);}
+function _mbClusterState(ids){const on=ids.filter(i=>_mbLocSel.has(i)).length;return on===0?'off':on===ids.length?'on':'part';}
+function _mbToggleCluster(kind,key){const ids=_mbClusterUnits(kind,key);const st=_mbClusterState(ids);if(st==='on')ids.forEach(i=>_mbLocSel.delete(i));else ids.forEach(i=>_mbLocSel.add(i));_mbRenderLocs();_mbErr('');}
+function _mbSelectAllLocs(on){const free=_mbFreeSet();(_mbCtx?_mbCtx.cols:[]).forEach(c=>{if(!free.has(c.id))return;on?_mbLocSel.add(c.id):_mbLocSel.delete(c.id);});_mbRenderLocs();_mbErr('');}
+function _mbRenderQuickChips(){
+  const m=_mbMetaMap();const cols=_mbCtx?_mbCtx.cols:[];
+  const tw=[...new Map(cols.map(c=>[m[c.id].tower,m[c.id].towerName]))];
+  const ln=[...new Set(cols.map(c=>m[c.id].line).filter(Boolean))].sort();
+  const pill=(kind,key,label)=>{const st=_mbClusterState(_mbClusterUnits(kind,key));return `<span class="ab-chip ${st==='on'?'on':st==='part'?'part':''}" onclick="_mbToggleCluster('${kind}','${key}')">${_esc(label)}</span>`;};
+  const tEl=document.getElementById('mb_qfTower');if(tEl)tEl.innerHTML=tw.map(([id,nm])=>pill('tower',id,nm)).join('')||'<span class="ab-none">—</span>';
+  const lEl=document.getElementById('mb_qfLine');if(lEl)lEl.innerHTML=ln.map(l=>pill('line',l,'·'+l)).join('')||'<span class="ab-none">—</span>';
+}
 /* ----- grouped/flat location picker ----- */
 function _mbCk(s){return s==='on'?'<span class="mb-ck on">✓</span>':s==='part'?'<span class="mb-ck part">–</span>':'<span class="mb-ck"></span>';}
+function _mbFreeSet(){const sm=_scopeMap();return new Set((_mbCtx?_mbCtx.cols:[]).filter(c=>!sm[_mbCtx.wbsId+'|'+c.id]).map(c=>c.id));}  // unallocated leaves only
 function _mbGrpStateIds(ids){const on=ids.filter(i=>_mbLocSel.has(i)).length;return on===0?'off':on===ids.length?'on':'part';}
 function _mbLeafIdsUnder(n,candSet){const out=[];(function w(x){if(x.is_leaf){if(candSet.has(x.id))out.push(x.id);return;}_locNodes.filter(c=>c.parent_id===x.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).forEach(w);})(n);return out;}
-function _mbAllGroupIds(){const editMode=_mbMode==='edit';const candSet=new Set(editMode?_mbCtx.estLocs:_mbCtx.cols.map(c=>c.id));return _locNodes.filter(n=>!n.is_leaf&&_mbLeafIdsUnder(n,candSet).length>0).map(n=>n.id);}
+function _mbAllGroupIds(){const candSet=new Set(_mbCtx.cols.map(c=>c.id));return _locNodes.filter(n=>!n.is_leaf&&_mbLeafIdsUnder(n,candSet).length>0).map(n=>n.id);}
 function _mbToggleCollapse(id){_mbLocCollapsed.has(id)?_mbLocCollapsed.delete(id):_mbLocCollapsed.add(id);_mbRenderLocs();}
 function _mbToggleCollapseAll(){const g=_mbAllGroupIds();const anyExp=g.some(id=>!_mbLocCollapsed.has(id));if(anyExp)g.forEach(id=>_mbLocCollapsed.add(id));else _mbLocCollapsed.clear();_mbRenderLocs();}
-function _mbToggleLoc(id){_mbLocSel.has(id)?_mbLocSel.delete(id):_mbLocSel.add(id);_mbRenderLocs();_mbErr('');}
-function _mbToggleGroupNode(id){const n=_locNodes.find(x=>x.id===id);if(!n)return;const candSet=new Set(_mbCtx.cols.map(c=>c.id));const ids=_mbLeafIdsUnder(n,candSet);const st=_mbGrpStateIds(ids);if(st==='on')ids.forEach(i=>_mbLocSel.delete(i));else ids.forEach(i=>_mbLocSel.add(i));_mbRenderLocs();_mbErr('');}
+function _mbToggleLoc(id){const sm=_scopeMap();if(sm[_mbCtx.wbsId+'|'+id])return;_mbLocSel.has(id)?_mbLocSel.delete(id):_mbLocSel.add(id);_mbRenderLocs();_mbErr('');}
+function _mbToggleGroupNode(id){const n=_locNodes.find(x=>x.id===id);if(!n)return;const ids=_mbLeafIdsUnder(n,_mbFreeSet());if(!ids.length)return;const st=_mbGrpStateIds(ids);if(st==='on')ids.forEach(i=>_mbLocSel.delete(i));else ids.forEach(i=>_mbLocSel.add(i));_mbRenderLocs();_mbErr('');}
 function _mbLocRow(n,editMode,label,depth){
-  const pad=20+(depth||0)*14;
-  if(editMode)return `<div class="mb-loc locked" style="padding-left:${pad}px;"><span class="mb-ck locked">🔒</span> ${_esc(label||n.name)} <span class="mb-est">has estimate</span></div>`;
-  const on=_mbLocSel.has(n.id);const sm=_scopeMap();const ex=sm[_mbCtx.wbsId+'|'+n.id];
-  const tag=(ex&&ex.scope_status==='approved')?'<span class="mb-est">has estimate</span>':(ex&&ex.scope_status==='pending')?'<span class="mb-newt" style="color:#d97706;">pending — skipped</span>':(on?'<span class="mb-newt" style="color:#0d9488;">+ add</span>':'<span class="mb-newt">—</span>');
-  return `<div class="mb-loc ${on?'on':''}" style="padding-left:${pad}px;" onclick="_mbToggleLoc('${n.id}')">${_mbCk(on?'on':'off')} ${_esc(label||n.name)} ${tag}</div>`;
+  const pad=20+(depth||0)*14;const sm=_scopeMap();const ex=sm[_mbCtx.wbsId+'|'+n.id];
+  if(ex){const st=ex.scope_status;const lbl=st==='approved'?'has estimate':st==='pending'?'pending':'draft';
+    return `<div class="mb-loc locked" style="padding-left:${pad}px;opacity:.55;cursor:not-allowed;"><span class="mb-ck locked">🔒</span> ${_esc(label||n.name)} <span class="mb-est" style="color:#b45309;">🔒 ${lbl}</span></div>`;}
+  const on=_mbLocSel.has(n.id);
+  return `<div class="mb-loc ${on?'on':''}" style="padding-left:${pad}px;" onclick="_mbToggleLoc('${n.id}')">${_mbCk(on?'on':'off')} ${_esc(label||n.name)} ${on?'<span class="mb-newt" style="color:#0d9488;">✓ selected</span>':'<span class="mb-newt">—</span>'}</div>`;
 }
 function _mbRenderLocs(){
-  const tree=document.getElementById('mb_loctree');const editMode=_mbMode==='edit';
+  const tree=document.getElementById('mb_loctree');const editMode=false;
   const sw=document.getElementById('mb_search_wrap');if(sw)sw.style.display=editMode?'none':'';
   const q=(document.getElementById('mb_search').value||'').toLowerCase();
   const candIds=editMode?_mbCtx.estLocs:_mbCtx.cols.map(c=>c.id);
   const candSet=new Set(candIds);
+  const free=_mbFreeSet();
   const searching=!!q;
   let roots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order);
   if(typeof _estStage!=='undefined'&&_estStage!=='__all__')roots=roots.filter(n=>n.id===_estStage);
@@ -4560,9 +4686,10 @@ function _mbRenderLocs(){
     const collapsed=!searching&&_mbLocCollapsed.has(n.id);
     const kids=collapsed?'':_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).map(c=>render(c,depth+1)).join('');
     if(!collapsed&&!kids)return'';
+    const freeLeaves=leaves.filter(i=>free.has(i));
     const caret=`<span class="mb-caret">${collapsed?'▸':'▾'}</span>`;
-    const cnt=`<span class="mb-cnt">${leaves.filter(i=>_mbLocSel.has(i)).length}/${leaves.length}</span>`;
-    const box=editMode?'<span class="mb-ck locked">🔒</span>':`<span onclick="event.stopPropagation();_mbToggleGroupNode('${n.id}')">${_mbCk(_mbGrpStateIds(leaves))}</span>`;
+    const cnt=`<span class="mb-cnt">${freeLeaves.filter(i=>_mbLocSel.has(i)).length}/${freeLeaves.length} free</span>`;
+    const box=freeLeaves.length?`<span onclick="event.stopPropagation();_mbToggleGroupNode('${n.id}')">${_mbCk(_mbGrpStateIds(freeLeaves))}</span>`:'<span class="mb-ck locked">🔒</span>';
     const head=`<div class="mb-grphd" style="padding-left:${6+depth*14}px;cursor:pointer;" onclick="_mbToggleCollapse('${n.id}')">${caret}${box} ${_esc(n.name)} ${cnt}</div>`;
     return head+kids;
   };
@@ -4570,63 +4697,54 @@ function _mbRenderLocs(){
   document.getElementById('mb_loccount').textContent=editMode?`${_mbCtx.estLocs.length} locked`:`${_mbLocSel.size} selected`;
   document.getElementById('mb_loctitle').textContent=editMode?'Locations (locked while editing)':'Locations to add materials to';
   const g=document.getElementById('mb_groupbtn');if(g){const anyExp=_mbAllGroupIds().some(id=>!_mbLocCollapsed.has(id));g.textContent=anyExp?'⊟ Collapse all':'⊞ Expand all';}
+  _mbRenderQuickChips();
+  _mbUpdateReasonVisibility();
+}
+function _mbWillRevise(){const sm=_scopeMap();return [..._mbLocSel].some(id=>sm[_mbCtx.wbsId+'|'+id]?.scope_status==='approved');}
+function _mbUpdateReasonVisibility(){const w=document.getElementById('mb_reasonWrap');if(w)w.style.display=_mbWillRevise()?'':'none';}
+
+/* ----- shared collapsible location tree for the review popups (tower → floor → unit) ----- */
+let _diffCollapsed=new Set(), _abDiffUnits=null;
+function _diffGroup(ids){
+  const map=Object.fromEntries(_locNodes.map(n=>[n.id,n]));const towers={};
+  ids.forEach(id=>{const leaf=map[id];const fl=leaf&&leaf.parent_id?map[leaf.parent_id]:null;const tw=fl&&fl.parent_id?map[fl.parent_id]:null;
+    const tk=tw?tw.id:'_nt',fk=fl?fl.id:'_nf';
+    (towers[tk]=towers[tk]||{name:tw?tw.name:'(no tower)',order:tw?tw.sort_order||0:0,floors:{}});
+    (towers[tk].floors[fk]=towers[tk].floors[fk]||{name:fl?fl.name:'(floor)',order:fl?fl.sort_order||0:0,units:[]});
+    towers[tk].floors[fk].units.push({id,name:leaf?leaf.name:String(id),order:leaf?leaf.sort_order||0:0});});
+  return towers;
+}
+function _diffInitCollapse(ids,key){_diffCollapsed=new Set();const tw=_diffGroup(ids);Object.keys(tw).forEach(tk=>_diffCollapsed.add(key+':T:'+tk));}  // start collapsed at tower
+function _diffToggle(id){if(_diffCollapsed.has(id))_diffCollapsed.delete(id);else _diffCollapsed.add(id);
+  const ao=document.getElementById('estActBulkDiffOverlay'),mo=document.getElementById('estMatBulkDiffOverlay');
+  if(ao&&ao.style.display==='flex')_abPaintDiff(); else if(mo&&mo.style.display==='flex')_mbBuildDiffAdd();}
+function _diffTree(ids,key,unitVal){
+  const tw=_diffGroup(ids);const tks=Object.keys(tw).sort((a,b)=>(tw[a].order-tw[b].order)||tw[a].name.localeCompare(tw[b].name));
+  let h='<div class="diff-tree">';
+  tks.forEach(tk=>{const t=tw[tk];const tcid=key+':T:'+tk;const tcol=_diffCollapsed.has(tcid);
+    const fks=Object.keys(t.floors).sort((a,b)=>(t.floors[a].order-t.floors[b].order)||t.floors[a].name.localeCompare(t.floors[b].name));
+    let tAmt=0,tCnt=0;const fHtml=fks.map(fk=>{const fl=t.floors[fk];const fcid=key+':F:'+tk+':'+fk;const fcol=_diffCollapsed.has(fcid);
+      const units=fl.units.slice().sort((a,b)=>(a.order-b.order)||a.name.localeCompare(b.name));let fAmt=0;
+      const uHtml=units.map(u=>{const v=unitVal?unitVal(u.id):{right:'',amt:0};fAmt+=(v.amt||0);return `<div class="diff-u"><span class="nm">${_esc(u.name)}</span><span class="r">${v.right||''}</span></div>`;}).join('');
+      tAmt+=fAmt;tCnt+=units.length;
+      return `<div class="diff-f"><div class="diff-fh" onclick="_diffToggle('${fcid}')"><span class="cr">${fcol?'▸':'▾'}</span>${_esc(fl.name)} <span class="ct">(${units.length})</span><span class="r">${unitVal?('₹'+_inr(fAmt)):''}</span></div><div style="display:${fcol?'none':'block'}">${uHtml}</div></div>`;
+    }).join('');
+    h+=`<div class="diff-t"><div class="diff-th" onclick="_diffToggle('${tcid}')"><span class="cr">${tcol?'▸':'▾'}</span><b>${_esc(t.name)}</b> <span class="ct">(${tCnt})</span><span class="r">${unitVal?('₹'+_inr(tAmt)):''}</span></div><div style="display:${tcol?'none':'block'}">${fHtml}</div></div>`;
+  });
+  return h+'</div>';
 }
 
 /* ----- review + diff ----- */
-function _mbChangedE(l){if(l.origin==='new')return true;if(l.deleted)return true;const o=l.orig;return Number(l.measured_qty)!==Number(o.measured_qty)||Number(l.wastage_pct)!==Number(o.wastage_pct)||Number(l.rate)!==Number(o.rate)||l.material_name!==o.material_name||l.uom!==o.uom;}
-function _mbKindE(l){if(l.origin==='new')return'added';if(l.deleted)return'removed';return _mbChangedE(l)?'edited':'unchanged';}
-async function _mbMirGuardEdit(){
-  const breaches=[];const codes=_mbEditLines.filter(l=>l.material_code).map(l=>l.material_code);
-  if(!codes.length||!_mbCtx.estLocs.length)return breaches;
-  const used={};
-  try{const {data}=await sb.from('pu_mir_items').select('material_code,qty_required,loc_node_id,pu_mir!inner(status)').in('loc_node_id',_mbCtx.estLocs).in('material_code',codes);
-    (data||[]).forEach(r=>{if(['Rejected','Cancelled'].includes(r.pu_mir?.status||''))return;const k=r.loc_node_id+'|'+r.material_code;used[k]=(used[k]||0)+Number(r.qty_required||0);});
-  }catch(e){console.warn('MIR guard skipped',e.message);return breaches;}
-  _mbCtx.estLocs.forEach(loc=>_mbEditLines.forEach(l=>{if(!l.material_code)return;const c=used[loc+'|'+l.material_code]||0;if(c<=0)return;const rq=l.deleted?0:_mrQt(l);if(rq<c-0.0001)breaches.push(`• ${_locPathJS(loc)} — ${l.material_name||l.material_code}: ${l.deleted?'removed':'set to '+_inr(rq)}, MIR consumed ${_inr(c)}`);}));
-  return breaches;
-}
 async function _mbReview(){
   const reason=document.getElementById('mb_reason').value.trim();
-  if(_mbMode==='edit'){
-    const live=_mbEditLines.filter(l=>!l.deleted);
-    if(!live.length){_mbErr('A build-up needs at least one line.');return;}
-    for(const l of live){if(!String(l.material_name).trim()){_mbErr('Every line needs a material name.');return;}if((Number(l.measured_qty)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a measured quantity above zero.`);return;}if((Number(l.rate)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a rate above zero.`);return;}if((Number(l.wastage_pct)||0)>25){_mbErr(`Wastage on "${l.material_name}" exceeds 25%.`);return;}}
-    if(!_mbEditLines.some(_mbChangedE)){_mbErr('Nothing has changed yet. Edit, add, or remove a line first.');return;}
-    if(!_mbCtx.estLocs.length){_mbErr('No existing-estimate locations to revise.');return;}
-    if(!reason){_mbErr('Add a reason — it is kept in the revision history for the PM.');return;}
-    pbShow('Checking issued quantities…');const br=await _mbMirGuardEdit();pbDone();
-    if(br.length){_mbErr('Floor-lock — qty cannot drop below committed MIR qty:\n'+br.join('\n'));return;}
-    _mbBuildDiffEdit();
-  } else {
-    if(!_mbAddLines.length){_mbErr('Add at least one new material.');return;}
-    for(const l of _mbAddLines){if(!String(l.material_name).trim()){_mbErr('Every new line needs a material name.');return;}if((Number(l.measured_qty)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a measured quantity above zero.`);return;}if((Number(l.rate)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a rate above zero.`);return;}if((Number(l.wastage_pct)||0)>25){_mbErr(`Wastage on "${l.material_name}" exceeds 25%.`);return;}}
-    if(!_mbLocSel.size){_mbErr('Select at least one location.');return;}
-    if(!reason){_mbErr('Add a reason — it is kept in the revision history for the PM.');return;}
-    _mbBuildDiffAdd();
-  }
+  if(!_mbAddLines.length){_mbErr('Add at least one new material.');return;}
+  for(const l of _mbAddLines){if(!String(l.material_name).trim()){_mbErr('Every new line needs a material name.');return;}if((Number(l.measured_qty)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a measured quantity above zero.`);return;}if((Number(l.rate)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a rate above zero.`);return;}if((Number(l.wastage_pct)||0)>25){_mbErr(`Wastage on "${l.material_name}" exceeds 25%.`);return;}}
+  if(!_mbLocSel.size){_mbErr('Select at least one location.');return;}
+  if(_mbWillRevise()&&!reason){_mbErr('Appending to an already-approved estimate needs a reason — it is kept in history for the PM.');return;}
+  _diffInitCollapse([..._mbLocSel],'mb');
+  _mbBuildDiffAdd();
   document.getElementById('estMatBulkOverlay').style.display='none';
   document.getElementById('estMatBulkDiffOverlay').style.display='flex';
-}
-function _mbBuildDiffEdit(){
-  const sel=_mbCtx.estLocs;
-  document.getElementById('mb_dpath').innerHTML=`Filed as <b>${sel.length} revision(s)</b> — one per locked location`;
-  let body=`<table class="mr-diff"><thead><tr><th>Material</th><th>Change</th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>`;
-  body+=_mbEditLines.map(l=>{const k=_mbKindE(l);let pill,before,after,fields='';
-    if(k==='added'){pill='<span class="mr-flag new">ADDED</span>';before='—';after='₹'+_inr(_mrAmt(l));}
-    else if(k==='removed'){pill='<span class="mr-flag rem">REMOVED</span>';before='₹'+_inr(_mrOrigAmt(l));after='—';}
-    else if(k==='unchanged'){pill='<span class="mr-flag unc">UNCHANGED</span>';before='₹'+_inr(_mrOrigAmt(l));after='₹'+_inr(_mrAmt(l));}
-    else{pill='<span class="mr-flag edt">EDITED</span>';const o=l.orig,c=[];
-      if(Number(l.measured_qty)!==Number(o.measured_qty))c.push(`qty <span class="mr-old">${_inr(o.measured_qty)}</span>→<span class="mr-new">${_inr(l.measured_qty)}</span>`);
-      if(Number(l.rate)!==Number(o.rate))c.push(`rate <span class="mr-old">₹${_inr(o.rate)}</span>→<span class="mr-new">₹${_inr(l.rate)}</span>`);
-      if(Number(l.wastage_pct)!==Number(o.wastage_pct))c.push(`wastage <span class="mr-old">${_inr(o.wastage_pct)}%</span>→<span class="mr-new">${_inr(l.wastage_pct)}%</span>`);
-      if(l.material_name!==o.material_name)c.push('renamed');fields='<div class="mr-chg">'+c.join(' · ')+'</div>';before='₹'+_inr(_mrOrigAmt(l));after='₹'+_inr(_mrAmt(l));}
-    const oa=k==='added'?0:_mrOrigAmt(l),na=k==='removed'?0:_mrAmt(l),d=na-oa;const dt=(k==='unchanged'||Math.abs(d)<1e-6)?'':`<div class="mr-delta ${d>0?'up':'down'}">${d>0?'+':''}₹${_inr(d)}</div>`;
-    return `<tr><td><span class="mr-name${k==='removed'?' mr-strk':''}">${_esc(l.material_name)||'(blank)'}</span></td><td>${pill}${fields}</td><td class="num">${before}</td><td class="num"><b>${after}</b>${dt}</td></tr>`;}).join('');
-  body+=`</tbody></table>`;
-  const before=_mbEditLines.reduce((s,l)=>s+_mrOrigAmt(l),0),after=_mbEditLines.filter(l=>!l.deleted).reduce((s,l)=>s+_mrAmt(l),0);
-  body+=`<div style="margin-top:12px;font-size:11px;color:var(--muted);">Locations: ${sel.map(id=>_esc(_locPathJS(id))).join(' · ')}</div>`;
-  body+=`<div class="mr-tot"><div><div class="lbl">Per-location: approved now</div><div class="big">₹${_inr(before)}</div></div><div style="color:#94a3b8;font-size:18px;">→</div><div style="text-align:right;"><div class="lbl">After revision</div><div class="big">₹${_inr(after)}</div></div></div>`;
-  document.getElementById('mb_dbody').innerHTML=body;
 }
 function _mbBuildDiffAdd(){
   const sel=[..._mbLocSel];const sm=_scopeMap();
@@ -4637,7 +4755,9 @@ function _mbBuildDiffAdd(){
   document.getElementById('mb_dpath').innerHTML=`Adding ${_mbAddLines.length} material(s) to <b>${sel.length} location(s)</b> — ${exCnt} revision(s), ${fresh} new estimate(s)${pend?`, ${pend} skipped (pending)`:''}`;
   let body=`<table class="mr-diff"><thead><tr><th>New material</th><th>Change</th><th class="num">Amount / unit</th></tr></thead><tbody>`;
   body+=_mbAddLines.map(l=>`<tr><td><span class="mr-name">${_esc(l.material_name)}</span></td><td><span class="mr-flag new">ADDED</span></td><td class="num"><b>₹${_inr(_mrAmt(l))}</b></td></tr>`).join('');
-  body+=`</tbody></table><div style="margin-top:12px;font-size:11px;color:var(--muted);">Locations: ${sel.map(id=>_esc(_locPathJS(id))).join(' · ')}</div>`;
+  body+=`</tbody></table>`;
+  body+=`<div style="margin-top:12px;font-size:11.5px;color:var(--muted);"><b>${sel.length}</b> location(s)${exCnt?` — ${exCnt} append to approved, ${fresh} new${pend?`, ${pend} skipped`:''}`:''} · tap a tower to drill down</div>`;
+  body+=_diffTree(sel,'mb',id=>({right:`<span style="color:#0d9488;font-weight:600;">+ ₹${_inr(per)}</span>`,amt:per}));
   body+=`<div class="mr-tot"><div><div class="lbl">Added per location</div><div class="big">₹${_inr(per)}</div></div><div style="color:#94a3b8;font-size:18px;">×</div><div style="text-align:right;"><div class="lbl">Locations</div><div class="big">${sel.length}</div></div></div>`;
   document.getElementById('mb_dbody').innerHTML=body;
 }
@@ -4648,16 +4768,7 @@ async function _mbCommit(){
   const reason=document.getElementById('mb_reason').value||null;const sm=_scopeMap();
   pbShow('Filing…');
   try{
-    if(_mbMode==='edit'){
-      const live=_mbEditLines.filter(l=>!l.deleted);
-      const totalR=_r2(live.reduce((s,l)=>s+_mrAmt(l),0));
-      const bu=live.map((l,i)=>Object.assign({sno:i+1},_mbLineToBu(l)));
-      const rows=_mbCtx.estLocs.map(loc=>({wbs_node_id:Number(_mbCtx.wbsId),loc_node_id:loc,estimate_mode:'qty',new_qty:1,new_rate:totalR,new_notes:'(material build-up)',reason,buildup_rows:bu}));
-      const {data,error}=await sb.rpc('rpc_submit_scope_revision',{p_rows:rows,p_user:state.userName});
-      if(error)throw error;const rej=(data&&data.rejected)||[];
-      if(rej.length){pbDone();if(btn)btn.disabled=false;toast('Some locations blocked: '+(rej[0].reason||'floor'),'error',6000);return;}
-      toast(`Revision filed for ${rows.length} location(s). Approved values stay live until approved.`,'success',5000);
-    } else {
+    {
       const newBu=_mbAddLines.map(l=>_mbLineToBu(l));
       const revRows=[],draftRows=[];let blocked=0;
       for(const loc of [..._mbLocSel]){
@@ -4802,39 +4913,283 @@ function estBulkFill(wbsId){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   _estResetRelock();
   const act=_wbsNodes.find(n=>n.id===wbsId);if(!act)return;
-  // MATERIAL nodes bulk-fill a whole build-up sheet across units.
-  if((act.node_type||'')==='material'){ return estMaterialBulkFill(wbsId); }
+  return estActivityBulkFill(wbsId);   // activity, hire & material → unified bulk screen
+}
+
+// ░░ v35 · Activity/Hire BULK — group-by dimension · qty→tower→floor (edit) / tower→floor (add) · approved locked ░░
+let _abCtx=null,_abMode='edit',_abUnits=[],_abSel=new Set(),_abCollapsed=new Set(),_abDim='Q',_abMatDims=[];
+function _abErr(m){const e=document.getElementById('ab_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';if(typeof toast==='function')toast(m,'warn');}
+function _abDims(){if(_abCtx&&_abCtx.isMat)return _abMatDims.length?_abMatDims:[{key:'Q',label:'(no materials)',uom:''}];return [{key:'Q',label:'Quantity ('+(_abCtx?_abCtx.uom:'')+')',uom:_abCtx?_abCtx.uom:''}];} // activity single field; material: each build-up material
+function _abRecalcLine(l){l.qty_total=_r2((Number(l.qty)||0)*(1+_buClampWastage(l.wastage_pct)/100));l.amount=_r2(l.qty_total*(Number(l.rate)||0));return l;}
+function _abCurDim(){return _abDims().find(d=>d.key===_abDim)||_abDims()[0];}
+function _abActiveUnits(){if(_abMode!=='edit')return _abUnits;return _abUnits.filter(u=>u.status==='approved'&&u.est&&(_abDim in u.est));}
+function _abSelectable(){return _abMode==='edit'?_abUnits.filter(u=>u.status==='approved'):_abUnits.filter(u=>u.status!=='approved'&&u.status!=='pending');}
+function _abIsLocked(u){return _abMode==='add'&&(u.status==='approved'||u.status==='pending');}
+function _abVal(u){if(!u.work[_abDim])u.work[_abDim]={q:null,r:null};return u.work[_abDim];}
+function _abQv(u){return u.est&&u.est[_abDim]?u.est[_abDim].q:0;}
+
+async function estActivityBulkFill(wbsId){
+  const act=_wbsNodes.find(n=>n.id===wbsId);if(!act)return;
+  const isMat=(act.node_type||'')==='material';
   const eff=_effectiveLeavesJS(wbsId);
   const cols=_estCols().filter(c=>eff.has(c.id));
   if(!cols.length){toast('No eligible units in the current filter','warn');return;}
-  const sm=_scopeMap();
-  const rowsHtml=cols.map(c=>{
-    const ex=sm[wbsId+'|'+c.id];
-    const locked=ex&&ex.scope_status==='approved';
-    return`<label style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px;${locked?'opacity:.5;':''}">
-      <input type="checkbox" class="bf_unit" value="${c.id}" ${locked?'disabled':'checked'} style="width:auto;margin:0;">
-      ${_esc(c.name)}
-      ${ex?`<span style="font-size:10px;color:${locked?'#16a34a':'#d97706'};">${locked?'approved — skipped':`overwrites ${_inr(ex.est_qty)} ${_esc(ex.uom||'')} @ ₹${_inr(ex.est_rate)}`}</span>`:'<span style="font-size:10px;color:#94a3b8;">new</span>'}
-    </label>`;
-  }).join('');
-  openModal(`⇉ Bulk-fill — ${act.name}`,`
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">${_esc(_wbsPathJS(wbsId))}</div>
-    <div style="max-height:180px;overflow-y:auto;border:0.5px solid var(--border);border-radius:4px;padding:6px 10px;margin-bottom:8px;">${rowsHtml}</div>
-    <label>Quantity per unit (${_esc(act.uom||'')})</label>
-    <input id="m_bqty" type="number" min="0" step="0.01">
-    <label style="margin-top:8px;">Rate (₹)</label>
-    <input id="m_brate" type="number" min="0" step="0.01" value="${Number(act.default_rate||0)}">
-    <div style="margin-top:8px;font-size:11px;color:#b45309;">Existing draft values listed above will be overwritten. Approved cells are skipped.</div>
-  `,async()=>{
-    const qty=Number(document.getElementById('m_bqty').value||0);
-    const rate=_r2(document.getElementById('m_brate').value||0);
-    const ids=[...document.querySelectorAll('.bf_unit:checked')].map(i=>i.value);
-    if(qty<=0){toast('Quantity must be > 0','error');return;}
-    if(!ids.length){toast('Select at least one unit','error');return;}
-    if(!confirm(`Apply ${_inr(qty)} ${act.uom||''} @ ₹${_inr(rate)} to ${ids.length} unit(s)?`))return;
-    closeModal();
-    await _estSaveRows(ids.map(id=>({wbs_node_id:wbsId,loc_node_id:id,est_qty:qty,est_rate:rate})),`Filling ${ids.length} unit(s)…`);
-  });
+  const sm=_scopeMap();const map=Object.fromEntries(_locNodes.map(n=>[n.id,n]));
+  const meta=leafId=>{const leaf=map[leafId];const fl=leaf&&leaf.parent_id?map[leaf.parent_id]:null;const tw=fl&&fl.parent_id?map[fl.parent_id]:null;const nm=leaf?leaf.name:'';const mm=nm.match(/(\d+)\s*$/);const line=mm?mm[1].slice(-2):null;return {tw,fl,line};};
+  _abCtx={wbsId,act,uom:act.uom||'',isMat};_abMatDims=[];
+  _abUnits=cols.map(c=>{const ex=sm[wbsId+'|'+c.id];const m=meta(c.id);const approved=ex&&ex.scope_status==='approved';
+    const est=(approved&&!isMat)?{Q:{q:Number(ex.est_qty),r:Number(ex.est_rate)}}:(approved?{}:null);
+    return {id:c.id,name:c.name,tower:m.tw?m.tw.id:'_none',towerName:m.tw?m.tw.name:'(no tower)',
+      floor:m.fl?m.fl.id:('_nf_'+(m.tw?m.tw.id:'x')),floorName:m.fl?m.fl.name:'(other)',line:m.line,
+      status:ex?ex.scope_status:null,est,buildup:null,work:est?JSON.parse(JSON.stringify(est)):{}};});
+  if(isMat){
+    const idMap={};_abUnits.filter(u=>u.status==='approved').forEach(u=>{const ex=sm[wbsId+'|'+u.id];if(ex)idMap[ex.id]=u;});
+    const scopeIds=Object.keys(idMap);
+    if(scopeIds.length){
+      pbShow('Loading build-ups…');
+      try{const {data,error}=await sb.from('wbs_material_buildup').select('*').in('scope_id',scopeIds).order('sno');if(error)throw error;
+        const byS={};(data||[]).forEach(r=>{(byS[r.scope_id]=byS[r.scope_id]||[]).push(r);});
+        Object.entries(byS).forEach(([sid,rows])=>{const u=idMap[sid];if(!u)return;
+          u.buildup=rows.map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty)||0,wastage_pct:Number(r.wastage_pct)||0,rate:Number(r.rate)||0,qty_total:Number(r.qty_total)||0,amount:Number(r.amount)||0}));
+          u.est={};u.buildup.forEach(b=>{u.est[b.material_code]={q:b.qty,r:b.rate};});u.work=JSON.parse(JSON.stringify(u.est));});
+      }catch(e){pbDone();toast('Could not load build-ups: '+e.message,'error');return;}
+      pbDone();
+    }
+    _abMatDims=[...new Map(_abUnits.flatMap(u=>u.buildup||[]).map(b=>[b.material_code,{key:b.material_code,label:(b.material_name||b.material_code)+(b.uom?' ('+b.uom+')':''),uom:b.uom||''}])).values()];
+  }
+  _abDim=isMat?(_abMatDims[0]?_abMatDims[0].key:'Q'):'Q';
+  _abMode=_abUnits.some(u=>u.status==='approved')?'edit':'add';
+  if(isMat&&_abMode==='add'){return estMaterialBulkFill(wbsId,'add');}  // material new build-up uses the build-up sheet
+  _abResetForMode();_abInitCollapse();
+  document.getElementById('ab_path').innerHTML=_esc(_wbsPathJS(wbsId));
+  document.getElementById('ab_title').textContent=`↻ Bulk — ${act.name}${isMat?'':' ('+_esc(act.uom||'')+')'}`;
+  document.getElementById('ab_reason').value='';
+  document.getElementById('ab_qty').value='';document.getElementById('ab_rate').value=isMat?'':(Number(act.default_rate||'')||'');
+  _abErr('');_abRender();
+  document.getElementById('estActBulkOverlay').style.display='flex';
+}
+function _abResetForMode(){_abSel=new Set();_abUnits.forEach(u=>{u.work=u.est?JSON.parse(JSON.stringify(u.est)):{};});}
+function setAbMode(m){if(m===_abMode)return;
+  if(m==='add'&&_abCtx&&_abCtx.isMat){const w=_abCtx.wbsId;_abClose();return estMaterialBulkFill(w,'add');}  // material add = build-up sheet
+  if(m==='edit'&&!_abUnits.some(u=>u.status==='approved')){toast('No existing estimate to edit — use “Add new estimate”','warn');return;}
+  _abMode=m;_abDim=(_abCtx&&_abCtx.isMat)?(_abMatDims[0]?_abMatDims[0].key:'Q'):'Q';_abResetForMode();_abInitCollapse();_abErr('');_abRender();}
+function _abOnDim(v){_abDim=v;_abSel=new Set();_abInitCollapse();_abRender();}
+
+/* collapse */
+function _abGroupKeys(){
+  const A=_abActiveUnits();
+  if(_abMode==='edit'){const ks=[];[...new Set(A.map(_abQv))].forEach(qv=>{ks.push('Q:'+qv);
+    [...new Set(A.filter(u=>_abQv(u)===qv).map(u=>u.tower))].forEach(t=>{ks.push('Q:'+qv+'#T:'+t);
+      [...new Set(A.filter(u=>_abQv(u)===qv&&u.tower===t).map(u=>u.floor))].forEach(f=>ks.push('Q:'+qv+'#T:'+t+'#F:'+f));});});return ks;}
+  const ks=[];[...new Set(A.map(u=>u.tower))].forEach(t=>{ks.push('T:'+t);[...new Set(A.filter(u=>u.tower===t).map(u=>u.floor))].forEach(f=>ks.push('T:'+t+'#F:'+f));});return ks;
+}
+function _abInitCollapse(){_abCollapsed=new Set();_abGroupKeys().filter(k=>k.indexOf('#F:')>-1).forEach(k=>_abCollapsed.add(k));}
+function _abToggleCollapse(k){_abCollapsed.has(k)?_abCollapsed.delete(k):_abCollapsed.add(k);_abRenderGrid();}
+function _abToggleCollapseAll(){const ks=_abGroupKeys();const anyOpen=ks.some(k=>!_abCollapsed.has(k));if(anyOpen)ks.forEach(k=>_abCollapsed.add(k));else _abCollapsed.clear();_abRender();}
+
+/* selection */
+function _abUnitsForKey(key){const parts=key.split('#');return _abActiveUnits().filter(u=>parts.every(p=>p.startsWith('Q:')?String(_abQv(u))===p.slice(2):p.startsWith('T:')?u.tower===p.slice(2):p.startsWith('F:')?u.floor===p.slice(2):true));}
+function _abClusterUnits(kind,key){return _abSelectable().filter(u=>kind==='tower'?u.tower===key:kind==='line'?u.line===key:false);}
+function _abState(us){const ids=us.map(u=>u.id);const on=ids.filter(i=>_abSel.has(i)).length;return on===0?'off':on===ids.length?'on':'part';}
+function _abToggleCluster(kind,key){const us=_abClusterUnits(kind,key);const st=_abState(us);if(st==='on')us.forEach(u=>_abSel.delete(u.id));else us.forEach(u=>_abSel.add(u.id));_abRender();}
+function _abToggleByKey(key){const us=_abUnitsForKey(key).filter(u=>!_abIsLocked(u));const st=_abState(us);if(st==='on')us.forEach(u=>_abSel.delete(u.id));else us.forEach(u=>_abSel.add(u.id));_abRender();}
+function _abToggleUnit(id){const u=_abUnits.find(x=>x.id===id);if(_abIsLocked(u))return;_abSel.has(id)?_abSel.delete(id):_abSel.add(id);_abRender();}
+function _abSelectAll(on){if(on)_abSelectable().forEach(u=>_abSel.add(u.id));else _abSel=new Set();_abRender();}
+function _abApply(){
+  if(!_abSel.size){_abErr(_abMode==='edit'?'Tick a quantity-group first, then set qty/rate and Apply.':'Select a cluster first — tap a tower, unit-line, or a group.');return;}
+  const q=document.getElementById('ab_qty').value,r=document.getElementById('ab_rate').value;
+  if(q===''&&r===''){_abErr('Enter a quantity and/or rate to apply.');return;}
+  _abSelectable().forEach(u=>{if(_abSel.has(u.id)){const v=_abVal(u);if(q!=='')v.q=Number(q);if(r!=='')v.r=Number(r);}});
+  _abErr('');toast(`Applied to ${_abSel.size} unit(s)`,'success');_abRender();
+}
+
+/* render */
+function _abCk(s){return s==='on'?'<span class="ab-ck on">✓</span>':s==='part'?'<span class="ab-ck part">–</span>':'<span class="ab-ck"></span>';}
+function _abRender(){
+  const edit=_abMode==='edit', mat=!!(_abCtx&&_abCtx.isMat);
+  document.getElementById('ab_tab_add').classList.toggle('on',!edit);
+  document.getElementById('ab_tab_edit').classList.toggle('on',edit);
+  const tcr=document.getElementById('ab_chipTowerRow'),lcr=document.getElementById('ab_chipLineRow');
+  if(tcr)tcr.style.display=edit?'none':'flex';   // no cluster chips in edit
+  if(lcr)lcr.style.display=edit?'none':'flex';
+  document.getElementById('ab_qfLbl').innerHTML=edit?'✎ Set qty &amp; rate, then Apply to the ticked group(s)':'⚡ Quick fill — select a cluster, set qty &amp; rate, apply';
+  const mp=document.getElementById('ab_matpick'), gr=document.getElementById('ab_groupbyRow');
+  if(edit&&mat){ if(gr)gr.style.display='none'; if(mp){mp.style.display='';mp.innerHTML=_abMatListHtml();} }
+  else if(edit){ if(mp)mp.style.display='none'; if(gr){gr.style.display='flex';
+      const sl=document.getElementById('ab_dimSel');if(sl)sl.style.display='none';
+      document.getElementById('ab_dimLbl').textContent='Editing activity:';
+      const dn=document.getElementById('ab_dimNote');if(dn)dn.innerHTML='<b style="color:var(--navy);">'+_esc(_abCtx?_abCtx.act.name:'')+'</b>';} }
+  else { if(mp)mp.style.display='none'; if(gr)gr.style.display='none'; }
+  document.getElementById('ab_qtylbl').textContent='Quantity ('+_abCurDim().uom+')';
+  document.getElementById('ab_hQty').textContent=(edit?_abCurDim().label:'Qty');
+  const rf=document.getElementById('ab_reasonField');if(rf)rf.style.display=edit?'':'none';
+  _abRenderChips();_abRenderGrid();_abRenderHint();_abRenderSel();_abRenderSumm();
+  const ks=_abGroupKeys();const b=document.getElementById('ab_collapseBtn');if(b)b.textContent=ks.some(k=>!_abCollapsed.has(k))?'⊟ Collapse all':'⊞ Expand all';
+}
+function _abMatSummary(){
+  return _abMatDims.map(d=>{let tq=0,ta=0,rate=null,mixed=false;
+    _abUnits.forEach(u=>{if(u.status!=='approved'||!u.est||!u.est[d.key])return;const bu=(u.buildup||[]).find(b=>String(b.material_code)===String(d.key));if(!bu)return;
+      tq+=Number(bu.qty)||0;ta+=Number(bu.amount)||0;
+      if(rate==null)rate=Number(bu.rate)||0;else if(Math.abs((Number(bu.rate)||0)-rate)>0.001)mixed=true;});
+    return {key:d.key,label:d.label,totalQty:_r2(tq),rate:mixed?null:rate,totalAmt:_r2(ta)};});
+}
+function _abMatListHtml(){
+  const rows=_abMatSummary().map(m=>`<tr class="ab-matrow ${String(m.key)===String(_abDim)?'on':''}" onclick="_abOnDim('${_esc(String(m.key))}')">
+    <td>${_esc(m.label)}</td><td class="num">${_inr(m.totalQty)}</td><td class="num">${m.rate==null?'<span style="color:#b45309;">mixed</span>':('₹'+_inr(m.rate))}</td><td class="num"><b>₹${_inr(m.totalAmt)}</b></td></tr>`).join('');
+  return `<div class="ab-matlist"><div class="ab-matlbl">Material estimate — click a material to edit its groups</div>
+    <div class="ab-matscroll"><table class="ab-mattbl"><thead><tr><th>Material</th><th class="num">Est. qty</th><th class="num">Rate ₹</th><th class="num">Amount</th></tr></thead><tbody>${rows||'<tr><td colspan="4" style="padding:12px;color:#94a3b8;">No materials estimated.</td></tr>'}</tbody></table></div></div>`;
+}
+function _abRenderHint(){document.getElementById('ab_hint').innerHTML=_abMode==='edit'
+  ?`🔒 Locations are locked to this estimate. Grouped by <b>${_esc(_abCurDim().label)}</b> — tick a <b>quantity-group</b> header to edit it (tower &amp; floor are navigation only); set qty/rate inline or via Apply.`
+  :`📍 Add mode — units already approved or pending are <b>locked</b> (their current estimate is shown). A new estimate never overrides an approved one.`;}
+function _abRenderSel(){document.getElementById('ab_selbadge').textContent=`${_abSel.size} unit${_abSel.size===1?'':'s'} selected`;}
+function _abRenderSumm(){
+  const f=_abMode==='edit'?_abActiveUnits().filter(u=>_abSel.has(u.id)):_abSelectable().filter(u=>Number(_abVal(u).q)>0);
+  const tot=f.reduce((s,u)=>{const v=_abVal(u);return s+(Number(v.q)||0)*(Number(v.r)||0);},0);
+  document.getElementById('ab_summ').innerHTML=_abMode==='edit'
+    ?`<span>Editing <b>${_esc(_abCurDim().label)}</b> on <b>${_abSel.size}</b> selected location(s)</span><span>Line total: <b>₹${_inr(tot)}</b></span>`
+    :`<span>Units with a qty: <b>${f.length}</b> / ${_abSelectable().length}</span><span>Total: <b>₹${_inr(tot)}</b></span>`;
+  document.getElementById('ab_fill').textContent=_abMode==='edit'?`${_abSel.size}/${_abActiveUnits().length} selected`:`${f.length}/${_abSelectable().length} filled`;
+}
+function _abRenderChips(){
+  const s=_abSelectable();
+  const tw=[...new Map(s.map(u=>[u.tower,u.towerName]))];
+  const ln=[...new Set(s.map(u=>u.line).filter(Boolean))].sort();
+  const pill=(kind,key,label)=>{const st=_abState(_abClusterUnits(kind,key));return `<span class="ab-chip ${st==='on'?'on':st==='part'?'part':''}" onclick="_abToggleCluster('${kind}','${key}')">${_esc(label)}</span>`;};
+  document.getElementById('ab_towerChips').innerHTML=tw.map(([id,nm])=>pill('tower',id,nm)).join('')||'<span class="ab-none">—</span>';
+  document.getElementById('ab_lineChips').innerHTML=ln.map(l=>pill('line',l,'·'+l)).join('')||'<span class="ab-none">—</span>';
+}
+function _abGrpRow(key,label,units,cls,pad,estCount){
+  const col=_abCollapsed.has(key);const selable=units.filter(u=>!_abIsLocked(u));
+  const tickable=(_abMode==='edit')?(cls==='qty'):(selable.length>0);   // edit: only quantity-group header carries a tick
+  const box=(tickable&&selable.length)?`<td style="text-align:center;cursor:pointer;" onclick="event.stopPropagation();_abToggleByKey('${key}')">${_abCk(_abState(selable))}</td>`:'<td></td>';
+  const tail=(_abMode==='add'&&estCount!=null)?` <span class="ab-estcnt">(${estCount}/${units.length} estimated)</span>`:` <span class="ab-cnt">(${units.filter(u=>_abSel.has(u.id)).length}/${units.length})</span>`;
+  return `<tr class="ab-grp ${cls}">${box}<td colspan="4" style="padding-left:${pad}px;cursor:pointer;" onclick="_abToggleCollapse('${key}')"><span class="ab-caret">${col?'▸':'▾'}</span>${label}${tail}</td></tr>`;
+}
+function _abRowHtml(u){
+  const on=_abSel.has(u.id);const v=_abVal(u);
+  if(_abMode==='edit'){
+    const e=(u.est&&u.est[_abDim])?u.est[_abDim]:{q:0,r:0};
+    const cb=on?'<span class="ab-ck on">✓</span>':'<span class="ab-ck"></span>';
+    let qC,rC,aC;
+    if(on){qC=`<input type="number" min="0" step="0.001" value="${v.q==null?'':v.q}" placeholder="—" oninput="_abCell('${u.id}','q',this.value)">`;
+      rC=`<input type="number" min="0" step="0.01" value="${v.r==null?'':v.r}" placeholder="—" oninput="_abCell('${u.id}','r',this.value)">`;
+      const amt=(Number(v.q)||0)*(Number(v.r)||0);aC=amt?('₹'+_inr(amt)):'<span style="color:#cbd5e1;">—</span>';}
+    else{qC=`<span class="ab-lockval">${_inr(e.q)}</span>`;rC=`<span class="ab-lockval">₹${_inr(e.r)}</span>`;aC='₹'+_inr(e.q*e.r);}
+    return `<tr class="${on?'ab-sel':'ab-locked'}"><td style="text-align:center;">${cb}</td>
+      <td style="padding-left:46px;"><span style="font-weight:600;">${_esc(u.name)}</span>${on?'':'<span class="ab-lockbadge">locked</span>'}</td>
+      <td class="num">${qC}</td><td class="num">${rC}</td><td class="num" id="ab_amt_${u.id}">${aC}</td></tr>`;
+  }
+  const locked=_abIsLocked(u);const amt=(Number(v.q)||0)*(Number(v.r)||0);
+  const cb=locked?'<span class="ab-ck lock">🔒</span>':_abCk(on?'on':'off');
+  let qC,rC,aC;
+  if(locked){const e=u.est?u.est.Q:{q:0,r:0};qC=`<span class="ab-lockval">${_inr(e.q)}</span>`;rC=`<span class="ab-lockval">₹${_inr(e.r)}</span>`;aC='₹'+_inr(e.q*e.r);}
+  else{qC=`<input type="number" min="0" step="0.001" value="${v.q==null?'':v.q}" placeholder="—" oninput="_abCell('${u.id}','q',this.value)">`;
+    rC=`<input type="number" min="0" step="0.01" value="${v.r==null?'':v.r}" placeholder="—" oninput="_abCell('${u.id}','r',this.value)">`;
+    aC=amt?('₹'+_inr(amt)):'<span style="color:#cbd5e1;">—</span>';}
+  return `<tr class="${locked?'ab-locked':on?'ab-sel':(Number(v.q)>0?'ab-filled':'')}">
+    <td style="text-align:center;${locked?'':'cursor:pointer;'}" onclick="_abToggleUnit('${u.id}')">${cb}</td>
+    <td style="padding-left:46px;"><span style="font-weight:600;">${_esc(u.name)}</span>${locked?`<span class="ab-lockbadge">${u.status}</span>`:''}</td>
+    <td class="num">${qC}</td><td class="num">${rC}</td><td class="num" id="ab_amt_${u.id}">${aC}</td></tr>`;
+}
+function _abRenderGrid(){
+  const tb=document.getElementById('ab_gbody');let html='';
+  const towersIn=us=>[...new Map(us.map(u=>[u.tower,u.towerName]))];
+  const floorsIn=us=>[...new Map(us.map(u=>[u.floor,u.floorName]))];
+  if(_abMode==='edit'){
+    const qs=[...new Set(_abActiveUnits().map(_abQv))].sort((a,b)=>a-b);
+    qs.forEach(qv=>{const qU=_abActiveUnits().filter(u=>_abQv(u)===qv);const qk='Q:'+qv;
+      html+=_abGrpRow(qk,`<b>${_inr(qv)} ${_esc(_abCurDim().uom)}</b>`,qU,'qty',6,null);
+      if(_abCollapsed.has(qk))return;
+      towersIn(qU).forEach(([tid,tname])=>{const tU=qU.filter(u=>u.tower===tid);const tk=qk+'#T:'+tid;
+        html+=_abGrpRow(tk,`<b>${_esc(tname)}</b>`,tU,'tower',24,null);
+        if(_abCollapsed.has(tk))return;
+        floorsIn(tU).forEach(([fid,fname])=>{const fU=tU.filter(u=>u.floor===fid);const fk=tk+'#F:'+fid;
+          html+=_abGrpRow(fk,_esc(fname),fU,'floor',40,null);
+          if(_abCollapsed.has(fk))return;
+          html+=fU.map(_abRowHtml).join('');});});});
+    document.getElementById('ab_gridtitle').textContent='Units grouped by '+_abCurDim().label+' (locked set)';
+  } else {
+    towersIn(_abActiveUnits()).forEach(([tid,tname])=>{const tU=_abActiveUnits().filter(u=>u.tower===tid);const tk='T:'+tid;
+      html+=_abGrpRow(tk,`<b>${_esc(tname)}</b>`,tU,'tower',6,tU.filter(u=>u.status==='approved').length);
+      if(_abCollapsed.has(tk))return;
+      floorsIn(tU).forEach(([fid,fname])=>{const fU=tU.filter(u=>u.floor===fid);const fk=tk+'#F:'+fid;
+        html+=_abGrpRow(fk,_esc(fname),fU,'floor',24,fU.filter(u=>u.status==='approved').length);
+        if(_abCollapsed.has(fk))return;
+        html+=fU.map(_abRowHtml).join('');});});
+    document.getElementById('ab_gridtitle').textContent='Units to estimate';
+  }
+  tb.innerHTML=html||'<tr><td colspan="5" style="padding:14px;color:#94a3b8;">No units.</td></tr>';
+}
+function _abCell(id,k,val){const u=_abUnits.find(x=>x.id===id);if(!u||_abIsLocked(u))return;const v=_abVal(u);v[k]=(val===''?null:Number(val));
+  const a=document.getElementById('ab_amt_'+id);if(a){const amt=(Number(v.q)||0)*(Number(v.r)||0);a.innerHTML=amt?('₹'+_inr(amt)):'<span style="color:#cbd5e1;">—</span>';}
+  _abRenderSumm();_abErr('');}
+
+/* review popup + commit */
+function _abChanged(u){return _abMode==='edit'&&u.est&&u.est[_abDim]&&(Number(_abVal(u).q)!==Number(u.est[_abDim].q)||Number(_abVal(u).r)!==Number(u.est[_abDim].r));}
+function _abReview(){
+  let f;
+  if(_abMode==='edit'){
+    f=_abActiveUnits().filter(u=>_abSel.has(u.id)&&_abChanged(u));
+    if(!f.length){_abErr('No changes on the selected locations yet — adjust a qty or rate, or use Apply.');return;}
+    for(const u of f){const v=_abVal(u);if(!(Number(v.q)>0)){_abErr(`${u.name} needs a quantity above zero.`);return;}if(!(Number(v.r)>0)){_abErr(`${u.name} needs a rate.`);return;}}
+    if(!document.getElementById('ab_reason').value.trim()){_abErr('Add a reason — it is kept in the revision history for the PM.');return;}
+  } else {
+    f=_abSelectable().filter(u=>Number(_abVal(u).q)>0);
+    if(!f.length){_abErr('No units have a quantity yet. Select a cluster and Apply, or type qty per row.');return;}
+    for(const u of f){const v=_abVal(u);if(!(Number(v.r)>0)){_abErr(`${u.name} has a qty but no rate.`);return;}}
+  }
+  _abErr('');_abDiffUnits=f;_diffInitCollapse(f.map(u=>u.id),'ab');_abPaintDiff();
+  document.getElementById('estActBulkOverlay').style.display='none';
+  document.getElementById('estActBulkDiffOverlay').style.display='flex';
+}
+function _abPaintDiff(){
+  const f=_abDiffUnits||[];
+  const total=f.reduce((s,u)=>{const v=_abVal(u);return s+v.q*v.r;},0);
+  document.getElementById('ab_dpath').innerHTML=_abMode==='edit'
+    ? `Revision on <b>${_esc(_abCurDim().label)}</b> — ${f.length} location(s), pending PM approval · tap a tower to drill down`
+    : `New estimate — ${f.length} new unit(s) saved as drafts · tap a tower to drill down`;
+  const byId=Object.fromEntries(f.map(u=>[u.id,u]));
+  const tree=_diffTree(f.map(u=>u.id),'ab',id=>{const u=byId[id];const v=_abVal(u);const e=_abMode==='edit'?u.est[_abDim]:null;const newA=v.q*v.r;const oldA=e?e.q*e.r:0;const d=newA-oldA;
+    const right=`${e?('<span style="color:#94a3b8;">'+_inr(e.q)+'→</span>'):''}<b>${_inr(v.q)}</b>×₹${_inr(v.r)} <b style="color:var(--navy);">₹${_inr(newA)}</b>${(d&&oldA)?` <span style="font-size:10px;color:${d>0?'#15803d':'#b91c1c'};">${d>0?'+':''}₹${_inr(d)}</span>`:''}`;
+    return {right,amt:newA};});
+  document.getElementById('ab_dbody').innerHTML=tree+
+    `<div class="mr-tot"><div><div class="lbl">Locations</div><div class="big">${f.length}</div></div><div style="color:#94a3b8;font-size:18px;">→</div><div style="text-align:right;"><div class="lbl">Line total</div><div class="big">₹${_inr(total)}</div></div></div>`;
+}
+function _abBuildDiff(f){_abDiffUnits=f;_diffInitCollapse(f.map(u=>u.id),'ab');_abPaintDiff();}
+function _abBack(){document.getElementById('estActBulkDiffOverlay').style.display='none';document.getElementById('estActBulkOverlay').style.display='flex';}
+function _abClose(){document.getElementById('estActBulkOverlay').style.display='none';document.getElementById('estActBulkDiffOverlay').style.display='none';_abCtx=null;}
+async function _abCommit(){
+  const btn=document.getElementById('ab_confirm');if(btn)btn.disabled=true;
+  const reason=document.getElementById('ab_reason').value||null;
+  pbShow('Filing…');
+  try{
+    if(_abMode==='edit'){
+      const f=_abActiveUnits().filter(u=>_abSel.has(u.id)&&_abChanged(u));
+      let rows;
+      if(_abCtx.isMat){
+        rows=f.map(u=>{const bu=JSON.parse(JSON.stringify(u.buildup||[]));const v=_abVal(u);
+          const line=bu.find(b=>String(b.material_code)===String(_abDim));
+          if(line){line.qty=Number(v.q);line.rate=_r2(v.r);_abRecalcLine(line);}
+          const total=_r2(bu.reduce((s,b)=>s+(Number(b.amount)||0),0));
+          return {wbs_node_id:Number(_abCtx.wbsId),loc_node_id:u.id,estimate_mode:'qty',new_qty:1,new_rate:total,new_notes:'(material build-up)',reason,buildup_rows:bu.map((b,i)=>Object.assign({},b,{sno:i+1}))};});
+      } else {
+        rows=f.map(u=>{const v=_abVal(u);return {wbs_node_id:Number(_abCtx.wbsId),loc_node_id:u.id,estimate_mode:'qty',new_qty:Number(v.q),new_rate:_r2(v.r),new_notes:null,reason};});
+      }
+      const {data,error}=await sb.rpc('rpc_submit_scope_revision',{p_rows:rows,p_user:state.userName});
+      if(error)throw error;const rej=(data&&data.rejected)||[];
+      if(rej.length){pbDone();if(btn)btn.disabled=false;toast('Some units blocked: '+(rej[0].reason||'floor'),'error',6000);return;}
+      toast(`Revision filed for ${rows.length} unit(s). Approved values stay live until approved.`,'success',5000);
+    } else {
+      const f=_abSelectable().filter(u=>Number(_abVal(u).q)>0);
+      const draftRows=f.map(u=>{const v=_abVal(u);return {wbs_node_id:_abCtx.wbsId,loc_node_id:u.id,est_qty:Number(v.q),est_rate:_r2(v.r)};});
+      await _estSaveRows(draftRows,`Saving ${draftRows.length} draft(s)…`);
+      toast(`${draftRows.length} new draft(s) saved — submit for PM approval to commit.`,'success',6000);
+    }
+    document.getElementById('estActBulkDiffOverlay').style.display='none';document.getElementById('estActBulkOverlay').style.display='none';_abCtx=null;
+    await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
+  }catch(e){if(btn)btn.disabled=false;toast('Failed: '+e.message,'error',6000);}
+  finally{pbDone();}
 }
 
 // v22: simplified unapprove — no modal, direct confirm dialog
