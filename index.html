@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v34 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v35 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -694,6 +694,198 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
   </div>
 </div>
 
+
+<!-- ░░ v35 · Revise approved MATERIAL build-up (full sheet, per-line lock) ░░ -->
+<style>
+#estMatRevOverlay .mr-modal,#estMatRevDiffOverlay .mr-modal{background:#fff;border-radius:12px;width:880px;max-width:96vw;max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(20,28,46,.3);}
+#estMatBulkOverlay .mr-modal,#estMatBulkDiffOverlay .mr-modal{background:#fff;border-radius:12px;max-width:96vw;max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(20,28,46,.3);}
+.mr-hd{padding:18px 22px 0;display:flex;justify-content:space-between;align-items:flex-start;}
+.mr-ttl{font-size:16px;font-weight:700;color:#1B2A47;}
+.mr-path{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6;}
+.mr-x{background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 6px;line-height:1;}
+.mr-x:hover{color:var(--text);}
+.mr-bd{padding:16px 22px;}
+.mr-banner{display:flex;align-items:center;gap:10px;background:#f0fdf9;border:1px solid #cdeee6;border-radius:8px;padding:9px 13px;font-size:12px;color:#0f766e;margin-bottom:16px;}
+.mr-banner .mr-chip{flex-shrink:0;background:#d1fae5;color:#065f46;font-weight:700;font-size:11px;padding:3px 9px;border-radius:99px;}
+.mr-step{font-size:12.5px;font-weight:700;color:#1B2A47;margin:2px 0 9px;}
+table.mr-tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.mr-tbl th{background:#f1f5f9;padding:7px 8px;text-align:left;font-weight:600;color:var(--muted);font-size:10.5px;text-transform:uppercase;border-bottom:2px solid var(--border);white-space:nowrap;}
+table.mr-tbl th.num,table.mr-tbl td.num{text-align:right;}
+table.mr-tbl td{padding:6px 8px;border-bottom:1px solid #eef2f6;vertical-align:middle;}
+tr.mr-existing td{background:#fff;}
+tr.mr-editing td{background:#fffbeb;}
+tr.mr-new td{background:#f0fdf4;}
+tr.mr-removed td{background:#fef2f2;}
+.mr-strk{text-decoration:line-through;color:#b91c1c;}
+.mr-name{font-weight:600;}
+.mr-flag{font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:6px;white-space:nowrap;display:inline-block;}
+.mr-flag.lock{background:#eef2f6;color:#94a3b8;}
+.mr-flag.new{background:#d1fae5;color:#065f46;}
+.mr-flag.rem{background:#fee2e2;color:#991b1b;}
+.mr-flag.edt{background:#fef3c7;color:#92400e;}
+.mr-flag.unc{background:#eef2f6;color:#64748b;}
+table.mr-tbl input{width:100%;padding:5px 7px;border:1px solid var(--border);border-radius:5px;font-size:12.5px;background:var(--input-bg);color:var(--text);font-family:inherit;}
+table.mr-tbl input.mr-q,table.mr-tbl input.mr-r{width:78px;text-align:right;}
+table.mr-tbl input.mr-u{width:58px;}
+table.mr-tbl input:focus{outline:2px solid rgba(13,148,136,.35);border-color:var(--accent);}
+.mr-wmax{display:block;font-size:9.5px;color:var(--warn);margin-top:1px;}
+.mr-act{white-space:nowrap;text-align:right;}
+.mr-ic{border:1px solid transparent;background:transparent;border-radius:5px;cursor:pointer;font-size:13px;padding:3px 6px;color:var(--muted);line-height:1;}
+.mr-ic.edit:hover{color:var(--accent);background:#f1f5f9;}
+.mr-ic.del:hover{color:var(--danger);background:#fef2f2;}
+.mr-ic.rev:hover,.mr-ic.undo:hover{color:var(--warn);background:#fffbeb;}
+.mr-addrow{margin-top:12px;display:flex;justify-content:space-between;align-items:center;}
+.mr-total{font-size:13px;font-weight:700;color:#1B2A47;}
+.mr-total b{color:var(--accent);}
+.mr-helper{font-size:11px;color:var(--muted);margin-top:9px;}
+.mr-field{margin-top:16px;}
+.mr-field label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:5px;}
+.mr-field input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--input-bg);color:var(--text);font-family:inherit;}
+.mr-field input:focus{outline:2px solid rgba(13,148,136,.35);border-color:var(--accent);}
+.mr-err{display:none;margin-top:13px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:9px 12px;font-size:12px;color:#b91c1c;white-space:pre-line;}
+.mr-ft{padding:14px 22px;display:flex;gap:8px;align-items:center;border-top:1px solid #eef2f6;background:#fafbfd;}
+.mr-lockchip{margin-right:auto;font-size:11px;font-weight:600;background:#e7f6f0;color:#15803d;padding:4px 11px;border-radius:99px;}
+table.mr-diff{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.mr-diff th{background:#f1f5f9;padding:7px 8px;text-align:left;font-weight:600;color:var(--muted);font-size:10.5px;text-transform:uppercase;border-bottom:2px solid var(--border);}
+table.mr-diff th.num,table.mr-diff td.num{text-align:right;}
+table.mr-diff td{padding:7px 8px;border-bottom:1px solid #eef2f6;vertical-align:top;}
+.mr-old{color:#94a3b8;text-decoration:line-through;}
+.mr-new{font-weight:700;}
+.mr-chg{font-size:11px;color:var(--muted);margin-top:3px;}
+.mr-delta{font-size:11px;}
+.mr-delta.up{color:#15803d;}
+.mr-delta.down{color:#b91c1c;}
+.mr-tot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:13px 15px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;}
+.mr-tot .lbl{font-size:11px;color:var(--muted);}
+.mr-tot .big{font-size:15px;font-weight:700;color:#1B2A47;}
+.mr-note{font-size:11.5px;color:var(--muted);margin-top:13px;line-height:1.6;}
+</style>
+<div id="estMatRevOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4600;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div class="mr-modal">
+    <div class="mr-hd">
+      <div><div class="mr-ttl">↻ Revise build-up</div><div class="mr-path" id="mrev_path"></div></div>
+      <button class="mr-x" onclick="_matRevClose()" aria-label="Close">✕</button>
+    </div>
+    <div class="mr-bd">
+      <div class="mr-banner"><span class="mr-chip">🔓 Node unlocked</span>
+        <span>Existing lines are locked. Click <b>✎</b> to edit a line — that also lets you remove it. Add new lines any time.</span></div>
+      <div class="mr-step">1 · Build-up</div>
+      <table class="mr-tbl">
+        <thead><tr><th>Material</th><th>UOM</th><th class="num">Measured qty</th><th class="num">Wastage %</th><th class="num">Total qty</th><th class="num">Rate ₹</th><th class="num">Amount</th><th></th></tr></thead>
+        <tbody id="mrev_body"></tbody>
+      </table>
+      <div class="mr-addrow">
+        <button class="btn btn-ghost" onclick="_mrAdd()">+ Add material</button>
+        <div class="mr-total">Package total: <b id="mrev_total">₹0</b></div>
+      </div>
+      <p class="mr-helper">Total qty = Measured qty × (1 + Wastage % ⁄ 100), capped at 25%. Amount is computed on Total qty.</p>
+      <div class="mr-field"><label>Reason for revision (kept in history)</label>
+        <input id="mrev_reason" type="text" placeholder="e.g. scope increase per RFI-118" oninput="_matRevErr('')"></div>
+      <div class="mr-err" id="mrev_err"></div>
+    </div>
+    <div class="mr-ft">
+      <span class="mr-lockchip">🔓 Unlocked</span>
+      <button class="btn btn-ghost" onclick="_matRevClose()">Cancel</button>
+      <button class="btn btn-primary" onclick="_matRevReview()">Review changes</button>
+    </div>
+  </div>
+</div>
+<div id="estMatRevDiffOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.6);z-index:4700;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div class="mr-modal" style="width:720px;">
+    <div class="mr-hd">
+      <div><div class="mr-ttl">Confirm the revision</div><div class="mr-path" id="mrevdiff_path"></div></div>
+      <button class="mr-x" onclick="_matRevBack()" aria-label="Close">✕</button>
+    </div>
+    <div class="mr-bd">
+      <table class="mr-diff"><thead><tr><th>Material</th><th>Change</th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody id="mrevdiff_body"></tbody></table>
+      <div class="mr-tot">
+        <div><div class="lbl">Approved now</div><div class="big" id="mrevdiff_before">₹0</div></div>
+        <div style="color:#94a3b8;font-size:18px;">→</div>
+        <div style="text-align:right;"><div class="lbl">After revision</div><div class="big" id="mrevdiff_after">₹0</div></div>
+      </div>
+      <p class="mr-note">Files as a revision pending PM approval. The approved value stays live for any MIR / MIS or budget gate until the Project Manager approves the new one.</p>
+    </div>
+    <div class="mr-ft">
+      <button class="btn btn-ghost" style="margin-right:auto;" onclick="_matRevBack()">← Back</button>
+      <button class="btn btn-primary" id="mrevdiff_confirm" onclick="_matRevCommit()">Confirm — file revision</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ░░ v35 · Material BULK revise screen (two modes + grouped locations) ░░ -->
+<style>
+#estMatBulkOverlay table.mr-tbl th{position:sticky;top:0;z-index:1;}
+.mb-tabs{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:16px;}
+.mb-tab{flex:1;padding:11px 12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;background:#f8fafc;color:var(--muted);border-right:1px solid var(--border);}
+.mb-tab:last-child{border-right:none;}
+.mb-tab.on{background:#0d9488;color:#fff;}
+.mb-tab.disabled{opacity:.45;cursor:not-allowed;}
+.mb-tab .sub{display:block;font-size:10px;font-weight:400;margin-top:2px;opacity:.85;}
+.mb-warn{background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:8px 12px;font-size:11.5px;color:#92400e;margin-bottom:12px;line-height:1.5;}
+.mb-locwrap{margin-top:16px;border:1px solid var(--border);border-radius:9px;overflow:hidden;}
+.mb-lochd{background:#f1f5f9;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);gap:10px;}
+.mb-lochd .t{font-size:12.5px;font-weight:700;color:var(--navy);}
+.mb-lochd .r{display:flex;align-items:center;gap:10px;}
+.mb-lochd .c{font-size:11px;color:var(--muted);}
+.mb-gbtn{font-size:11px;font-weight:600;border:1px solid var(--border);background:#fff;border-radius:6px;padding:4px 9px;cursor:pointer;color:var(--muted);}
+.mb-gbtn:hover{border-color:var(--accent);color:var(--text);}
+.mb-search{padding:8px 14px;border-bottom:1px solid #eef2f6;}
+.mb-search input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--input-bg);font-family:inherit;}
+.mb-tree{max-height:220px;overflow:auto;padding:4px 0;}
+.mb-grphd{display:flex;align-items:center;gap:8px;padding:5px 14px;font-size:11px;font-weight:700;color:var(--navy);}
+.mb-caret{display:inline-block;width:12px;flex-shrink:0;color:#94a3b8;font-size:10px;}
+.mb-cnt{font-weight:400;font-size:10px;color:var(--muted);margin-left:auto;}
+.mb-loc{display:flex;align-items:center;gap:9px;padding:4px 14px 4px 34px;font-size:12px;cursor:pointer;}
+.mb-loc:hover{background:#f8fafc;}
+.mb-loc.locked{opacity:.75;cursor:default;}
+.mb-ck{width:15px;height:15px;flex-shrink:0;border:1.5px solid var(--border);border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;background:#fff;}
+.mb-ck.on{background:#0d9488;border-color:#0d9488;color:#fff;}
+.mb-ck.part{background:#99e0d8;border-color:#0d9488;color:#0f766e;}
+.mb-ck.locked{background:#e2e8f0;border-color:#cbd5e1;color:#94a3b8;}
+.mb-est{font-size:10px;color:#16a34a;margin-left:auto;}
+.mb-newt{font-size:10px;color:#94a3b8;margin-left:auto;}
+.mb-hint{font-size:11px;color:#0f766e;background:#f0fdf9;border:1px solid #cdeee6;border-radius:7px;padding:8px 12px;margin-top:12px;}
+</style>
+<div id="estMatBulkOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4500;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div class="mr-modal" style="width:940px;">
+    <div class="mr-hd"><div><div class="mr-ttl">↻ Revise — material package</div><div class="mr-path" id="mb_path"></div></div>
+      <button class="mr-x" onclick="_mbClose()" aria-label="Close">✕</button></div>
+    <div class="mr-bd">
+      <div class="mb-tabs">
+        <div class="mb-tab" id="mb_tab_edit" onclick="_mbSetMode('edit')">✎ Edit existing estimate<span class="sub">change locked lines · locations locked</span></div>
+        <div class="mb-tab" id="mb_tab_add" onclick="_mbSetMode('add')">＋ Add new materials<span class="sub">fresh lines · choose locations freely</span></div>
+      </div>
+      <div id="mb_build"></div>
+      <div class="mr-field" style="margin-top:16px;"><label>Reason for revision (kept in history)</label>
+        <input id="mb_reason" type="text" placeholder="e.g. scope increase per RFI-118" oninput="_mbErr('')"></div>
+      <div class="mb-locwrap">
+        <div class="mb-lochd"><span class="t" id="mb_loctitle">Locations</span>
+          <span class="r"><span class="c" id="mb_loccount">0 selected</span><button class="mb-gbtn" id="mb_groupbtn" onclick="_mbToggleCollapseAll()">⊟ Collapse all</button></span></div>
+        <div class="mb-search" id="mb_search_wrap"><input id="mb_search" placeholder="Search location…" oninput="_mbRenderLocs()"></div>
+        <div class="mb-tree" id="mb_loctree"></div>
+      </div>
+      <div class="mb-hint" id="mb_hint"></div>
+      <div class="mr-err" id="mb_err"></div>
+    </div>
+    <div class="mr-ft">
+      <span class="mr-lockchip">🔓 Node unlocked</span>
+      <button class="btn btn-ghost" onclick="_mbClose()">Cancel</button>
+      <button class="btn btn-primary" onclick="_mbReview()">Review changes</button>
+    </div>
+  </div>
+</div>
+<div id="estMatBulkDiffOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.6);z-index:4750;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div class="mr-modal" style="width:740px;">
+    <div class="mr-hd"><div><div class="mr-ttl">Confirm the revision</div><div class="mr-path" id="mb_dpath"></div></div>
+      <button class="mr-x" onclick="_mbBack()" aria-label="Close">✕</button></div>
+    <div class="mr-bd"><div id="mb_dbody"></div>
+      <p class="mr-note">Files one revision per location, pending PM approval. Approved values stay live for any MIR / MIS or budget gate until the PM approves. New-estimate locations are saved as drafts to submit.</p></div>
+    <div class="mr-ft"><button class="btn btn-ghost" style="margin-right:auto;" onclick="_mbBack()">← Back</button>
+      <button class="btn btn-primary" id="mb_confirm" onclick="_mbCommit()">Confirm — file</button></div>
+  </div>
+</div>
+
 <!-- Submit for Approval confirm overlay -->
 <div id="estSubmitOverlay" style="position:fixed;inset:0;background:rgba(20,28,46,.55);z-index:4500;display:none;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:10px;width:760px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);">
@@ -1272,31 +1464,21 @@ function wbsAddChild(parentId){
 function wbsRename(id){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
-  const nt=node.node_type||'group';
-  const rateEditable=node.is_leaf&&(nt==='activity'||nt==='hire_equipment');
   openModal(`Rename "${node.name}"`,`
     <label>New Name</label>
     <input id="m_name" value="${_esc(node.name)}" autocomplete="off">
-    ${rateEditable?`
-    <label style="margin-top:10px;">Default Rate (₹) <span style="color:var(--muted);font-weight:normal;">— indicative only</span></label>
-    <input id="m_rate" type="number" min="0" step="0.01" value="${Number(node.default_rate||0)}">`:''}
   `,async()=>{
     const name=document.getElementById('m_name').value.trim();
     if(!name){toast('Name required','error');return;}
-    const patch={name,updated_by:state.userName,updated_at:new Date().toISOString()};
-    if(rateEditable){
-      const rate=Number(document.getElementById('m_rate').value||0);
-      if(!isFinite(rate)||rate<0){toast('Rate must be 0 or more','error');return;}
-      patch.default_rate=rate;
-    }
     pbShow('Saving…');
     try{
-      const{error}=await sb.from('wbs_nodes').update(patch).eq('id',id);
+      const{error}=await sb.from('wbs_nodes').update({name,updated_by:state.userName,updated_at:new Date().toISOString()}).eq('id',id);
       if(error)throw error;
-      toast('Saved','success');closeModal();await loadWBS();
+      toast('Renamed','success');closeModal();await loadWBS();
     }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
   });
 }
+
 // ── WBS Set node type (replaces mark-as-leaf) ──────────────
 function wbsSetType(id){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
@@ -3296,7 +3478,12 @@ function estViewCell(wbsId,locId){
     } else if(dispStatus==='pending'){
       btns=`<button style="padding:7px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #dc2626;background:transparent;color:#dc2626;" onclick="estCloseView();estWithdrawOne('${draftKey}')">↩ Withdraw submission</button>`+btns;
     } else if(dispStatus==='approved'){
-      if(isMaterial){ btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">Material build-up revision — coming in a later update</span>`; }
+      if(isMaterial){
+        if(_leased){
+          if(_isLS){ btns+=`<button class="btn btn-primary" onclick="estCloseView();estReviseApproved(${wbsId},'${locId}')">✎ Revise budget</button>`; }
+          else { btns+=`<button class="btn btn-primary" onclick="estCloseView();estReviseMaterialBuildup(${wbsId},'${locId}')">✎ Revise build-up</button>`; }
+        } else { btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">${_mgr?'Unlock the line to revise':'Locked — ask the Manager to unlock this line'}</span>`; }
+      }
       else if(_leased){ btns+=`<button class="btn btn-primary" onclick="estCloseView();estReviseApproved(${wbsId},'${locId}')">✎ Revise estimate</button>`; }
       else { btns+=`<span style="font-size:11px;color:var(--muted);align-self:center;">${_mgr?'Unlock the line to revise':'Locked — ask the Manager to unlock this line'}</span>`; }
     }
@@ -3399,7 +3586,7 @@ async function estReviseApproved(wbsId,locId){
   if(!act||!loc)return;
   const ex=_scopeMap()[String(wbsId)+'|'+String(locId)]||null;
   if(!ex||ex.scope_status!=='approved'){toast('Only an approved estimate can be revised','warn');return;}
-  if((act.node_type||'')==='material'){toast('Material build-up revisions come in a later update','info');return;}
+  if((act.node_type||'')==='material'&&ex.estimate_mode!=='ls'){toast('Use “Revise build-up” for material packages','info');return;}
   const isLS=ex.estimate_mode==='ls';
   _revCtx={wbsId,locId,isLS,mode:ex.estimate_mode,
     cur:{qty:Number(ex.est_qty)||0,rate:Number(ex.est_rate)||0,budget:Number(ex.ls_budget_amount)||0},
@@ -3515,6 +3702,213 @@ async function revCommit(){
 }
 function estCloseRevise(){document.getElementById('estReviseOverlay').style.display='none';_revCtx=null;}
 function estCloseRevDiff(){document.getElementById('estRevDiffOverlay').style.display='none';}
+// ░░ v35 · Revise an approved MATERIAL build-up (full sheet, per-line lock) ░░
+let _matRevCtx=null, _matRevLines=[], _matRevUid=0;
+function _mrQt(l){return (Number(l.measured_qty)||0)*(1+_buClampWastage(l.wastage_pct)/100);}
+function _mrAmt(l){return _mrQt(l)*(Number(l.rate)||0);}
+function _mrOrigAmt(l){if(!l.orig)return 0;return (Number(l.orig.measured_qty)||0)*(1+_buClampWastage(l.orig.wastage_pct)/100)*(Number(l.orig.rate)||0);}
+function _matRevTotal(){return _matRevLines.filter(l=>!l.deleted).reduce((s,l)=>s+_mrAmt(l),0);}
+function _matRevErr(m){const e=document.getElementById('mrev_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';}
+
+async function estReviseMaterialBuildup(wbsId,locId){
+  const node=_wbsNodes.find(n=>n.id===wbsId), loc=_locNodes.find(n=>n.id===locId);
+  if(!node||!loc)return;
+  const ex=_scopeMap()[String(wbsId)+'|'+String(locId)]||null;
+  if(!ex||ex.scope_status!=='approved'){toast('Only an approved estimate can be revised','warn');return;}
+  if((node.node_type||'')!=='material'){toast('This sheet is for material packages only','warn');return;}
+  if(ex.estimate_mode==='ls'){return estReviseApproved(wbsId,locId);}   // LS → budget revise
+  if(!_nodeLeased(wbsId)){toast('Unlock the line first','warn');return;}
+  pbShow('Loading build-up…');
+  let rows=[];
+  try{
+    const {data,error}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',ex.id).order('sno');
+    if(error)throw error; rows=data||[];
+  }catch(e){pbDone();toast('Could not load build-up: '+e.message,'error');return;}
+  pbDone();
+  _matRevCtx={wbsId,locId,scopeId:ex.id};
+  _matRevUid=0;
+  _matRevLines=rows.map(r=>{
+    const o={measured_qty:Number(r.qty)||0,wastage_pct:Number(r.wastage_pct)||0,rate:Number(r.rate)||0,material_name:r.material_name||'',uom:r.uom||''};
+    return {id:++_matRevUid,origin:'existing',editing:false,deleted:false,material_code:r.material_code||null,
+            material_name:o.material_name,uom:o.uom,measured_qty:o.measured_qty,wastage_pct:o.wastage_pct,rate:o.rate,orig:o};
+  });
+  if(!_matRevLines.length){toast('No build-up lines found on this approved estimate','warn');return;}
+  document.getElementById('mrev_path').innerHTML=`<b>WBS:</b> ${_esc(_wbsPathJS(wbsId))}<br><b>Location:</b> ${_esc(_locPathJS(locId))}`;
+  document.getElementById('mrev_reason').value='';
+  _matRevErr('');
+  _matRevRenderAll();
+  document.getElementById('estMatRevOverlay').style.display='flex';
+}
+
+function _mrActions(l){
+  if(l.deleted) return `<button class="mr-ic undo" title="Restore this line" onclick="_mrUndo(${l.id})">↩</button>`;
+  if(l.origin==='new') return `<button class="mr-ic del" title="Remove this new line" onclick="_mrRemoveNew(${l.id})">✕</button>`;
+  if(l.editing) return `<button class="mr-ic rev" title="Revert &amp; relock" onclick="_mrRelock(${l.id})">↺</button><button class="mr-ic del" title="Remove this approved line" onclick="_mrDel(${l.id})">✕</button>`;
+  return `<button class="mr-ic edit" title="Edit this approved line" onclick="_mrUnlock(${l.id})">✎</button>`;
+}
+function _mrRowHtml(l){
+  const isNew=l.origin==='new', editable=(isNew||l.editing)&&!l.deleted, wover=(Number(l.wastage_pct)||0)>25;
+  let flag = l.deleted?'<span class="mr-flag rem">REMOVED</span>'
+           : isNew?'<span class="mr-flag new">NEW</span>'
+           : l.editing?'<span class="mr-flag edt">EDITING</span>'
+           : '<span class="mr-flag lock">🔒 LOCKED</span>';
+  const cls=l.deleted?'mr-removed':isNew?'mr-new':l.editing?'mr-editing':'mr-existing';
+  if(editable){
+    return `<tr class="${cls}">
+      <td><input class="mr-mat" value="${_esc(l.material_name)}" placeholder="Material name" oninput="_mrInput(${l.id},'material_name',this.value)">${flag}</td>
+      <td><input class="mr-u" value="${_esc(l.uom)}" placeholder="uom" oninput="_mrInput(${l.id},'uom',this.value)"></td>
+      <td class="num"><input class="mr-q" type="number" step="0.001" min="0" value="${l.measured_qty}" oninput="_mrInput(${l.id},'measured_qty',this.value)"></td>
+      <td class="num"><input class="mr-q" type="number" step="0.01" min="0" max="25" value="${l.wastage_pct}" oninput="_mrInput(${l.id},'wastage_pct',this.value)"><span id="mr_wmax_${l.id}" class="mr-wmax" style="display:${wover?'':'none'};">max 25%</span></td>
+      <td class="num" id="mr_tq_${l.id}">${_inr(_mrQt(l))}</td>
+      <td class="num"><input class="mr-r" type="number" step="0.01" min="0" value="${l.rate}" oninput="_mrInput(${l.id},'rate',this.value)"></td>
+      <td class="num" id="mr_amt_${l.id}"><b>₹${_inr(_mrAmt(l))}</b></td>
+      <td class="mr-act">${_mrActions(l)}</td></tr>`;
+  }
+  return `<tr class="${cls}">
+    <td><span class="mr-name${l.deleted?' mr-strk':''}">${_esc(l.material_name)||'(blank)'}</span>${flag}</td>
+    <td>${_esc(l.uom)}</td>
+    <td class="num">${_inr(l.measured_qty)}</td>
+    <td class="num">${Number(l.wastage_pct)?_inr(l.wastage_pct)+'%':'—'}</td>
+    <td class="num" id="mr_tq_${l.id}">${_inr(_mrQt(l))}</td>
+    <td class="num">₹${_inr(l.rate)}</td>
+    <td class="num" id="mr_amt_${l.id}"><b>₹${_inr(_mrAmt(l))}</b></td>
+    <td class="mr-act">${_mrActions(l)}</td></tr>`;
+}
+function _matRevRenderAll(){
+  const tb=document.getElementById('mrev_body'); if(!tb)return;
+  tb.innerHTML=_matRevLines.map(_mrRowHtml).join('');
+  _mrPatchTotal();
+}
+function _mrPatchRow(id){
+  const l=_matRevLines.find(x=>x.id===id); if(!l)return;
+  const tq=document.getElementById('mr_tq_'+id); if(tq)tq.textContent=_inr(_mrQt(l));
+  const am=document.getElementById('mr_amt_'+id); if(am)am.innerHTML='<b>₹'+_inr(_mrAmt(l))+'</b>';
+  const wm=document.getElementById('mr_wmax_'+id); if(wm)wm.style.display=((Number(l.wastage_pct)||0)>25)?'':'none';
+}
+function _mrPatchTotal(){const t=document.getElementById('mrev_total'); if(t)t.textContent='₹'+_inr(_matRevTotal());}
+function _mrInput(id,k,v){
+  const l=_matRevLines.find(x=>x.id===id); if(!l)return;
+  if(k==='material_name'||k==='uom') l[k]=v; else l[k]=(v===''?0:Number(v));
+  _mrPatchRow(id); _mrPatchTotal(); _matRevErr('');
+}
+function _mrUnlock(id){const l=_matRevLines.find(x=>x.id===id); if(l)l.editing=true; _matRevRenderAll(); _matRevErr('');}
+function _mrRelock(id){const l=_matRevLines.find(x=>x.id===id);
+  if(l&&l.orig){l.measured_qty=l.orig.measured_qty;l.wastage_pct=l.orig.wastage_pct;l.rate=l.orig.rate;l.material_name=l.orig.material_name;l.uom=l.orig.uom;l.editing=false;}
+  _matRevRenderAll(); _matRevErr('');}
+function _mrDel(id){const l=_matRevLines.find(x=>x.id===id); if(l){l.deleted=true;l.editing=false;} _matRevRenderAll(); _matRevErr('');}
+function _mrUndo(id){const l=_matRevLines.find(x=>x.id===id); if(l)l.deleted=false; _matRevRenderAll(); _matRevErr('');}
+function _mrRemoveNew(id){_matRevLines=_matRevLines.filter(x=>x.id!==id); _matRevRenderAll(); _matRevErr('');}
+function _mrAdd(){
+  _matRevLines.push({id:++_matRevUid,origin:'new',editing:true,deleted:false,material_code:null,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,orig:null});
+  _matRevRenderAll(); _matRevErr('');
+  setTimeout(()=>{const inp=document.querySelectorAll('#mrev_body input.mr-mat'); if(inp.length)inp[inp.length-1].focus();},0);
+}
+
+function _mrChanged(l){
+  if(l.origin==='new')return true;
+  if(l.deleted)return true;
+  const o=l.orig;
+  return Number(l.measured_qty)!==Number(o.measured_qty)||Number(l.wastage_pct)!==Number(o.wastage_pct)
+       ||Number(l.rate)!==Number(o.rate)||l.material_name!==o.material_name||l.uom!==o.uom;
+}
+function _mrKind(l){ if(l.origin==='new')return 'added'; if(l.deleted)return 'removed'; return _mrChanged(l)?'edited':'unchanged'; }
+
+async function _matRevMirGuard(){
+  const breaches=[], codes=[];
+  _matRevLines.forEach(l=>{ if(l.material_code) codes.push(l.material_code); });
+  if(!codes.length) return breaches;
+  const used={};
+  try{
+    const {data}=await sb.from('pu_mir_items')
+      .select('material_code,qty_required,pu_mir!inner(status)')
+      .eq('loc_node_id',_matRevCtx.locId).in('material_code',codes);
+    (data||[]).forEach(r=>{ if(['Rejected','Cancelled'].includes(r.pu_mir?.status||''))return;
+      used[r.material_code]=(used[r.material_code]||0)+Number(r.qty_required||0); });
+  }catch(e){ console.warn('MIR guard skipped:',e.message); return breaches; }
+  _matRevLines.forEach(l=>{
+    if(!l.material_code)return;
+    const consumed=used[l.material_code]||0; if(consumed<=0)return;
+    const resultQt=l.deleted?0:_mrQt(l);
+    if(resultQt < consumed-0.0001){
+      breaches.push(`• ${l.material_name||l.material_code}: ${l.deleted?'removed':('set to '+_inr(resultQt)+' '+(l.uom||''))}, but MIRs already consumed ${_inr(consumed)} here`);
+    }
+  });
+  return breaches;
+}
+
+async function _matRevReview(){
+  const live=_matRevLines.filter(l=>!l.deleted);
+  if(!live.length){_matRevErr('A build-up needs at least one material line.');return;}
+  for(const l of live){
+    if(!String(l.material_name).trim()){_matRevErr('Every line needs a material name. Fill it in or remove the line.');return;}
+    if((Number(l.measured_qty)||0)<=0){_matRevErr(`"${l.material_name||'A line'}" needs a measured quantity above zero.`);return;}
+    if((Number(l.rate)||0)<=0){_matRevErr(`"${l.material_name||'A line'}" needs a rate above zero.`);return;}
+    if((Number(l.wastage_pct)||0)>25){_matRevErr(`Wastage on "${l.material_name}" exceeds the 25% cap.`);return;}
+  }
+  if(!_matRevLines.some(_mrChanged)){_matRevErr('Nothing has changed yet. Edit a line, add one, or remove one before filing a revision.');return;}
+  if(!document.getElementById('mrev_reason').value.trim()){_matRevErr('Add a reason — it is kept in the revision history for the PM.');return;}
+  pbShow('Checking issued quantities…');
+  const breaches=await _matRevMirGuard();
+  pbDone();
+  if(breaches.length){_matRevErr('Estimate floor-lock — qty cannot drop below committed MIR qty:\n'+breaches.join('\n')+'\n\nRaise the qty to at least the MIR-consumed amount, or cancel the MIRs first.');return;}
+  _matRevBuildDiff();
+  document.getElementById('estMatRevOverlay').style.display='none';
+  document.getElementById('estMatRevDiffOverlay').style.display='flex';
+}
+
+function _matRevBuildDiff(){
+  document.getElementById('mrevdiff_path').innerHTML='<b>'+_esc(_wbsPathJS(_matRevCtx.wbsId))+'</b> · '+_esc(_locPathJS(_matRevCtx.locId));
+  document.getElementById('mrevdiff_body').innerHTML=_matRevLines.map(l=>{
+    const k=_mrKind(l); let pill,before,after,fields='';
+    if(k==='added'){pill='<span class="mr-flag new">ADDED</span>';before='—';after='₹'+_inr(_mrAmt(l));}
+    else if(k==='removed'){pill='<span class="mr-flag rem">REMOVED</span>';before='₹'+_inr(_mrOrigAmt(l));after='—';}
+    else if(k==='unchanged'){pill='<span class="mr-flag unc">UNCHANGED</span>';before='₹'+_inr(_mrOrigAmt(l));after='₹'+_inr(_mrAmt(l));}
+    else{
+      pill='<span class="mr-flag edt">EDITED</span>'; const o=l.orig, ch=[];
+      if(Number(l.measured_qty)!==Number(o.measured_qty))ch.push(`qty <span class="mr-old">${_inr(o.measured_qty)}</span>→<span class="mr-new">${_inr(l.measured_qty)}</span>`);
+      if(Number(l.wastage_pct)!==Number(o.wastage_pct))ch.push(`wastage <span class="mr-old">${_inr(o.wastage_pct)}%</span>→<span class="mr-new">${_inr(l.wastage_pct)}%</span>`);
+      if(Number(l.rate)!==Number(o.rate))ch.push(`rate <span class="mr-old">₹${_inr(o.rate)}</span>→<span class="mr-new">₹${_inr(l.rate)}</span>`);
+      if(l.material_name!==o.material_name)ch.push('renamed'); if(l.uom!==o.uom)ch.push('uom changed');
+      fields='<div class="mr-chg">'+ch.join(' · ')+'</div>'; before='₹'+_inr(_mrOrigAmt(l)); after='₹'+_inr(_mrAmt(l));
+    }
+    const oa=(k==='added')?0:_mrOrigAmt(l), na=(k==='removed')?0:_mrAmt(l), d=na-oa;
+    const dtxt=(k==='unchanged'||Math.abs(d)<1e-6)?'':`<div class="mr-delta ${d>0?'up':'down'}">${d>0?'+':''}₹${_inr(d)}</div>`;
+    return `<tr><td><span class="mr-name${k==='removed'?' mr-strk':''}">${_esc(l.material_name)||'(blank)'}</span></td>
+      <td>${pill}${fields}</td><td class="num">${before}</td><td class="num"><b>${after}</b>${dtxt}</td></tr>`;
+  }).join('');
+  const before=_matRevLines.reduce((s,l)=>s+_mrOrigAmt(l),0), after=_matRevTotal();
+  document.getElementById('mrevdiff_before').textContent='₹'+_inr(before);
+  document.getElementById('mrevdiff_after').textContent='₹'+_inr(after);
+}
+
+async function _matRevCommit(){
+  const btn=document.getElementById('mrevdiff_confirm'); if(btn)btn.disabled=true;
+  const live=_matRevLines.filter(l=>!l.deleted);
+  const totalR=_r2(live.reduce((s,l)=>s+_mrAmt(l),0));
+  const payload={ wbs_node_id:Number(_matRevCtx.wbsId), loc_node_id:_matRevCtx.locId,
+    estimate_mode:'qty', new_qty:1, new_rate:totalR, new_notes:'(material build-up)',
+    reason:document.getElementById('mrev_reason').value||null,
+    buildup_rows:live.map((l,i)=>({ sno:i+1, material_code:l.material_code||null, material_name:l.material_name,
+      uom:l.uom||null, qty:Number(l.measured_qty)||0, wastage_pct:_buClampWastage(l.wastage_pct),
+      qty_total:_r2(_mrQt(l)), rate:_r2(l.rate), amount:_r2(_mrAmt(l)) })) };
+  pbShow('Submitting revision…');
+  try{
+    const {data,error}=await sb.rpc('rpc_submit_scope_revision',{p_rows:[payload],p_user:state.userName});
+    if(error)throw error;
+    const rej=(data&&data.rejected)||[];
+    if(rej.length){toast('Revision blocked: '+(rej[0].reason||'floor'),'error');if(btn)btn.disabled=false;pbDone();return;}
+    document.getElementById('estMatRevDiffOverlay').style.display='none';
+    document.getElementById('estMatRevOverlay').style.display='none';
+    _matRevCtx=null; _matRevLines=[];
+    toast('Build-up revision submitted for PM approval. Approved value stays live until approved.','success',5000);
+    await apiLoadScope(); await _estLoadSubmissionMeta(); renderEstimation();
+  }catch(e){toast('Revision failed: '+e.message,'error');if(btn)btn.disabled=false;}
+  finally{pbDone();}
+}
+function _matRevClose(){document.getElementById('estMatRevOverlay').style.display='none';_matRevCtx=null;_matRevLines=[];}
+function _matRevBack(){document.getElementById('estMatRevDiffOverlay').style.display='none';document.getElementById('estMatRevOverlay').style.display='flex';}
+function _matRevDiffClose(){document.getElementById('estMatRevDiffOverlay').style.display='none';}
+
 
 // Sets of pending/rejected pairs for quick render-time lookup
 // (populated by _estLoadSubmissionMeta on tab enter and after any submit/withdraw)
@@ -3990,75 +4384,284 @@ function _buPick(i,code){
 
 // Material bulk-fill: define ONE build-up (typical-unit take-off), choose units,
 // write that same build-up (total + detail rows) to every selected unit.
+// ░░ v35 · Material BULK revise — two modes (edit existing | add new) + grouped locations ░░
+let _mbCtx=null,_mbMode='edit',_mbEditLines=[],_mbAddLines=[],_mbLocSel=new Set(),_mbGrouped=true,_mbUid=0,_mbNonUniform=false,_mbLocCollapsed=new Set();
+function _mbErr(m){const e=document.getElementById('mb_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';}
+function _mbLineToBu(l){return {material_code:l.material_code||null,material_name:l.material_name,uom:l.uom||null,qty:Number(l.measured_qty)||0,wastage_pct:_buClampWastage(l.wastage_pct),qty_total:_r2(_mrQt(l)),rate:_r2(l.rate),amount:_r2(_mrAmt(l))};}
+
 async function estMaterialBulkFill(wbsId){
-  const node=_wbsNodes.find(n=>n.id===wbsId);if(!node)return;
+  if(!_nodeLeased(wbsId)){toast('Unlock the line first','warn');return;}
+  if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
+  const node=_wbsNodes.find(n=>n.id===wbsId);
+  if(!node||(node.node_type||'')!=='material'){toast('Material packages only','warn');return;}
   const eff=_effectiveLeavesJS(wbsId);
   const cols=_estCols().filter(c=>eff.has(c.id));
-  if(!cols.length){toast('No eligible units in the current filter','warn');return;}
-  await _loadMatMaster();
+  if(!cols.length){toast('No eligible locations in the current filter','warn');return;}
   const sm=_scopeMap();
-  // seed the build-up from the first unit that already has one (handy template)
-  _buildupRows=[];
-  const seed=cols.map(c=>sm[wbsId+'|'+c.id]).find(x=>x&&x.id);
-  if(seed){
-    const {data}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',seed.id).order('sno');
-    _buildupRows=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty),wastage_pct:Number(r.wastage_pct||0),rate:Number(r.rate)}));
+  const estLocs=cols.filter(c=>{const ex=sm[wbsId+'|'+c.id];return ex&&ex.scope_status==='approved';}).map(c=>c.id);
+  _mbCtx={wbsId,node,cols,estLocs};
+  _mbGrouped=true;_mbUid=0;_mbAddLines=[];_mbEditLines=[];_mbNonUniform=false;
+  _mbLocCollapsed=new Set(_locNodes.filter(n=>!n.is_leaf&&n.parent_id!=null).map(n=>n.id));
+  if(estLocs.length){
+    const amts=estLocs.map(id=>Math.round((sm[wbsId+'|'+id]?.est_amount||0)*100)/100);
+    _mbNonUniform=new Set(amts).size>1;
+    const ref=sm[wbsId+'|'+estLocs[0]];
+    pbShow('Loading build-up…');
+    try{const {data,error}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',ref.id).order('sno');if(error)throw error;
+      _mbEditLines=(data||[]).map(r=>{const o={measured_qty:Number(r.qty)||0,wastage_pct:Number(r.wastage_pct)||0,rate:Number(r.rate)||0,material_name:r.material_name||'',uom:r.uom||''};
+        return {id:++_mbUid,origin:'existing',editing:false,deleted:false,material_code:r.material_code||null,material_name:o.material_name,uom:o.uom,measured_qty:o.measured_qty,wastage_pct:o.wastage_pct,rate:o.rate,orig:o};});
+    }catch(e){pbDone();toast('Could not load build-up: '+e.message,'error');return;}
+    pbDone();
   }
-  if(!_buildupRows.length)_buildupRows.push({material_code:null,material_name:'',uom:'',qty:0,wastage_pct:0,rate:0});
-  const unitRows=cols.map(c=>{
-    const ex=sm[wbsId+'|'+c.id];
-    const locked=ex&&ex.scope_status==='approved';
-    return`<label style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px;${locked?'opacity:.5;':''}">
-      <input type="checkbox" class="bf_unit" value="${c.id}" ${locked?'disabled':'checked'} style="width:auto;margin:0;">
-      ${_esc(c.name)}
-      ${ex?`<span style="font-size:10px;color:${locked?'#16a34a':'#d97706'};">${locked?'approved — skipped':`overwrites ₹${_inr(ex.est_amount)}`}</span>`:'<span style="font-size:10px;color:#94a3b8;">new</span>'}
-    </label>`;
-  }).join('');
-  openModal(`⇉ Material Bulk-fill — ${_esc(node.name)}`,`
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">${_esc(_wbsPathJS(wbsId))}</div>
-    <div style="font-size:12px;font-weight:600;margin-bottom:4px;">1 · Build-up (applied to every selected unit)</div>
-    <div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:6px;">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr style="background:var(--panel-2);">
-          <th style="text-align:left;padding:5px 8px;">Material</th><th style="width:50px;">UOM</th>
-          <th style="width:75px;">Measured qty</th><th style="width:65px;background:var(--color-background-info, #eef4ff);">Wastage %</th>
-          <th style="width:85px;">Total qty</th><th style="width:85px;">Rate ₹</th>
-          <th style="width:95px;text-align:right;padding-right:8px;">Amount</th><th style="width:24px;"></th>
-        </tr></thead>
-        <tbody id="bu_body"></tbody>
-      </table>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-      <button class="btn btn-ghost btn-sm" onclick="_buAddRow()">+ Add material</button>
-      <div style="font-weight:700;color:#1B2A47;">Per-unit total: ₹<span id="bu_total">0</span></div>
-    </div>
-    <div style="margin-top:4px;font-size:11px;color:var(--muted);">Total qty = Measured qty × (1 + Wastage % ⁄ 100), capped at 25%. Amount is computed on Total qty.</div>
-    <div style="font-size:12px;font-weight:600;margin:10px 0 4px;">2 · Units to fill</div>
-    <div style="max-height:150px;overflow-y:auto;border:0.5px solid var(--border);border-radius:4px;padding:6px 10px;">${unitRows}</div>
-    <div style="margin-top:8px;font-size:11px;color:#b45309;">The same build-up is written to each selected unit. Existing drafts are overwritten; approved cells are skipped.</div>
-  `,async()=>{
-    const clean=_buildupRows.filter(r=>r.material_name&&r.qty>0);
-    if(!clean.length){toast('Add at least one material row with qty','error');return;}
-    const ids=[...document.querySelectorAll('.bf_unit:checked')].map(i=>i.value);
-    if(!ids.length){toast('Select at least one unit','error');return;}
-    const total=_buRowsTotal();
-    const totalR=_r2(total); // v24: round to 2dp
-    if(!confirm(`Apply build-up (₹${_inr(totalR)}/unit) to ${ids.length} unit(s)?`))return;
-    closeModal();
-    // Save each unit as a local draft with its buildup_rows snapshot
-    const buSnapshot=clean.map((r,i)=>({
-      sno:i+1, material_code:r.material_code, material_name:r.material_name,
-      uom:r.uom||null, qty:r.qty, wastage_pct:_buClampWastage(r.wastage_pct),
-      qty_total:_r2(_buQtyTotal(r)), rate:_r2(r.rate), amount:_r2(_buQtyTotal(r)*r.rate)
-    }));
-    await _estSaveRows(ids.map(id=>({
-      wbs_node_id:wbsId, loc_node_id:id,
-      est_qty:1, est_rate:totalR, notes:'(material build-up)',
-      buildup_rows:buSnapshot
-    })),`Filling ${ids.length} unit(s)…`);
-    toast(`${ids.length} unit(s) saved as local drafts — submit for PM approval to commit`,'success',3500);
-  },{width:'960px'});
-  _buRenderRows();
+  _mbMode=estLocs.length?'edit':'add';
+  if(_mbMode==='add')_mbAddLines=[{id:++_mbUid,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,material_code:null}];
+  _mbLocSel=new Set(_mbMode==='edit'?estLocs:[]);
+  document.getElementById('mb_path').innerHTML=_esc(_wbsPathJS(wbsId));
+  document.getElementById('mb_reason').value='';document.getElementById('mb_search').value='';_mbErr('');
+  _mbRenderAll();
+  document.getElementById('estMatBulkOverlay').style.display='flex';
+}
+function _mbSetMode(m){
+  if(m===_mbMode)return;
+  if(m==='edit'&&!_mbCtx.estLocs.length){toast('No existing estimate to edit — use “Add new materials”','warn');return;}
+  _mbMode=m;
+  if(m==='edit')_mbLocSel=new Set(_mbCtx.estLocs);
+  else{_mbLocSel=new Set();if(!_mbAddLines.length)_mbAddLines=[{id:++_mbUid,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,material_code:null}];}
+  _mbErr('');_mbRenderAll();
+}
+function _mbRenderAll(){
+  const noEx=!_mbCtx.estLocs.length;
+  document.getElementById('mb_tab_edit').classList.toggle('on',_mbMode==='edit');
+  document.getElementById('mb_tab_edit').classList.toggle('disabled',noEx);
+  document.getElementById('mb_tab_add').classList.toggle('on',_mbMode==='add');
+  _mbRenderBuild();_mbRenderLocs();_mbRenderHint();
+}
+function _mbRenderHint(){
+  document.getElementById('mb_hint').innerHTML=_mbMode==='edit'
+    ? `🔒 Locations are <b>locked</b> while editing the existing estimate — the revision applies to the ${_mbCtx.estLocs.length} location(s) that already hold it.`
+    : `📍 Locations are <b>open</b> — choose any locations for the new materials, existing or not.`;
+}
+
+/* ----- build-up section ----- */
+function _mbRenderBuild(){
+  const a=document.getElementById('mb_build');
+  if(_mbMode==='edit'){
+    const warn=_mbNonUniform?`<div class="mb-warn">⚠ The selected locations have <b>different</b> build-ups. Editing here sets them <b>all</b> to this one build-up. To revise a single location precisely, open its cell instead.</div>`:'';
+    a.innerHTML=warn+`<div class="mr-step" style="font-size:12.5px;font-weight:700;color:var(--navy);margin:2px 0 9px;">Existing build-up — locked, click ✎ to edit</div>
+      <div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:7px;"><table class="mr-tbl"><thead><tr><th>Material</th><th>UOM</th><th class="num">Measured qty</th><th class="num">Wastage %</th><th class="num">Total qty</th><th class="num">Rate ₹</th><th class="num">Amount</th><th></th></tr></thead><tbody id="mb_ebody"></tbody></table></div>
+      <div class="mr-addrow" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;"><button class="btn btn-ghost" onclick="_mbAddEdit()">+ Add material</button><div class="mr-total" style="font-size:13px;font-weight:700;color:var(--navy);">Package total: <b id="mb_etotal" style="color:var(--accent);">₹0</b></div></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:9px;">Total qty = Measured qty × (1 + Wastage % ⁄ 100), capped at 25%. Amount is on Total qty.</p>`;
+    _mbPaintEdit();
+  } else {
+    a.innerHTML=`<div class="mr-step" style="font-size:12.5px;font-weight:700;color:var(--navy);margin:2px 0 9px;">New materials — appended to the chosen locations</div>
+      <div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:7px;"><table class="mr-tbl"><thead><tr><th>Material</th><th>UOM</th><th class="num">Measured qty</th><th class="num">Wastage %</th><th class="num">Total qty</th><th class="num">Rate ₹</th><th class="num">Amount</th><th></th></tr></thead><tbody id="mb_bbody"></tbody></table></div>
+      <div class="mr-addrow" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;"><button class="btn btn-ghost" onclick="_mbAddNew()">+ Add material</button><div class="mr-total" style="font-size:13px;font-weight:700;color:var(--navy);">Added per location: <b id="mb_btotal" style="color:var(--accent);">₹0</b></div></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:9px;">Existing estimates are not changed — these lines are appended where present, or create a new estimate where absent.</p>`;
+    _mbPaintAdd();
+  }
+}
+function _mbActE(l){
+  if(l.deleted)return `<button class="mr-ic undo" onclick="_mbEUndo(${l.id})" title="Restore">↩</button>`;
+  if(l.origin==='new')return `<button class="mr-ic del" onclick="_mbERemoveNew(${l.id})" title="Remove">✕</button>`;
+  if(l.editing)return `<button class="mr-ic rev" onclick="_mbERelock(${l.id})" title="Revert & relock">↺</button><button class="mr-ic del" onclick="_mbEDel(${l.id})" title="Remove approved line">✕</button>`;
+  return `<button class="mr-ic edit" onclick="_mbEUnlock(${l.id})" title="Edit this line">✎</button>`;
+}
+function _mbRowE(l){
+  const isNew=l.origin==='new',ed=(isNew||l.editing)&&!l.deleted,wo=(Number(l.wastage_pct)||0)>25;
+  const flag=l.deleted?'<span class="mr-flag rem">REMOVED</span>':isNew?'<span class="mr-flag new">NEW</span>':l.editing?'<span class="mr-flag edt">EDITING</span>':'<span class="mr-flag lock">🔒 LOCKED</span>';
+  const cls=l.deleted?'mr-removed':isNew?'mr-new':l.editing?'mr-editing':'mr-existing';
+  if(ed)return `<tr class="${cls}"><td><input class="mr-mat" value="${_esc(l.material_name)}" placeholder="Material name" oninput="_mbEIn(${l.id},'material_name',this.value)">${flag}</td>
+    <td><input class="mr-u" value="${_esc(l.uom)}" oninput="_mbEIn(${l.id},'uom',this.value)"></td>
+    <td class="num"><input class="mr-q" type="number" step="0.001" min="0" value="${l.measured_qty}" oninput="_mbEIn(${l.id},'measured_qty',this.value)"></td>
+    <td class="num"><input class="mr-q" type="number" step="0.01" min="0" max="25" value="${l.wastage_pct}" oninput="_mbEIn(${l.id},'wastage_pct',this.value)"><span id="mb_ew_${l.id}" class="mr-wmax" style="display:${wo?'':'none'};">max 25%</span></td>
+    <td class="num" id="mb_eq_${l.id}">${_inr(_mrQt(l))}</td><td class="num"><input class="mr-r" type="number" step="0.01" min="0" value="${l.rate}" oninput="_mbEIn(${l.id},'rate',this.value)"></td>
+    <td class="num" id="mb_ea_${l.id}"><b>₹${_inr(_mrAmt(l))}</b></td><td class="mr-act">${_mbActE(l)}</td></tr>`;
+  return `<tr class="${cls}"><td><span class="mr-name${l.deleted?' mr-strk':''}">${_esc(l.material_name)||'(blank)'}</span>${flag}</td><td>${_esc(l.uom)}</td>
+    <td class="num">${_inr(l.measured_qty)}</td><td class="num">${Number(l.wastage_pct)?_inr(l.wastage_pct)+'%':'—'}</td>
+    <td class="num">${_inr(_mrQt(l))}</td><td class="num">₹${_inr(l.rate)}</td><td class="num"><b>₹${_inr(_mrAmt(l))}</b></td><td class="mr-act">${_mbActE(l)}</td></tr>`;
+}
+function _mbPaintEdit(){const tb=document.getElementById('mb_ebody');if(!tb)return;tb.innerHTML=_mbEditLines.map(_mbRowE).join('');_mbETot();}
+function _mbETot(){const t=document.getElementById('mb_etotal');if(t)t.textContent='₹'+_inr(_mbEditLines.filter(l=>!l.deleted).reduce((s,l)=>s+_mrAmt(l),0));}
+function _mbEIn(id,k,v){const l=_mbEditLines.find(x=>x.id===id);if(!l)return;if(k==='material_name'||k==='uom')l[k]=v;else l[k]=(v===''?0:Number(v));
+  const q=document.getElementById('mb_eq_'+id);if(q)q.textContent=_inr(_mrQt(l));const a=document.getElementById('mb_ea_'+id);if(a)a.innerHTML='<b>₹'+_inr(_mrAmt(l))+'</b>';
+  const w=document.getElementById('mb_ew_'+id);if(w)w.style.display=((Number(l.wastage_pct)||0)>25)?'':'none';_mbETot();_mbErr('');}
+function _mbEUnlock(id){const l=_mbEditLines.find(x=>x.id===id);if(l)l.editing=true;_mbPaintEdit();_mbErr('');}
+function _mbERelock(id){const l=_mbEditLines.find(x=>x.id===id);if(l&&l.orig)Object.assign(l,{measured_qty:l.orig.measured_qty,wastage_pct:l.orig.wastage_pct,rate:l.orig.rate,material_name:l.orig.material_name,uom:l.orig.uom,editing:false});_mbPaintEdit();_mbErr('');}
+function _mbEDel(id){const l=_mbEditLines.find(x=>x.id===id);if(l){l.deleted=true;l.editing=false;}_mbPaintEdit();_mbErr('');}
+function _mbEUndo(id){const l=_mbEditLines.find(x=>x.id===id);if(l)l.deleted=false;_mbPaintEdit();_mbErr('');}
+function _mbERemoveNew(id){_mbEditLines=_mbEditLines.filter(x=>x.id!==id);_mbPaintEdit();_mbErr('');}
+function _mbAddEdit(){_mbEditLines.push({id:++_mbUid,origin:'new',editing:true,deleted:false,material_code:null,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,orig:null});_mbPaintEdit();_mbErr('');setTimeout(()=>{const i=document.querySelectorAll('#mb_ebody input.mr-mat');if(i.length)i[i.length-1].focus();},0);}
+/* add-new rows */
+function _mbRowA(l){const wo=(Number(l.wastage_pct)||0)>25;
+  return `<tr class="mr-new"><td><input class="mr-mat" value="${_esc(l.material_name)}" placeholder="Material name" oninput="_mbAIn(${l.id},'material_name',this.value)"><span class="mr-flag new">NEW</span></td>
+    <td><input class="mr-u" value="${_esc(l.uom)}" oninput="_mbAIn(${l.id},'uom',this.value)"></td>
+    <td class="num"><input class="mr-q" type="number" step="0.001" min="0" value="${l.measured_qty}" oninput="_mbAIn(${l.id},'measured_qty',this.value)"></td>
+    <td class="num"><input class="mr-q" type="number" step="0.01" min="0" max="25" value="${l.wastage_pct}" oninput="_mbAIn(${l.id},'wastage_pct',this.value)"><span id="mb_aw_${l.id}" class="mr-wmax" style="display:${wo?'':'none'};">max 25%</span></td>
+    <td class="num" id="mb_aq_${l.id}">${_inr(_mrQt(l))}</td><td class="num"><input class="mr-r" type="number" step="0.01" min="0" value="${l.rate}" oninput="_mbAIn(${l.id},'rate',this.value)"></td>
+    <td class="num" id="mb_aa_${l.id}"><b>₹${_inr(_mrAmt(l))}</b></td><td class="mr-act"><button class="mr-ic del" onclick="_mbARemove(${l.id})" title="Remove">✕</button></td></tr>`;}
+function _mbPaintAdd(){const tb=document.getElementById('mb_bbody');if(!tb)return;tb.innerHTML=_mbAddLines.map(_mbRowA).join('');_mbATot();}
+function _mbATot(){const t=document.getElementById('mb_btotal');if(t)t.textContent='₹'+_inr(_mbAddLines.reduce((s,l)=>s+_mrAmt(l),0));}
+function _mbAIn(id,k,v){const l=_mbAddLines.find(x=>x.id===id);if(!l)return;if(k==='material_name'||k==='uom')l[k]=v;else l[k]=(v===''?0:Number(v));
+  const q=document.getElementById('mb_aq_'+id);if(q)q.textContent=_inr(_mrQt(l));const a=document.getElementById('mb_aa_'+id);if(a)a.innerHTML='<b>₹'+_inr(_mrAmt(l))+'</b>';
+  const w=document.getElementById('mb_aw_'+id);if(w)w.style.display=((Number(l.wastage_pct)||0)>25)?'':'none';_mbATot();_mbErr('');}
+function _mbARemove(id){_mbAddLines=_mbAddLines.filter(x=>x.id!==id);_mbPaintAdd();_mbErr('');}
+function _mbAddNew(){_mbAddLines.push({id:++_mbUid,material_name:'',uom:'',measured_qty:0,wastage_pct:0,rate:0,material_code:null});_mbPaintAdd();_mbErr('');setTimeout(()=>{const i=document.querySelectorAll('#mb_bbody input.mr-mat');if(i.length)i[i.length-1].focus();},0);}
+
+/* ----- grouped/flat location picker ----- */
+function _mbCk(s){return s==='on'?'<span class="mb-ck on">✓</span>':s==='part'?'<span class="mb-ck part">–</span>':'<span class="mb-ck"></span>';}
+function _mbGrpStateIds(ids){const on=ids.filter(i=>_mbLocSel.has(i)).length;return on===0?'off':on===ids.length?'on':'part';}
+function _mbLeafIdsUnder(n,candSet){const out=[];(function w(x){if(x.is_leaf){if(candSet.has(x.id))out.push(x.id);return;}_locNodes.filter(c=>c.parent_id===x.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).forEach(w);})(n);return out;}
+function _mbAllGroupIds(){const editMode=_mbMode==='edit';const candSet=new Set(editMode?_mbCtx.estLocs:_mbCtx.cols.map(c=>c.id));return _locNodes.filter(n=>!n.is_leaf&&_mbLeafIdsUnder(n,candSet).length>0).map(n=>n.id);}
+function _mbToggleCollapse(id){_mbLocCollapsed.has(id)?_mbLocCollapsed.delete(id):_mbLocCollapsed.add(id);_mbRenderLocs();}
+function _mbToggleCollapseAll(){const g=_mbAllGroupIds();const anyExp=g.some(id=>!_mbLocCollapsed.has(id));if(anyExp)g.forEach(id=>_mbLocCollapsed.add(id));else _mbLocCollapsed.clear();_mbRenderLocs();}
+function _mbToggleLoc(id){_mbLocSel.has(id)?_mbLocSel.delete(id):_mbLocSel.add(id);_mbRenderLocs();_mbErr('');}
+function _mbToggleGroupNode(id){const n=_locNodes.find(x=>x.id===id);if(!n)return;const candSet=new Set(_mbCtx.cols.map(c=>c.id));const ids=_mbLeafIdsUnder(n,candSet);const st=_mbGrpStateIds(ids);if(st==='on')ids.forEach(i=>_mbLocSel.delete(i));else ids.forEach(i=>_mbLocSel.add(i));_mbRenderLocs();_mbErr('');}
+function _mbLocRow(n,editMode,label,depth){
+  const pad=20+(depth||0)*14;
+  if(editMode)return `<div class="mb-loc locked" style="padding-left:${pad}px;"><span class="mb-ck locked">🔒</span> ${_esc(label||n.name)} <span class="mb-est">has estimate</span></div>`;
+  const on=_mbLocSel.has(n.id);const sm=_scopeMap();const ex=sm[_mbCtx.wbsId+'|'+n.id];
+  const tag=(ex&&ex.scope_status==='approved')?'<span class="mb-est">has estimate</span>':(ex&&ex.scope_status==='pending')?'<span class="mb-newt" style="color:#d97706;">pending — skipped</span>':(on?'<span class="mb-newt" style="color:#0d9488;">+ add</span>':'<span class="mb-newt">—</span>');
+  return `<div class="mb-loc ${on?'on':''}" style="padding-left:${pad}px;" onclick="_mbToggleLoc('${n.id}')">${_mbCk(on?'on':'off')} ${_esc(label||n.name)} ${tag}</div>`;
+}
+function _mbRenderLocs(){
+  const tree=document.getElementById('mb_loctree');const editMode=_mbMode==='edit';
+  const sw=document.getElementById('mb_search_wrap');if(sw)sw.style.display=editMode?'none':'';
+  const q=(document.getElementById('mb_search').value||'').toLowerCase();
+  const candIds=editMode?_mbCtx.estLocs:_mbCtx.cols.map(c=>c.id);
+  const candSet=new Set(candIds);
+  const searching=!!q;
+  let roots=_locNodes.filter(n=>n.parent_id==null&&n.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order);
+  if(typeof _estStage!=='undefined'&&_estStage!=='__all__')roots=roots.filter(n=>n.id===_estStage);
+  const render=(n,depth)=>{
+    if(n.is_leaf){if(!candSet.has(n.id))return'';if(q&&!n.name.toLowerCase().includes(q))return'';return _mbLocRow(n,editMode,null,depth);}
+    const leaves=_mbLeafIdsUnder(n,candSet);if(!leaves.length)return'';
+    const collapsed=!searching&&_mbLocCollapsed.has(n.id);
+    const kids=collapsed?'':_locNodes.filter(c=>c.parent_id===n.id&&c.is_active!==false).sort((a,b)=>a.sort_order-b.sort_order).map(c=>render(c,depth+1)).join('');
+    if(!collapsed&&!kids)return'';
+    const caret=`<span class="mb-caret">${collapsed?'▸':'▾'}</span>`;
+    const cnt=`<span class="mb-cnt">${leaves.filter(i=>_mbLocSel.has(i)).length}/${leaves.length}</span>`;
+    const box=editMode?'<span class="mb-ck locked">🔒</span>':`<span onclick="event.stopPropagation();_mbToggleGroupNode('${n.id}')">${_mbCk(_mbGrpStateIds(leaves))}</span>`;
+    const head=`<div class="mb-grphd" style="padding-left:${6+depth*14}px;cursor:pointer;" onclick="_mbToggleCollapse('${n.id}')">${caret}${box} ${_esc(n.name)} ${cnt}</div>`;
+    return head+kids;
+  };
+  tree.innerHTML=roots.map(r=>render(r,0)).join('')||'<div style="padding:14px;color:var(--muted);font-size:12px;">No locations.</div>';
+  document.getElementById('mb_loccount').textContent=editMode?`${_mbCtx.estLocs.length} locked`:`${_mbLocSel.size} selected`;
+  document.getElementById('mb_loctitle').textContent=editMode?'Locations (locked while editing)':'Locations to add materials to';
+  const g=document.getElementById('mb_groupbtn');if(g){const anyExp=_mbAllGroupIds().some(id=>!_mbLocCollapsed.has(id));g.textContent=anyExp?'⊟ Collapse all':'⊞ Expand all';}
+}
+
+/* ----- review + diff ----- */
+function _mbChangedE(l){if(l.origin==='new')return true;if(l.deleted)return true;const o=l.orig;return Number(l.measured_qty)!==Number(o.measured_qty)||Number(l.wastage_pct)!==Number(o.wastage_pct)||Number(l.rate)!==Number(o.rate)||l.material_name!==o.material_name||l.uom!==o.uom;}
+function _mbKindE(l){if(l.origin==='new')return'added';if(l.deleted)return'removed';return _mbChangedE(l)?'edited':'unchanged';}
+async function _mbMirGuardEdit(){
+  const breaches=[];const codes=_mbEditLines.filter(l=>l.material_code).map(l=>l.material_code);
+  if(!codes.length||!_mbCtx.estLocs.length)return breaches;
+  const used={};
+  try{const {data}=await sb.from('pu_mir_items').select('material_code,qty_required,loc_node_id,pu_mir!inner(status)').in('loc_node_id',_mbCtx.estLocs).in('material_code',codes);
+    (data||[]).forEach(r=>{if(['Rejected','Cancelled'].includes(r.pu_mir?.status||''))return;const k=r.loc_node_id+'|'+r.material_code;used[k]=(used[k]||0)+Number(r.qty_required||0);});
+  }catch(e){console.warn('MIR guard skipped',e.message);return breaches;}
+  _mbCtx.estLocs.forEach(loc=>_mbEditLines.forEach(l=>{if(!l.material_code)return;const c=used[loc+'|'+l.material_code]||0;if(c<=0)return;const rq=l.deleted?0:_mrQt(l);if(rq<c-0.0001)breaches.push(`• ${_locPathJS(loc)} — ${l.material_name||l.material_code}: ${l.deleted?'removed':'set to '+_inr(rq)}, MIR consumed ${_inr(c)}`);}));
+  return breaches;
+}
+async function _mbReview(){
+  const reason=document.getElementById('mb_reason').value.trim();
+  if(_mbMode==='edit'){
+    const live=_mbEditLines.filter(l=>!l.deleted);
+    if(!live.length){_mbErr('A build-up needs at least one line.');return;}
+    for(const l of live){if(!String(l.material_name).trim()){_mbErr('Every line needs a material name.');return;}if((Number(l.measured_qty)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a measured quantity above zero.`);return;}if((Number(l.rate)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a rate above zero.`);return;}if((Number(l.wastage_pct)||0)>25){_mbErr(`Wastage on "${l.material_name}" exceeds 25%.`);return;}}
+    if(!_mbEditLines.some(_mbChangedE)){_mbErr('Nothing has changed yet. Edit, add, or remove a line first.');return;}
+    if(!_mbCtx.estLocs.length){_mbErr('No existing-estimate locations to revise.');return;}
+    if(!reason){_mbErr('Add a reason — it is kept in the revision history for the PM.');return;}
+    pbShow('Checking issued quantities…');const br=await _mbMirGuardEdit();pbDone();
+    if(br.length){_mbErr('Floor-lock — qty cannot drop below committed MIR qty:\n'+br.join('\n'));return;}
+    _mbBuildDiffEdit();
+  } else {
+    if(!_mbAddLines.length){_mbErr('Add at least one new material.');return;}
+    for(const l of _mbAddLines){if(!String(l.material_name).trim()){_mbErr('Every new line needs a material name.');return;}if((Number(l.measured_qty)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a measured quantity above zero.`);return;}if((Number(l.rate)||0)<=0){_mbErr(`"${l.material_name||'A line'}" needs a rate above zero.`);return;}if((Number(l.wastage_pct)||0)>25){_mbErr(`Wastage on "${l.material_name}" exceeds 25%.`);return;}}
+    if(!_mbLocSel.size){_mbErr('Select at least one location.');return;}
+    if(!reason){_mbErr('Add a reason — it is kept in the revision history for the PM.');return;}
+    _mbBuildDiffAdd();
+  }
+  document.getElementById('estMatBulkOverlay').style.display='none';
+  document.getElementById('estMatBulkDiffOverlay').style.display='flex';
+}
+function _mbBuildDiffEdit(){
+  const sel=_mbCtx.estLocs;
+  document.getElementById('mb_dpath').innerHTML=`Filed as <b>${sel.length} revision(s)</b> — one per locked location`;
+  let body=`<table class="mr-diff"><thead><tr><th>Material</th><th>Change</th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>`;
+  body+=_mbEditLines.map(l=>{const k=_mbKindE(l);let pill,before,after,fields='';
+    if(k==='added'){pill='<span class="mr-flag new">ADDED</span>';before='—';after='₹'+_inr(_mrAmt(l));}
+    else if(k==='removed'){pill='<span class="mr-flag rem">REMOVED</span>';before='₹'+_inr(_mrOrigAmt(l));after='—';}
+    else if(k==='unchanged'){pill='<span class="mr-flag unc">UNCHANGED</span>';before='₹'+_inr(_mrOrigAmt(l));after='₹'+_inr(_mrAmt(l));}
+    else{pill='<span class="mr-flag edt">EDITED</span>';const o=l.orig,c=[];
+      if(Number(l.measured_qty)!==Number(o.measured_qty))c.push(`qty <span class="mr-old">${_inr(o.measured_qty)}</span>→<span class="mr-new">${_inr(l.measured_qty)}</span>`);
+      if(Number(l.rate)!==Number(o.rate))c.push(`rate <span class="mr-old">₹${_inr(o.rate)}</span>→<span class="mr-new">₹${_inr(l.rate)}</span>`);
+      if(Number(l.wastage_pct)!==Number(o.wastage_pct))c.push(`wastage <span class="mr-old">${_inr(o.wastage_pct)}%</span>→<span class="mr-new">${_inr(l.wastage_pct)}%</span>`);
+      if(l.material_name!==o.material_name)c.push('renamed');fields='<div class="mr-chg">'+c.join(' · ')+'</div>';before='₹'+_inr(_mrOrigAmt(l));after='₹'+_inr(_mrAmt(l));}
+    const oa=k==='added'?0:_mrOrigAmt(l),na=k==='removed'?0:_mrAmt(l),d=na-oa;const dt=(k==='unchanged'||Math.abs(d)<1e-6)?'':`<div class="mr-delta ${d>0?'up':'down'}">${d>0?'+':''}₹${_inr(d)}</div>`;
+    return `<tr><td><span class="mr-name${k==='removed'?' mr-strk':''}">${_esc(l.material_name)||'(blank)'}</span></td><td>${pill}${fields}</td><td class="num">${before}</td><td class="num"><b>${after}</b>${dt}</td></tr>`;}).join('');
+  body+=`</tbody></table>`;
+  const before=_mbEditLines.reduce((s,l)=>s+_mrOrigAmt(l),0),after=_mbEditLines.filter(l=>!l.deleted).reduce((s,l)=>s+_mrAmt(l),0);
+  body+=`<div style="margin-top:12px;font-size:11px;color:var(--muted);">Locations: ${sel.map(id=>_esc(_locPathJS(id))).join(' · ')}</div>`;
+  body+=`<div class="mr-tot"><div><div class="lbl">Per-location: approved now</div><div class="big">₹${_inr(before)}</div></div><div style="color:#94a3b8;font-size:18px;">→</div><div style="text-align:right;"><div class="lbl">After revision</div><div class="big">₹${_inr(after)}</div></div></div>`;
+  document.getElementById('mb_dbody').innerHTML=body;
+}
+function _mbBuildDiffAdd(){
+  const sel=[..._mbLocSel];const sm=_scopeMap();
+  const exCnt=sel.filter(id=>sm[_mbCtx.wbsId+'|'+id]?.scope_status==='approved').length;
+  const pend=sel.filter(id=>sm[_mbCtx.wbsId+'|'+id]?.scope_status==='pending').length;
+  const fresh=sel.length-exCnt-pend;
+  const per=_mbAddLines.reduce((s,l)=>s+_mrAmt(l),0);
+  document.getElementById('mb_dpath').innerHTML=`Adding ${_mbAddLines.length} material(s) to <b>${sel.length} location(s)</b> — ${exCnt} revision(s), ${fresh} new estimate(s)${pend?`, ${pend} skipped (pending)`:''}`;
+  let body=`<table class="mr-diff"><thead><tr><th>New material</th><th>Change</th><th class="num">Amount / unit</th></tr></thead><tbody>`;
+  body+=_mbAddLines.map(l=>`<tr><td><span class="mr-name">${_esc(l.material_name)}</span></td><td><span class="mr-flag new">ADDED</span></td><td class="num"><b>₹${_inr(_mrAmt(l))}</b></td></tr>`).join('');
+  body+=`</tbody></table><div style="margin-top:12px;font-size:11px;color:var(--muted);">Locations: ${sel.map(id=>_esc(_locPathJS(id))).join(' · ')}</div>`;
+  body+=`<div class="mr-tot"><div><div class="lbl">Added per location</div><div class="big">₹${_inr(per)}</div></div><div style="color:#94a3b8;font-size:18px;">×</div><div style="text-align:right;"><div class="lbl">Locations</div><div class="big">${sel.length}</div></div></div>`;
+  document.getElementById('mb_dbody').innerHTML=body;
+}
+function _mbBack(){document.getElementById('estMatBulkDiffOverlay').style.display='none';document.getElementById('estMatBulkOverlay').style.display='flex';}
+function _mbClose(){document.getElementById('estMatBulkOverlay').style.display='none';document.getElementById('estMatBulkDiffOverlay').style.display='none';_mbCtx=null;}
+async function _mbCommit(){
+  const btn=document.getElementById('mb_confirm');if(btn)btn.disabled=true;
+  const reason=document.getElementById('mb_reason').value||null;const sm=_scopeMap();
+  pbShow('Filing…');
+  try{
+    if(_mbMode==='edit'){
+      const live=_mbEditLines.filter(l=>!l.deleted);
+      const totalR=_r2(live.reduce((s,l)=>s+_mrAmt(l),0));
+      const bu=live.map((l,i)=>Object.assign({sno:i+1},_mbLineToBu(l)));
+      const rows=_mbCtx.estLocs.map(loc=>({wbs_node_id:Number(_mbCtx.wbsId),loc_node_id:loc,estimate_mode:'qty',new_qty:1,new_rate:totalR,new_notes:'(material build-up)',reason,buildup_rows:bu}));
+      const {data,error}=await sb.rpc('rpc_submit_scope_revision',{p_rows:rows,p_user:state.userName});
+      if(error)throw error;const rej=(data&&data.rejected)||[];
+      if(rej.length){pbDone();if(btn)btn.disabled=false;toast('Some locations blocked: '+(rej[0].reason||'floor'),'error',6000);return;}
+      toast(`Revision filed for ${rows.length} location(s). Approved values stay live until approved.`,'success',5000);
+    } else {
+      const newBu=_mbAddLines.map(l=>_mbLineToBu(l));
+      const revRows=[],draftRows=[];let blocked=0;
+      for(const loc of [..._mbLocSel]){
+        const ex=sm[_mbCtx.wbsId+'|'+loc];const st=ex?ex.scope_status:null;
+        let existing=[];
+        if(ex&&(st==='approved'||st==='draft')){
+          const {data}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',ex.id).order('sno');
+          existing=(data||[]).map(r=>({material_code:r.material_code,material_name:r.material_name,uom:r.uom,qty:Number(r.qty)||0,wastage_pct:Number(r.wastage_pct)||0,qty_total:Number(r.qty_total)||0,rate:Number(r.rate)||0,amount:Number(r.amount)||0}));
+        }
+        const combined=existing.concat(newBu).map((b,i)=>Object.assign({},b,{sno:i+1}));
+        const total=_r2(combined.reduce((s,b)=>s+(Number(b.amount)||0),0));
+        if(st==='approved')revRows.push({wbs_node_id:Number(_mbCtx.wbsId),loc_node_id:loc,estimate_mode:'qty',new_qty:1,new_rate:total,new_notes:'(material build-up)',reason,buildup_rows:combined});
+        else if(st==='pending')blocked++;
+        else draftRows.push({wbs_node_id:_mbCtx.wbsId,loc_node_id:loc,est_qty:1,est_rate:total,notes:'(material build-up)',buildup_rows:combined});
+      }
+      const parts=[];
+      if(revRows.length){const {data,error}=await sb.rpc('rpc_submit_scope_revision',{p_rows:revRows,p_user:state.userName});if(error)throw error;const rej=(data&&data.rejected)||[];if(rej.length){pbDone();if(btn)btn.disabled=false;toast('Some revisions blocked: '+(rej[0].reason||'floor'),'error',6000);return;}parts.push(`${revRows.length} revision(s)`);}
+      if(draftRows.length){await _estSaveRows(draftRows,`Saving ${draftRows.length} draft(s)…`);parts.push(`${draftRows.length} new draft(s)`);}
+      if(blocked)parts.push(`${blocked} skipped (pending)`);
+      toast('Added: '+parts.join(', ')+(draftRows.length?' — submit drafts for PM approval':''),'success',6000);
+    }
+    document.getElementById('estMatBulkDiffOverlay').style.display='none';
+    document.getElementById('estMatBulkOverlay').style.display='none';_mbCtx=null;
+    await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
+  }catch(e){if(btn)btn.disabled=false;toast('Failed: '+e.message,'error',6000);}
+  finally{pbDone();}
 }
 
 // Material take-off rollup: for a material node, sum each material's qty and
@@ -4281,7 +4884,8 @@ function _estBreakdownHtml(o){
         return `<tr><td style="padding:3px 8px;border-top:1px solid #eef2f6;">${_esc(String(name))}</td><td style="padding:3px 8px;text-align:right;border-top:1px solid #eef2f6;">${_esc(String(q))} ${_esc(String(u))}</td><td style="padding:3px 8px;text-align:right;border-top:1px solid #eef2f6;">₹${_inr(Number(rate)||0)}</td></tr>`;
       }).join('')+`</tbody></table>`;
   }
-  return `<div style="background:#fbfdff;border-top:1px dashed var(--border);padding:8px 14px 10px 30px;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><tbody>${rws}</tbody></table>${buHtml}</div>`;
+  const reasonHtml=o.submit_reason?`<div style="font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:5px;padding:4px 8px;margin-bottom:6px;"><b>Reason:</b> ${_esc(o.submit_reason)}</div>`:'';
+  return `<div style="background:#fbfdff;border-top:1px dashed var(--border);padding:8px 14px 10px 30px;">${reasonHtml}<table style="width:100%;border-collapse:collapse;font-size:12px;"><tbody>${rws}</tbody></table>${buHtml}</div>`;
 }
 let _subExpanded=new Set();
 function _subToggleExp(key){_subExpanded.has(key)?_subExpanded.delete(key):_subExpanded.add(key);_renderSubmitBody();}
@@ -4493,7 +5097,7 @@ async function estOpenQueue(){
   pbShow('Loading queue…');
   try{
     const{data,error}=await sb.from('wbs_scope_submissions')
-      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_qty,new_rate,new_amount,estimate_mode,ls_budget_amount,buildup_rows,submitted_by,submitted_at,status')
+      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_qty,new_rate,new_amount,estimate_mode,ls_budget_amount,buildup_rows,submit_reason,submitted_by,submitted_at,status')
       .eq('status','pending')
       .order('submitted_at',{ascending:false});
     if(error)throw error;
@@ -4675,10 +5279,10 @@ async function estOpenHistory(filterStatus){
   pbShow('Loading…');
   try{
     const{data,error}=await sb.from('wbs_scope_submissions')
-      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_amount,new_qty,new_rate,estimate_mode,ls_budget_amount,buildup_rows,status,submitted_at,decided_at,decided_by,decision_reason,submitted_by')
+      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_amount,new_qty,new_rate,estimate_mode,ls_budget_amount,buildup_rows,status,submitted_at,decided_at,decided_by,decision_reason,submit_reason,submitted_by')
       .order('submitted_at',{ascending:false}).limit(500);
     if(error)throw error;
-    _mySubData=data||[];_histExpanded=new Set();_histFilter=filterStatus||'all';
+    _mySubData=data||[];_histExpanded=new Set();_histSelected=new Set();_histFilter=filterStatus||'all';
     document.getElementById('mysub_title').textContent='Estimation history';
     const wb=document.getElementById('mysub_withdraw_all_btn'); if(wb)wb.style.display='none';
     _renderHistoryTable();
@@ -4687,9 +5291,34 @@ async function estOpenHistory(filterStatus){
   finally{pbDone();}
 }
 // Phase C item 10: tabular, sortable, status-filter-in-header, row-dropdown breakdown
-let _histSort={col:'date',dir:'desc'}, _histFilter='all', _histExpanded=new Set();
+let _histSort={col:'date',dir:'desc'}, _histFilter='all', _histExpanded=new Set(), _histSelected=new Set();
 function _histSortClick(col){ if(_histSort.col===col)_histSort.dir=(_histSort.dir==='asc'?'desc':'asc'); else {_histSort.col=col;_histSort.dir=(col==='date'||col==='amt')?'desc':'asc';} _renderHistoryTable(); }
 function _histSetFilter(v){_histFilter=v;_renderHistoryTable();}
+function _histToggleSel(id){_histSelected.has(id)?_histSelected.delete(id):_histSelected.add(id);_renderHistoryTable();}
+function _histSelectAllPending(on){
+  const mine=(_mySubData||[]).filter(r=>(r.status||'pending')==='pending'&&r.submitted_by===state.userName);
+  if(_histFilter!=='all')mine.filter(r=>r.status===_histFilter);
+  if(on)mine.forEach(r=>_histSelected.add(r.id)); else _histSelected.clear();
+  _renderHistoryTable();
+}
+async function estHistoryBulkWithdraw(){
+  if(!_histSelected.size){toast('Select at least one pending submission','warn');return;}
+  if(!confirm(`Withdraw ${_histSelected.size} submission(s)? Each reopens as a draft with your submitted values, ready to re-edit and resubmit.`))return;
+  pbShow('Withdrawing…');
+  try{
+    const ids=[..._histSelected];
+    const {data,error}=await sb.rpc('rpc_withdraw_scope_submissions',{p_ids:ids,p_user:state.userName});
+    if(error)throw error;
+    const skipped=(data.skipped||[]).length;
+    if(skipped)toast(`${skipped} row(s) already decided — could not withdraw (the Project Manager may have just acted on them)`,'warn',5000);
+    if(data.withdrawn)toast(`${data.withdrawn} submission(s) withdrawn — cells reopened as drafts`,'success');
+    _histSelected.clear();
+    await _estLoadSubmissionMeta();
+    await estOpenHistory(_histFilter);
+    renderEstimation();
+  }catch(e){toast('Withdraw failed: '+e.message,'error');}
+  finally{pbDone();}
+}
 function _histToggle(id){ _histExpanded.has(id)?_histExpanded.delete(id):_histExpanded.add(id); _renderHistoryTable(); }
 function _renderHistoryTable(){
   const amtOf=r=>Number(r.new_amount!=null?r.new_amount:(r.estimate_mode==='ls'?r.ls_budget_amount:(r.new_qty*r.new_rate)))||0;
@@ -4713,7 +5342,7 @@ function _renderHistoryTable(){
   if(!rows.length){ tbl='<div style="padding:32px;text-align:center;color:var(--muted);">No records.</div>'; }
   else { tbl=`<table style="width:100%;border-collapse:collapse;">
     <thead><tr style="background:#f4f7fa;border-bottom:1px solid var(--border);">
-      <th style="width:18px;"></th>${th('date','Date','left')}${th('est','Estimate','left')}${th('type','Type','left')}${th('amt','Amount','right')}
+      <th style="width:24px;text-align:center;"></th><th style="width:18px;"></th>${th('date','Date','left')}${th('est','Estimate','left')}${th('type','Type','left')}${th('amt','Amount','right')}
       <th style="text-align:left;padding:8px 10px;font-size:10.5px;text-transform:uppercase;color:var(--muted);">Status${stSel}</th>
     </tr></thead><tbody>`+rows.map(r=>{
       const a=_wbsNodes.find(n=>n.id===r.wbs_node_id), isNew=r.change_type==='new';
@@ -4726,16 +5355,24 @@ function _renderHistoryTable(){
       if(r.decision_reason)meta+=` · <span style="color:#b91c1c;">${_esc(r.decision_reason)}</span>`;
       const canWd=(r.status||'pending')==='pending'&&r.submitted_by===state.userName;
       const wdBtn=canWd?`<button onclick="event.stopPropagation();estWithdrawOne('${r.wbs_node_id}|${r.loc_node_id}').then(()=>estOpenHistory(_histFilter))" style="margin:6px 0 0 30px;padding:4px 10px;border-radius:4px;border:1px solid #dc2626;background:transparent;color:#dc2626;font-size:11px;cursor:pointer;">↩ Withdraw this submission</button>`:'';
+      const cb=canWd?`<input type="checkbox" ${_histSelected.has(r.id)?'checked':''} onclick="event.stopPropagation();_histToggleSel('${r.id}')" style="cursor:pointer;width:auto;margin:0;">`:'';
       return `<tr onclick="_histToggle('${r.id}')" style="cursor:pointer;border-bottom:1px solid #f1f5f9;">
+        <td style="text-align:center;" onclick="event.stopPropagation()">${cb}</td>
         <td style="text-align:center;color:#94a3b8;">${open?'▾':'▸'}</td>
         <td style="padding:8px 10px;white-space:nowrap;font-size:12px;">${dt}</td>
         <td style="padding:8px 10px;"><div style="font-weight:600;font-size:12.5px;">${_esc(a?a.name:'?')}</div><div style="font-size:11px;color:var(--muted);">📍 ${_esc(_locPathJS(r.loc_node_id))}</div></td>
         <td style="padding:8px 10px;">${tt}</td>
         <td style="padding:8px 10px;text-align:right;white-space:nowrap;font-size:12.5px;">${amtCell}</td>
         <td style="padding:8px 10px;">${sp(r.status||'pending')}</td>
-      </tr>`+(open?`<tr><td colspan="6" style="padding:0;">${_estBreakdownHtml(r)}<div style="font-size:11px;color:var(--muted);padding:2px 14px 4px 30px;">${meta}</div>${wdBtn}<div style="height:8px;"></div></td></tr>`:'');
+      </tr>`+(open?`<tr><td colspan="7" style="padding:0;">${_estBreakdownHtml(r)}<div style="font-size:11px;color:var(--muted);padding:2px 14px 4px 30px;">${meta}</div>${wdBtn}<div style="height:8px;"></div></td></tr>`:'');
     }).join('')+`</tbody></table>`; }
-  document.getElementById('mysub_body').innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${rows.length} record(s)${_histFilter!=='all'?' · '+_histFilter:''} — sort any column, filter from the Status header, click a row for the breakdown</div>`+tbl;
+  const myPending=rows.filter(r=>(r.status||'pending')==='pending'&&r.submitted_by===state.userName);
+  const selCount=myPending.filter(r=>_histSelected.has(r.id)).length;
+  const wdBar=myPending.length?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+    <button onclick="_histSelectAllPending(${selCount<myPending.length})" style="font-size:11px;font-weight:600;border:1px solid var(--border);background:#fff;border-radius:6px;padding:5px 11px;cursor:pointer;">${selCount<myPending.length?'☑ Select all pending':'☐ Clear selection'}</button>
+    ${selCount?`<button onclick="estHistoryBulkWithdraw()" style="font-size:11px;font-weight:700;border:1px solid #dc2626;background:#fff;color:#dc2626;border-radius:6px;padding:5px 13px;cursor:pointer;">↩ Withdraw selected (${selCount})</button>`:''}
+    <span style="font-size:11px;color:var(--muted);">${selCount} of ${myPending.length} pending selected</span></div>`:'';
+  document.getElementById('mysub_body').innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${rows.length} record(s)${_histFilter!=='all'?' · '+_histFilter:''} — sort any column, filter from the Status header, click a row for the breakdown</div>`+wdBar+tbl;
 }
 // ── grouping state: true = group by WBS then location, false = flat list ──
 let _mySubGrouped=true;
