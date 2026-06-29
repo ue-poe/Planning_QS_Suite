@@ -1272,21 +1272,31 @@ function wbsAddChild(parentId){
 function wbsRename(id){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
   const node=_wbsNodes.find(n=>n.id===id);if(!node)return;
+  const nt=node.node_type||'group';
+  const rateEditable=node.is_leaf&&(nt==='activity'||nt==='hire_equipment');
   openModal(`Rename "${node.name}"`,`
     <label>New Name</label>
     <input id="m_name" value="${_esc(node.name)}" autocomplete="off">
+    ${rateEditable?`
+    <label style="margin-top:10px;">Default Rate (₹) <span style="color:var(--muted);font-weight:normal;">— indicative only</span></label>
+    <input id="m_rate" type="number" min="0" step="0.01" value="${Number(node.default_rate||0)}">`:''}
   `,async()=>{
     const name=document.getElementById('m_name').value.trim();
     if(!name){toast('Name required','error');return;}
+    const patch={name,updated_by:state.userName,updated_at:new Date().toISOString()};
+    if(rateEditable){
+      const rate=Number(document.getElementById('m_rate').value||0);
+      if(!isFinite(rate)||rate<0){toast('Rate must be 0 or more','error');return;}
+      patch.default_rate=rate;
+    }
     pbShow('Saving…');
     try{
-      const{error}=await sb.from('wbs_nodes').update({name,updated_by:state.userName,updated_at:new Date().toISOString()}).eq('id',id);
+      const{error}=await sb.from('wbs_nodes').update(patch).eq('id',id);
       if(error)throw error;
-      toast('Renamed','success');closeModal();await loadWBS();
+      toast('Saved','success');closeModal();await loadWBS();
     }catch(e){toast('Error: '+e.message,'error');}finally{pbDone();}
   });
 }
-
 // ── WBS Set node type (replaces mark-as-leaf) ──────────────
 function wbsSetType(id){
   if(!canEdit()){toast('Admin or Planning/QS only','error');return;}
