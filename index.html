@@ -948,6 +948,7 @@ table.mr-diff td{padding:7px 8px;border-bottom:1px solid #eef2f6;vertical-align:
 #estBulkLSOverlay .bls-ck.part{background:#fff;border-color:#a07d10;color:#a07d10;}
 #estBulkLSOverlay .bls-ck.locked{border:none;color:#94a3b8;cursor:not-allowed;}
 #estBulkLSOverlay .bls-bd{margin-left:auto;font-size:11px;font-weight:600;color:#a07d10;display:flex;align-items:center;gap:3px;}
+#estBulkLSOverlay .bls-ctx{font-size:10.5px;color:#92400e;margin-left:8px;white-space:nowrap;}
 #estBulkLSOverlay .bls-bd input{width:110px;padding:3px 7px;border:1px solid #e6cf7a;border-radius:5px;font-weight:600;font-size:12px;font-family:inherit;text-align:right;}
 #estBulkLSOverlay .bls-bd.appr{color:#b45309;}
 #estBulkLSOverlay .bls-bd.empty{color:#94a3b8;font-weight:500;}
@@ -3218,7 +3219,7 @@ function renderEstimation(){
       const cells=cols.map(c=>{
         if(c._isGroup){
           const _aids=isAct?[node.id]:actIds;let _gs=0;
-          _aids.forEach(aid=>{const _ef=eff[aid];if(!_ef)return;c._leafIds.forEach(z=>{if(_ef.has(z)){const _r=sm[aid+'|'+z];if(_r)_gs+=(_r.estimate_mode==='ls'?Number(_r.ls_budget_amount||0):Number(_r.est_amount||0));}});});
+          _aids.forEach(aid=>{const _ef=eff[aid];if(!_ef)return;c._leafIds.forEach(z=>{if(_ef.has(z)){const _r=sm[aid+'|'+z];if(_r){_gs+=(_r.estimate_mode==='ls'?Number(_r.ls_budget_amount||0):Number(_r.est_amount||0));if(isAct){if(_r.estimate_mode==='ls')_rAnyLS=true;if(_r.scope_status==='approved')_rApproved=true;if(_estPendingSet.has(aid+'|'+z))_rPending=true;}}}});});
           rowTotal+=_gs;
           return`<td class="eg-roll ${isPkg?'eg-roll-pkg':'eg-roll-sub'}" title="${_esc(c.name)} — group subtotal (expand column to edit)">${_gs?'₹'+_inr(_gs):''}</td>`;
         }
@@ -3302,8 +3303,8 @@ function renderEstimation(){
       // accumulated during the cell pass above, no extra per-row column scans.
       let modeToggle='';
       if(isAct){
-        const _amode=_estActMode[node.id]||(_rAnyLS?'ls':'qty');
-        if(_estActMode[node.id]===undefined)_estActMode[node.id]=_amode;
+        const _amode=_rAnyLS?'ls':(_estActMode[node.id]||'qty');
+        _estActMode[node.id]=_amode;
         const _modeLocked=_rApproved||_rPending;
         if(_nodeLeased(node.id)&&!_estSelectMode&&canEdit()){
           const segS=(on,onBg,onTx)=>`padding:1px 6px;font-size:9px;font-weight:700;cursor:${_modeLocked?'not-allowed':'pointer'};background:${on?onBg:'#fff'};color:${on?onTx:'#94a3b8'};`;
@@ -3894,6 +3895,7 @@ function revValidate(){
   else{err.style.display='none';btn.disabled=false;btn.style.opacity=1;}
 }
 function revReview(){
+  {const _cb=document.getElementById('revdiff_confirm');if(_cb)_cb.disabled=false;}
   if(!_revCtx)return;
   const tbl=document.getElementById('revdiff_table');
   document.getElementById('revdiff_path').innerHTML='<b>'+_esc(_wbsPathJS(_revCtx.wbsId))+'</b>';
@@ -4124,6 +4126,7 @@ async function _matRevReview(){
 }
 
 function _matRevBuildDiff(){
+  {const _cb=document.getElementById('mrevdiff_confirm');if(_cb)_cb.disabled=false;}
   document.getElementById('mrevdiff_path').innerHTML='<b>'+_esc(_wbsPathJS(_matRevCtx.wbsId))+'</b> · '+_esc(_locPathJS(_matRevCtx.locId));
   document.getElementById('mrevdiff_body').innerHTML=_matRevLines.map(l=>{
     const k=_mrKind(l); let pill,before,after,fields='';
@@ -4425,10 +4428,8 @@ async function estMaterialBuildup(wbsId,locId){
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
       <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Estimate mode</span>
-      <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;">
-        <span id="bu_mode_qty" onclick="_buSetMode('qty')" style="padding:4px 13px;font-size:11px;font-weight:700;cursor:pointer;">QTY</span>
-        <span id="bu_mode_ls"  onclick="_buSetMode('ls')"  style="padding:4px 13px;font-size:11px;font-weight:700;cursor:pointer;">LS ₹</span>
-      </span>
+      <span style="padding:4px 13px;font-size:11px;font-weight:700;border-radius:7px;${_buMode==='ls'?'background:#D4AF37;color:#5a4500;':'background:#1e3a5f;color:#fff;'}">${_buMode==='ls'?'LS ₹':'QTY'}</span>
+      <span style="font-size:10px;color:#94a3b8;">set on the activity row</span>
       <span id="bu_mode_hint" style="font-size:10.5px;color:var(--muted);"></span>
     </div>
     <div id="bu_budget_box" style="display:none;align-items:center;gap:10px;margin-bottom:10px;padding:9px 12px;background:#fffdf5;border:1px solid #efe2b0;border-radius:8px;">
@@ -4520,19 +4521,9 @@ async function estMaterialBuildup(wbsId,locId){
   _buRenderRows();
 }
 
-// LS: switch the open build-up between QTY and LS mode
-function _buSetMode(mode){
-  if(mode===_buMode){return;}
-  _buMode=mode;
-  _buApplyModeUI();
-  _buRenderRows();
-}
 function _buBudgetChange(){_buBudget=parseFloat(document.getElementById('bu_budget')?.value)||0;}
 function _buApplyModeUI(){
   const isLS=_buMode==='ls';
-  const segQ=document.getElementById('bu_mode_qty'), segL=document.getElementById('bu_mode_ls');
-  if(segQ)segQ.style.cssText='padding:4px 13px;font-size:11px;font-weight:700;cursor:pointer;'+(!isLS?'background:#1e3a5f;color:#fff;':'background:#fff;color:#64748b;');
-  if(segL)segL.style.cssText='padding:4px 13px;font-size:11px;font-weight:700;cursor:pointer;'+(isLS?'background:#D4AF37;color:#5a4500;':'background:#fff;color:#64748b;');
   const bb=document.getElementById('bu_budget_box'); if(bb)bb.style.display=isLS?'flex':'none';
   const tw=document.getElementById('bu_total_wrap'); if(tw)tw.style.display=isLS?'none':'';
   const qh=document.getElementById('bu_qty_help'); if(qh)qh.style.display=isLS?'none':'';
@@ -4863,6 +4854,7 @@ async function _mbReview(){
   document.getElementById('estMatBulkDiffOverlay').style.display='flex';
 }
 function _mbBuildDiffAdd(){
+  {const _cb=document.getElementById('mb_confirm');if(_cb)_cb.disabled=false;}
   const selAll=[..._mbLocSel];const sm=_scopeMap();
   const appr=selAll.filter(id=>sm[_mbCtx.wbsId+'|'+id]?.scope_status==='approved');
   const fresh=selAll.filter(id=>!sm[_mbCtx.wbsId+'|'+id]);
@@ -4885,7 +4877,7 @@ function _mbBack(){document.getElementById('estMatBulkDiffOverlay').style.displa
 function _mbClose(){document.getElementById('estMatBulkOverlay').style.display='none';document.getElementById('estMatBulkDiffOverlay').style.display='none';_mbCtx=null;}
 async function _mbCommit(){
   const btn=document.getElementById('mb_confirm');if(btn)btn.disabled=true;
-  const reason=document.getElementById('mb_reason').value||null;const sm=_scopeMap();
+  const reason=(document.getElementById('mb_reason')||{}).value||null;const sm=_scopeMap();
   pbShow('Filing…');
   try{
     {
@@ -4922,7 +4914,7 @@ async function _mbCommit(){
 // (material_code, uom) — quantities only sum within the same material+unit.
 
 // ░░ v38 · Bulk LS estimate engine (shared by material & activity/hire bulk) ░░
-let _blsCtx=null,_blsSel=new Set(),_blsBudget={},_blsWl=[],_blsUid=0,_blsCollapsed=new Set();
+let _blsCtx=null,_blsSel=new Set(),_blsBudget={},_blsWl=[],_blsUid=0,_blsCollapsed=new Set(),_blsConsumed={};
 function _blsErr(m){const e=document.getElementById('bls_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';if(typeof toast==='function')toast(m,'warn');}
 async function estBulkLS(wbsId){
   if(!_nodeLeased(wbsId)){toast('Unlock the line first','warn');return;}
@@ -4936,7 +4928,8 @@ async function estBulkLS(wbsId){
   if(!cols.length){toast('No eligible locations in the current filter','warn');return;}
   if(isMat)await _loadMatMaster();
   _blsCtx={wbsId,node,cols,isMat};
-  _blsSel=new Set();_blsBudget={};_blsUid=0;
+  _blsSel=new Set();_blsBudget={};_blsUid=0;_blsConsumed={};
+  {const _sm0=_scopeMap();cols.forEach(c=>{const _ex=_sm0[wbsId+'|'+c.id];if(_ex&&_ex.scope_status==='approved'&&_ex.estimate_mode==='ls')_blsBudget[c.id]=Number(_ex.ls_budget_amount)||0;});}
   _blsWl=isMat?[{id:++_blsUid,material_code:null,material_name:'',uom:'',rate:0}]:[];
   _blsCollapsed=new Set(_locNodes.filter(n=>!n.is_leaf&&n.parent_id!=null).map(n=>n.id));
   document.getElementById('bls_path').innerHTML=_esc(_wbsPathJS(wbsId));
@@ -4948,6 +4941,7 @@ async function estBulkLS(wbsId){
   document.getElementById('bls_acthint').style.display=isMat?'none':'';
   _blsErr('');_blsRenderAll();
   document.getElementById('estBulkLSOverlay').style.display='flex';
+  _blsLoadConsumed();
 }
 function _blsClose(){document.getElementById('estBulkLSOverlay').style.display='none';document.getElementById('estBulkLSDiffOverlay').style.display='none';_blsCtx=null;}
 function _blsLocState(id){const ex=_scopeMap()[_blsCtx.wbsId+'|'+id];if(!ex)return 'free';if(ex.scope_status!=='approved')return 'lock';return ex.estimate_mode==='ls'?'lsappr':'qtylock';}
@@ -4978,11 +4972,25 @@ function _blsLocRow(n,depth){const pad=20+(depth||0)*14;const st=_blsLocState(n.
   if(st==='lock')return `<div class="bls-loc locked" style="padding-left:${pad}px;"><span class="bls-ck locked">🔒</span> ${_esc(n.name)} <span class="bls-bd lock">pending — decide first</span></div>`;
   const ls=st==='lsappr';
   const ck=ls?(on?'<span class="bls-ck lsappron">✓</span>':'<span class="bls-ck"></span>'):(on?'<span class="bls-ck on">✓</span>':'<span class="bls-ck"></span>');
+  let ctx='';
+  if(ls){const ex=_scopeMap()[_blsCtx.wbsId+'|'+n.id];const cur=Number(ex&&ex.ls_budget_amount)||0;const cons=_blsConsumed[n.id];
+    ctx=`<span class="bls-ctx">current ₹${_inr(cur)} · consumed ${cons==null?'…':'₹'+_inr(cons)}</span>`;}
   let right;
-  if(on){const v=_blsBudget[n.id]||0;right=`<span class="bls-bd">₹ <input type="number" min="0" step="1000" value="${v||''}" placeholder="budget" onclick="event.stopPropagation();" oninput="_blsSetBud('${n.id}',this.value)"></span>`;}
-  else right=ls?`<span class="bls-bd appr">● has LS budget · revise</span>`:`<span class="bls-bd empty">empty</span>`;
-  return `<div class="bls-loc ${on?'on':''} ${ls?'lsappr':''}" style="padding-left:${pad}px;" onclick="_blsToggleLoc('${n.id}')">${ck} ${_esc(n.name)} ${right}</div>`;
+  if(on){const v=_blsBudget[n.id]||0;const cons=ls?_blsConsumed[n.id]:null;const low=(cons!=null&&v>0&&v<cons-0.001);
+    right=`<span class="bls-bd">${ls?'new ':''}₹ <input type="number" min="0" step="1000" value="${v||''}" placeholder="${ls?'new budget':'budget'}" onclick="event.stopPropagation();" oninput="_blsSetBud('${n.id}',this.value)" ${low?'style="border-color:#dc2626;background:#fef2f2;"':''}></span>`;}
+  else right=ls?`<span class="bls-bd appr">● revise</span>`:`<span class="bls-bd empty">empty</span>`;
+  return `<div class="bls-loc ${on?'on':''} ${ls?'lsappr':''}" style="padding-left:${pad}px;" onclick="_blsToggleLoc('${n.id}')">${ck} ${_esc(n.name)} ${ctx} ${right}</div>`;
 }
+async function _blsLoadConsumed(){
+  if(!_blsCtx)return;
+  const ap=_blsApprLeaves();if(!ap.length)return;
+  try{
+    const res=await Promise.all(ap.map(id=>sb.rpc('fn_package_consumed',{p_wbs_node_id:Number(_blsCtx.wbsId),p_loc_node_id:id})));
+    ap.forEach((id,i)=>{_blsConsumed[id]=Number(res[i]&&res[i].data)||0;});
+  }catch(e){}
+  if(_blsCtx){_blsRenderLocs();_blsRenderBar();}
+}
+
 function _blsRenderLocs(){
   const tree=document.getElementById('bls_loctree');if(!tree)return;
   const q=(document.getElementById('bls_search').value||'').toLowerCase();
@@ -5011,7 +5019,8 @@ function _blsRenderBar(){
   const ap=_blsApprLeaves();const allOn=ap.length&&ap.every(i=>_blsSel.has(i));
   const fb=document.getElementById('bls_apprbtn');if(fb){fb.style.display=ap.length?'':'none';fb.textContent=allOn?'✓ Clear has-LS':'＋ Select all has-LS';}
   const unset=[..._blsSel].filter(id=>!(_blsBudget[id]>0)).length;
-  const hint=document.getElementById('bls_applyhint');if(hint)hint.textContent=unset?`${unset} selected location(s) need a budget`:(_blsSel.size?'all selected have a budget':'');
+  const below=[..._blsSel].filter(id=>{const c=_blsConsumed[id];return c!=null&&(_blsBudget[id]||0)>0&&(_blsBudget[id]||0)<c-0.001;}).length;
+  const hint=document.getElementById('bls_applyhint');if(hint)hint.textContent=below?`${below} revise location(s) below consumed floor — raise the budget`:(unset?`${unset} selected location(s) need a budget`:(_blsSel.size?'all selected have a budget':''));
   const rw=document.getElementById('bls_reasonWrap');if(rw)rw.style.display=rev>0?'':'none';
 }
 function _blsRenderAll(){_blsRenderWl();_blsRenderLocs();_blsRenderBar();}
@@ -5022,6 +5031,8 @@ function _blsReview(){
   if(_blsCtx.isMat&&!_blsWl.filter(w=>w.material_code).length){_blsErr('Add at least one whitelist material (pick from the master).');return;}
   const noBud=chosen.filter(id=>!(_blsBudget[id]>0));
   if(noBud.length){_blsErr(`${noBud.length} selected location(s) have no budget — type a budget and Apply, or set each row.`);return;}
+  const _below=chosen.filter(id=>{const c=_blsConsumed[id];return c!=null&&(_blsBudget[id]||0)<c-0.001;});
+  if(_below.length){_blsErr(`${_below.length} revise location(s) are below the consumed floor — raise the budget to at least the consumed amount.`);return;}
   const sm=_scopeMap();
   const rv=chosen.filter(id=>sm[_blsCtx.wbsId+'|'+id]?.scope_status==='approved');
   if(rv.length&&!document.getElementById('bls_reason').value.trim()){_blsErr('Revising an approved LS budget needs a reason — it is kept in history for the PM.');return;}
@@ -5032,6 +5043,7 @@ function _blsReview(){
   document.getElementById('estBulkLSDiffOverlay').style.display='flex';
 }
 function _blsPaintDiff(){
+  {const _cb=document.getElementById('bls_confirm');if(_cb)_cb.disabled=false;}
   const sm=_scopeMap();const chosen=[..._blsSel];
   const nw=chosen.filter(id=>!sm[_blsCtx.wbsId+'|'+id]);
   const rv=chosen.filter(id=>sm[_blsCtx.wbsId+'|'+id]?.scope_status==='approved');
@@ -5053,7 +5065,7 @@ function _blsPaintDiff(){
 function _blsBack(){document.getElementById('estBulkLSDiffOverlay').style.display='none';document.getElementById('estBulkLSOverlay').style.display='flex';}
 async function _blsCommit(){
   const btn=document.getElementById('bls_confirm');if(btn)btn.disabled=true;
-  const reason=document.getElementById('bls_reason').value||null;const sm=_scopeMap();
+  const reason=(document.getElementById('bls_reason')||{}).value||null;const sm=_scopeMap();
   const wl=_blsCtx.isMat?_blsWl.filter(w=>w.material_code).map((w,i)=>({sno:i+1,material_code:w.material_code,material_name:w.material_name,uom:w.uom||null,qty:0,wastage_pct:0,qty_total:0,rate:_r2(w.rate||0),amount:0})):null;
   pbShow('Filing…');
   try{
@@ -5423,6 +5435,7 @@ function _abReview(){
   document.getElementById('estActBulkDiffOverlay').style.display='flex';
 }
 function _abPaintDiff(){
+  {const _cb=document.getElementById('ab_confirm');if(_cb)_cb.disabled=false;}
   const f=_abDiffUnits||[];
   const total=f.reduce((s,u)=>{const v=_abVal(u);return s+v.q*v.r;},0);
   document.getElementById('ab_dpath').innerHTML=_abMode==='edit'
@@ -5440,7 +5453,7 @@ function _abBack(){document.getElementById('estActBulkDiffOverlay').style.displa
 function _abClose(){document.getElementById('estActBulkOverlay').style.display='none';document.getElementById('estActBulkDiffOverlay').style.display='none';_abCtx=null;}
 async function _abCommit(){
   const btn=document.getElementById('ab_confirm');if(btn)btn.disabled=true;
-  const reason=document.getElementById('ab_reason').value||null;
+  const reason=(document.getElementById('ab_reason')||{}).value||null;
   pbShow('Filing…');
   try{
     if(_abMode==='edit'){
