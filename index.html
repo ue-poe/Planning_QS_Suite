@@ -2978,7 +2978,8 @@ async function loadEstimation(){
   }catch(e){toast('Error: '+e.message,'error');}
   finally{pbDone();}
 }
-function _scopeMap(){return Object.fromEntries(_scope.map(r=>[String(r.wbs_node_id)+'|'+String(r.loc_node_id),r]));}
+let _scopeMapCache=null,_scopeMapSrc=null;
+function _scopeMap(){if(_scopeMapSrc===_scope&&_scopeMapCache)return _scopeMapCache;_scopeMapCache=Object.fromEntries(_scope.map(r=>[String(r.wbs_node_id)+'|'+String(r.loc_node_id),r]));_scopeMapSrc=_scope;return _scopeMapCache;}
 
 function _estBuildFilters(){
   const sel=document.getElementById('est_stage_filter');
@@ -3260,7 +3261,7 @@ function renderEstimation(){
               // STRANDED: estimate exists but rules no longer allow the pair.
               return`<td onclick="estViewCell(${node.id},'${c.id}')" class="eg-str" title="⚠ STRANDED — rules no longer allow this pair. Excluded from totals. Click to view/delete.">
                 <div class="eg-str-q">⚠ stranded</div>
-                <div class="eg-str-a">₹${_inr(row.est_amount)}</div></td>`;
+                <div class="eg-str-a">₹${_inr(_estRowAmt(row))}</div></td>`;
             }
             return`<td class="eg-dot" title="Pair not allowed by allocation rules">·</td>`;
           }
@@ -3398,7 +3399,7 @@ function renderEstimation(){
   const stranded=_scope.length-eligRows.length;
   const nApp=eligRows.filter(r=>r.scope_status==='approved').length;
   const sumEl=document.getElementById('est_summary');
-  if(sumEl)sumEl.textContent=`${eligRows.length} estimate(s) · ${nApp} approved · grand total ₹${_inr(eligRows.reduce((s,r)=>s+Number(r.est_amount||0),0))}`+(stranded?` · ⚠ ${stranded} STRANDED (excluded by rules — not counted)`:'');
+  if(sumEl)sumEl.textContent=`${eligRows.length} estimate(s) · ${nApp} approved · grand total ₹${_inr(eligRows.reduce((s,r)=>s+_estRowAmt(r),0))}`+(stranded?` · ⚠ ${stranded} STRANDED (excluded by rules — not counted)`:'');
 }
 
 function _locPathJS(locId){
@@ -4280,7 +4281,7 @@ function estEditCell(wbsId,locId){
   if(ex&&!_eligNow&&!draft){
     openModal(`⚠ Stranded estimate — ${act.name}`,`
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${_esc(_wbsPathJS(wbsId))}<br>📍 ${_esc(_locPathJS(locId))}</div>
-      <div style="font-size:12px;color:#b91c1c;margin-bottom:8px;">Allocation rules no longer allow this pair. The estimate (₹${_inr(ex.est_amount)}, ${_esc(ex.scope_code||'')}) is excluded from all totals and cannot be edited.</div>
+      <div style="font-size:12px;color:#b91c1c;margin-bottom:8px;">Allocation rules no longer allow this pair. The estimate (₹${_inr(_estRowAmt(ex))}, ${_esc(ex.scope_code||'')}) is excluded from all totals and cannot be edited.</div>
       <div style="font-size:12px;">Resolve it one of two ways: <strong>delete it</strong> below, or <strong>re-include the location</strong> in Allocation Rules to make it count again.</div>
       <button class="btn btn-danger btn-sm" style="margin-top:12px;" onclick="estDeleteCell(${wbsId},'${locId}')">🗑 Delete this estimate</button>
     `,async()=>{closeModal();});
@@ -5143,7 +5144,7 @@ function estActivitySummary(wbsId){
     return;
   }
   const grandQty=filled.reduce((s,x)=>s+Number(x.row.est_qty||0),0);
-  const grandAmt=filled.reduce((s,x)=>s+Number(x.row.est_amount||0),0);
+  const grandAmt=filled.reduce((s,x)=>s+_estRowAmt(x.row),0);
   const thS='text-align:right;padding:6px 8px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--panel-2);';
   const bodyRows=filled.map(x=>{
     const status=x.row.scope_status==='approved'?'<span style="font-size:10px;color:#15803d;">✓ approved</span>':
@@ -5153,7 +5154,7 @@ function estActivitySummary(wbsId){
       <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:12px;">${_esc(_locPathJS(x.col.id))}</td>
       <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;">${_inr(x.row.est_qty)} ${_esc(node.uom||'')}</td>
       <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;">₹${_inr(x.row.est_rate)}</td>
-      <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;font-weight:600;">₹${_inr(x.row.est_amount)}</td>
+      <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;font-weight:600;">₹${_inr(_estRowAmt(x.row))}</td>
       <td style="text-align:center;padding:5px 8px;border-bottom:1px solid #eee;">${status}</td>
     </tr>`;
   }).join('');
