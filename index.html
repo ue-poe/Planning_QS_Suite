@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v38 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v39 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -249,6 +249,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
   <div class="card" style="margin:0;">
     <h2>🐧 Penguin Planning &amp; QS Suite</h2>
     <div class="sub">Urban Excellence LLP · Poetry of Earth</div>
+    <div id="authPanel-login"><!-- v39: wrapper so recovery flow can hide login -->
     <input type="email" id="authEmail" placeholder="Email address" autocomplete="email"
            onkeydown="if(event.key==='Enter')document.getElementById('authPass').focus()">
     <input type="password" id="authPass" placeholder="Password" autocomplete="current-password"
@@ -265,6 +266,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
       <div style="text-align:center;margin-top:8px;">
         <a href="#" onclick="showLoginPanel()" style="font-size:12px;color:var(--muted);text-decoration:none;">← Back</a>
       </div>
+    </div>
+    </div><!-- /authPanel-login (v39) -->
+    <!-- PASSWORD UPDATE PANEL (after clicking reset link) — v39, ported from Procurement v167 -->
+    <div id="authPanel-update" style="display:none;">
+      <input type="password" id="newPass1" placeholder="New password" autocomplete="new-password">
+      <input type="password" id="newPass2" placeholder="Confirm new password" autocomplete="new-password">
+      <button onclick="doUpdatePassword()" id="updatePassBtn">Update Password</button>
+      <div id="updateMsg" style="font-size:12px;margin-top:8px;min-height:16px;"></div>
     </div>
   </div>
 </div>
@@ -1344,6 +1353,28 @@ async function doResetPassword(){
   await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
   document.getElementById('resetMsg').textContent='Reset link sent — check your inbox.';
 }
+// ── v39: password-recovery flow (ported from Procurement v167) ──────────────
+// Flag captured synchronously at script load, BEFORE supabase-js consumes the
+// recovery token and strips the URL hash.
+const _isRecoveryFlow=(window.location.hash||'').includes('type=recovery');
+function _showUpdatePanel(){
+  const l=document.getElementById('authPanel-login'),u=document.getElementById('authPanel-update');
+  if(l)l.style.display='none';if(u)u.style.display='block';
+}
+if(_isRecoveryFlow)document.addEventListener('DOMContentLoaded',_showUpdatePanel);
+async function doUpdatePassword(){
+  const p1=document.getElementById('newPass1').value;
+  const p2=document.getElementById('newPass2').value;
+  const msgEl=document.getElementById('updateMsg');
+  const btn=document.getElementById('updatePassBtn');
+  if(p1!==p2){msgEl.style.color='var(--danger)';msgEl.textContent='Passwords do not match.';return;}
+  if(p1.length<8){msgEl.style.color='var(--danger)';msgEl.textContent='Password must be at least 8 characters.';return;}
+  btn.textContent='Updating…';btn.disabled=true;
+  const{error}=await sb.auth.updateUser({password:p1});
+  btn.textContent='Update Password';btn.disabled=false;
+  if(error){msgEl.style.color='var(--danger)';msgEl.textContent=error.message;}
+  else{msgEl.style.color='var(--accent)';msgEl.textContent='Password updated! Signing you in…';setTimeout(()=>location.reload(),1500);}
+}
 async function onSignedIn(user){
   let profile=null;
   for(let i=0;i<3;i++){
@@ -1381,8 +1412,10 @@ async function doLogout(){
   document.getElementById('authEmail').value='';document.getElementById('authPass').value='';
   document.getElementById('authError').textContent='';
 }
-(async()=>{const{data:{session}}=await sb.auth.getSession();if(session&&session.user&&!_authHandled){_authHandled=true;await onSignedIn(session.user);}})();
+(async()=>{if(_isRecoveryFlow)return;/* v39: recovery link — stay on update panel */const{data:{session}}=await sb.auth.getSession();if(session&&session.user&&!_authHandled){_authHandled=true;await onSignedIn(session.user);}})();
 sb.auth.onAuthStateChange(async(event,session)=>{
+  if(event==='PASSWORD_RECOVERY'){_showUpdatePanel();return;}                                          // v39
+  if(event==='SIGNED_IN'&&(_isRecoveryFlow||window.location.hash.includes('type=recovery'))){_showUpdatePanel();return;} // v39
   if(event==='SIGNED_OUT'&&!_loginInProgress)_authHandled=false;
 });
 
