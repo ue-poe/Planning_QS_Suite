@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v39 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v41 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -1104,6 +1104,7 @@ tr.ab-sel td{background:#f0fdf9;}tr.ab-filled td{background:#fbfffe;}tr.ab-locke
           <div class="ab-fld"><label id="ab_qtylbl">Quantity</label><input id="ab_qty" type="number" min="0" step="0.01"></div>
           <div class="ab-fld"><label>Rate ₹</label><input id="ab_rate" type="number" min="0" step="0.01"></div>
           <button class="btn btn-primary" id="ab_applyBtn" onclick="_abApply()">Apply ▸</button>
+          <button class="btn" id="ab_removeBtn" onclick="_abRemoveMat()" style="display:none;background:#fff;color:#b91c1c;border:1.5px solid #fca5a5;" title="Marks the ticked locations — nothing is saved until you Review and file the revision">🗑 Remove material ▸</button>
         </div>
         <div class="ab-selbadge" id="ab_selbadge">0 units selected</div>
       </div>
@@ -4074,10 +4075,10 @@ function _mrInput(id,k,v){
 }
 function _mrMatType(id,val){
   const l=_matRevLines.find(x=>x.id===id); if(!l)return;
-  l.material_name=val; _matRevErr('');
+  l.material_name=val; l.material_code=null; _matRevErr('');           // v41: typing invalidates the pick
   const q=(val||'').toLowerCase().trim(), dd=_buSuggBox();
   if(!q){dd.style.display='none';return;}
-  const hits=(_matMaster||[]).filter(m=>(m.material_name||'').toLowerCase().includes(q)||String(m.material_code||'').toLowerCase().includes(q)).slice(0,12);
+  const hits=_matSuggFilter(val);
   if(!hits.length){dd.style.display='none';return;}
   dd.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_mrPick(${id},'${_esc(String(m.material_code))}')">
     <div style="font-size:12px;">${_esc(m.material_name)}</div>
@@ -4089,7 +4090,7 @@ function _mrPick(id,code){
   const l=_matRevLines.find(x=>x.id===id); if(!l)return;
   const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code)); if(!m)return;
   l.material_code=m.material_code; l.material_name=m.material_name; l.uom=m.uom||'';
-  if(!(Number(l.rate)>0)&&m.estimated_rate)l.rate=_r2(m.estimated_rate);
+  _matApplyPickRate(l,m);                                               // v41
   _buHideSuggest();
   _matRevRenderAll();
 }
@@ -4370,10 +4371,19 @@ let _buBudget=0;            // LS: budget ₹ for the open LS package
 
 async function _loadMatMaster(){
   if(_matMaster) return _matMaster;
-  const {data,error}=await sb.from('pu_material_master')
-    .select('material_code,material_name,uom,estimated_rate,is_active').eq('is_active',true).order('material_name');
-  if(error){toast('Material master: '+error.message,'error');_matMaster=[];return _matMaster;}
-  _matMaster=data||[];
+  // v41: paginate — PostgREST silently caps a bare select at 1000 rows,
+  // which would truncate the master alphabetically (PVC sorts late).
+  const PAGE=1000, all=[];
+  for(let from=0;;from+=PAGE){
+    const {data,error}=await sb.from('pu_material_master')
+      .select('material_code,material_name,uom,estimated_rate,is_active').eq('is_active',true)
+      .order('material_name').order('material_code')
+      .range(from,from+PAGE-1);
+    if(error){toast('Material master: '+error.message,'error');_matMaster=[];return _matMaster;}
+    all.push(...(data||[]));
+    if(!data||data.length<PAGE)break;
+  }
+  _matMaster=all;
   return _matMaster;
 }
 
@@ -4626,6 +4636,35 @@ function _buUpdateTotal(){const el=document.getElementById('bu_total');if(el)el.
 // the modal's scrollable table wrapper (overflow:auto clips any absolutely
 // positioned descendant regardless of z-index — fixed positioning on body
 // is the only reliable escape).
+// ── v41 · shared material-suggestion filter (word-prefix, ranked) ──
+// Every query token must be a prefix of a whole word in name or code
+// ("pvc" no longer substring-matches "CPVC"). Rank: name-starts-with-query,
+// then first-word prefix, then the rest; stable on master order within a rank.
+function _matNorm(s){return String(s==null?'':s).toLowerCase().replace(/[._\-\/|\u00b7,()\[\]{}#&%@:;"'+*\u00b0]+/g,' ').replace(/\s+/g,' ').trim();}
+function _matSuggFilter(q){
+  const qn=_matNorm(q); if(!qn) return [];
+  const toks=qn.split(' ');
+  const scored=[];
+  (_matMaster||[]).forEach((m,i)=>{
+    const nameN=_matNorm(m.material_name), codeN=_matNorm(m.material_code);
+    const words=(nameN+' '+codeN).split(' ').filter(Boolean);
+    for(const t of toks){let hit=false;for(const w of words){if(w.indexOf(t)===0){hit=true;break;}}if(!hit)return;}
+    const score=nameN.indexOf(qn)===0?0:(nameN.split(' ')[0].indexOf(toks[0])===0?1:2);
+    scored.push({m,score,i});
+  });
+  scored.sort((a,b)=>a.score-b.score||a.i-b.i);
+  return scored.map(x=>x.m).slice(0,12);
+}
+// v41 · picking a material always refreshes the rate from master
+// (replaces the old !rate guard that froze a wrong rate in place);
+// toasts when a non-zero rate is overwritten so the change is visible.
+function _matApplyPickRate(row,m){
+  if(m.estimated_rate==null||m.estimated_rate==='')return;
+  const prev=Number(row.rate)||0;
+  row.rate=_r2(m.estimated_rate);
+  if(prev&&Math.abs(prev-row.rate)>1e-9&&typeof toast==='function')
+    toast('Rate updated to master \u20b9'+_inr(row.rate)+' (was \u20b9'+_inr(prev)+')','warn');
+}
 function _buSuggBox(){
   let dd=document.getElementById('_buSuggBox');
   if(!dd){
@@ -4649,10 +4688,13 @@ function _buMatType(i){
   const inp=document.getElementById('bu_mat_'+i);
   if(!inp)return;
   _buildupRows[i].material_name=inp.value;
+  _buildupRows[i].material_code=null;                                   // v41: typing invalidates the pick
+  _buildupRows[i].uom='';
+  {const u=document.getElementById('bu_uom_'+i);if(u)u.value='';}
   const q=inp.value.toLowerCase().trim();
   const dd=_buSuggBox();
   if(!q){dd.style.display='none';return;}
-  const hits=(_matMaster||[]).filter(m=>(m.material_name||'').toLowerCase().includes(q)||(m.material_code||'').toLowerCase().includes(q)).slice(0,12);
+  const hits=_matSuggFilter(inp.value);
   if(!hits.length){dd.style.display='none';return;}
   dd.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_buPick(${i},'${_esc(m.material_code)}')">
     <div style="font-size:12px;">${_esc(m.material_name)}</div>
@@ -4668,7 +4710,7 @@ function _buPick(i,code){
   _buildupRows[i].material_code=m.material_code;
   _buildupRows[i].material_name=m.material_name;
   _buildupRows[i].uom=m.uom||'';
-  if(!_buildupRows[i].rate&&m.estimated_rate)_buildupRows[i].rate=_r2(m.estimated_rate);
+  _matApplyPickRate(_buildupRows[i],m);                              // v41
   _buHideSuggest();
   _buRenderRows();
 }
@@ -4681,10 +4723,10 @@ function _mbErr(m){const e=document.getElementById('mb_err');if(!e)return;if(!m)
 function _mbLineToBu(l){return {material_code:l.material_code||null,material_name:l.material_name,uom:l.uom||null,qty:Number(l.measured_qty)||0,wastage_pct:_buClampWastage(l.wastage_pct),qty_total:_r2(_mrQt(l)),rate:_r2(l.rate),amount:_r2(_mrAmt(l))};}
 function _mbMatType(kind,id,val){
   const arr=_mbAddLines, l=arr.find(x=>x.id===id); if(!l)return;
-  l.material_name=val; _mbErr('');
+  l.material_name=val; l.material_code=null; _mbErr('');               // v41: typing invalidates the pick
   const q=(val||'').toLowerCase().trim(), dd=_buSuggBox();
   if(!q){dd.style.display='none';return;}
-  const hits=(_matMaster||[]).filter(m=>(m.material_name||'').toLowerCase().includes(q)||String(m.material_code||'').toLowerCase().includes(q)).slice(0,12);
+  const hits=_matSuggFilter(val);
   if(!hits.length){dd.style.display='none';return;}
   dd.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_mbPick('${kind}',${id},'${_esc(String(m.material_code))}')">
     <div style="font-size:12px;">${_esc(m.material_name)}</div>
@@ -4696,7 +4738,7 @@ function _mbPick(kind,id,code){
   const arr=_mbAddLines, l=arr.find(x=>x.id===id); if(!l)return;
   const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code)); if(!m)return;
   l.material_code=m.material_code; l.material_name=m.material_name; l.uom=m.uom||'';
-  if(!(Number(l.rate)>0)&&m.estimated_rate)l.rate=_r2(m.estimated_rate);
+  _matApplyPickRate(l,m);                                               // v41
   _buHideSuggest();
   _mbPaintAdd();
 }
@@ -4986,11 +5028,11 @@ function _blsRenderWl(){const b=document.getElementById('bls_wlbody');if(!b)retu
 function _blsWlAdd(){_blsWl.push({id:++_blsUid,material_code:null,material_name:'',uom:'',rate:0});_blsRenderWl();setTimeout(()=>{const i=document.querySelectorAll('#bls_wlbody input');if(i.length)i[i.length-1].focus();},0);}
 function _blsWlDel(id){_blsWl=_blsWl.filter(w=>w.id!==id);_blsRenderWl();}
 function _blsWlType(id,val){const w=_blsWl.find(x=>x.id===id);if(!w)return;w.material_name=val;w.material_code=null;const q=(val||'').toLowerCase().trim(),dd=_buSuggBox();if(!q){dd.style.display='none';return;}
-  const hits=(_matMaster||[]).filter(m=>(m.material_name||'').toLowerCase().includes(q)||String(m.material_code||'').toLowerCase().includes(q)).slice(0,12);
+  const hits=_matSuggFilter(val);   /* v41 */
   if(!hits.length){dd.style.display='none';return;}
   dd.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_blsWlPick(${id},'${_esc(String(m.material_code))}')"><div style="font-size:12px;">${_esc(m.material_name)}</div><div style="font-size:10px;color:var(--muted);">${_esc(m.material_code||'')} · ${_esc(m.uom||'')}</div></div>`).join('');
   const inp=document.getElementById('bls_wl_'+id);if(inp){const r=inp.getBoundingClientRect();dd.style.left=Math.round(r.left)+'px';dd.style.top=Math.round(r.bottom+2)+'px';dd.style.minWidth=Math.max(r.width,240)+'px';dd.style.display='';}}
-function _blsWlPick(id,code){const w=_blsWl.find(x=>x.id===id);if(!w)return;const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code));if(!m)return;w.material_code=m.material_code;w.material_name=m.material_name;w.uom=m.uom||'';if(!(Number(w.rate)>0)&&m.estimated_rate)w.rate=_r2(m.estimated_rate);_buHideSuggest();_blsRenderWl();}
+function _blsWlPick(id,code){const w=_blsWl.find(x=>x.id===id);if(!w)return;const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code));if(!m)return;w.material_code=m.material_code;w.material_name=m.material_name;w.uom=m.uom||'';_matApplyPickRate(w,m);/* v41 */_buHideSuggest();_blsRenderWl();}
 /* location picker */
 function _blsCk(s){return s==='on'?'<span class="bls-ck on">✓</span>':s==='part'?'<span class="bls-ck part">–</span>':'<span class="bls-ck"></span>';}
 function _blsGrpState(ids){const s=ids.filter(_blsSelectable);if(!s.length)return 'none';const on=s.filter(i=>_blsSel.has(i)).length;return on===0?'off':on===s.length?'on':'part';}
@@ -5320,14 +5362,57 @@ function _abApply(){
   if(!_abSel.size){_abErr(_abMode==='edit'?'Tick a quantity-group first, then set qty/rate and Apply.':'Select a cluster first — tap a tower, unit-line, or a group.');return;}
   const q=document.getElementById('ab_qty').value,r=document.getElementById('ab_rate').value;
   if(q===''&&r===''){_abErr('Enter a quantity and/or rate to apply.');return;}
-  _abSelectable().forEach(u=>{if(_abSel.has(u.id)){const v=_abVal(u);if(q!=='')v.q=Number(q);if(r!=='')v.r=Number(r);}});
-  _abErr('');toast(`Applied to ${_abSel.size} unit(s)`,'success');_abRender();
+  let _nApplied=0,_nSkipDel=0;   // v40: removed lines are skipped — restore ↩ first
+  _abSelectable().forEach(u=>{if(_abSel.has(u.id)){const v=_abVal(u);if(v&&v.del){_nSkipDel++;return;}if(q!=='')v.q=Number(q);if(r!=='')v.r=Number(r);_nApplied++;}});
+  _abErr('');toast(`Applied to ${_nApplied} unit(s)`+(_nSkipDel?` · ${_nSkipDel} removed line(s) skipped — restore ↩ first to edit`:''),'success');_abRender();
 }
 
 /* render */
 function _abCk(s){return s==='on'?'<span class="ab-ck on">✓</span>':s==='part'?'<span class="ab-ck part">–</span>':'<span class="ab-ck"></span>';}
+/* ── v40 · bulk material removal ─────────────────────────────────────── */
+function _abRemoveMat(){                 // mark the current material REMOVED on ticked locations
+  if(!(_abCtx&&_abCtx.isMat)||_abMode!=='edit'){_abErr('Removal applies to material packages in Edit mode only.');return;}
+  const sel=_abActiveUnits().filter(u=>_abSel.has(u.id));
+  if(!sel.length){_abErr('Tick a quantity-group (or single locations) first, then Remove material.');return;}
+  const skipped=[];let n=0;
+  sel.forEach(u=>{
+    const rest=(u.buildup||[]).filter(b=>String(b.material_code)!==String(_abDim));
+    if(!rest.length){skipped.push(u.name);return;}   // last-line guard at mark time
+    _abVal(u).del=true;n++;
+  });
+  _abErr('');
+  if(skipped.length)toast(`${skipped.length} location(s) skipped — ${_abCurDim().label} is the only line left in the build-up there (${skipped.slice(0,3).join(', ')}${skipped.length>3?'…':''})`,'warn',7000);
+  if(n)toast(`${_abCurDim().label} marked REMOVED on ${n} location(s). Nothing is saved yet — Review to file.`,'success',5000);
+  _abRender();
+}
+function _abRestoreUnit(id){const u=_abUnits.find(x=>x.id===id);if(!u)return;const v=_abVal(u);v.del=false;const e=u.est&&u.est[_abDim];if(e){v.q=e.q;v.r=e.r;}_abRender();_abErr('');}
+async function _abMirGuard(changed){     // bulk twin of _matRevMirGuard — one batched query, covers removals AND qty drops
+  const code=String(_abDim);
+  if(!(_abCtx&&_abCtx.isMat)||!code||code==='Q'||code==='null'||code==='undefined')return [];
+  const locs=changed.map(u=>u.id);
+  if(!locs.length)return [];
+  const used={};
+  try{
+    const {data}=await sb.from('pu_mir_items')
+      .select('loc_node_id,qty_required,pu_mir!inner(status)')
+      .in('loc_node_id',locs).eq('material_code',code);
+    (data||[]).forEach(r=>{ if(['Rejected','Cancelled'].includes(r.pu_mir?.status||''))return;
+      used[r.loc_node_id]=(used[r.loc_node_id]||0)+Number(r.qty_required||0); });
+  }catch(e){ console.warn('MIR guard skipped:',e.message); return []; }
+  const breaches=[];
+  changed.forEach(u=>{
+    const consumed=used[u.id]||0; if(consumed<=0)return;
+    const v=_abVal(u);
+    const bu=(u.buildup||[]).find(b=>String(b.material_code)===code);
+    const w=bu?_buClampWastage(bu.wastage_pct):0;
+    const resultQt=v.del?0:(Number(v.q)||0)*(1+w/100);
+    if(resultQt<consumed-0.0001)breaches.push(`• ${u.name}: ${v.del?'removing':('set to '+_inr(resultQt))}, but MIRs already consumed ${_inr(consumed)} here`);
+  });
+  return breaches;
+}
 function _abRender(){
   const edit=_abMode==='edit', mat=!!(_abCtx&&_abCtx.isMat);
+  {const rb=document.getElementById('ab_removeBtn');if(rb)rb.style.display=(edit&&mat)?'':'none';}   // v40
   document.getElementById('ab_tab_add').classList.toggle('on',!edit);
   document.getElementById('ab_tab_edit').classList.toggle('on',edit);
   const tcr=document.getElementById('ab_chipTowerRow'),lcr=document.getElementById('ab_chipLineRow');
@@ -5361,14 +5446,15 @@ function _abMatListHtml(){
     <div class="ab-matscroll"><table class="ab-mattbl"><thead><tr><th>Material</th><th class="num">Est. qty</th><th class="num">Rate ₹</th><th class="num">Amount</th></tr></thead><tbody>${rows||'<tr><td colspan="4" style="padding:12px;color:#94a3b8;">No materials estimated.</td></tr>'}</tbody></table></div></div>`;
 }
 function _abRenderHint(){document.getElementById('ab_hint').innerHTML=_abMode==='edit'
-  ?`🔒 Locations are locked to this estimate. Grouped by <b>${_esc(_abCurDim().label)}</b> — tick a <b>quantity-group</b> header to edit it (tower &amp; floor are navigation only); set qty/rate inline or via Apply.`
+  ?`🔒 Locations are locked to this estimate. Grouped by <b>${_esc(_abCurDim().label)}</b> — tick a <b>quantity-group</b> header to edit it (tower &amp; floor are navigation only); set qty/rate inline or via Apply.${(_abCtx&&_abCtx.isMat)?' <b>Remove material</b> strikes the line out per ticked location — it is dropped from the location build-up when the revision is approved; ↩ restores before filing.':''}`
   :`📍 Add mode — units already approved or pending are <b>locked</b> (their current estimate is shown). A new estimate never overrides an approved one.`;}
 function _abRenderSel(){document.getElementById('ab_selbadge').textContent=`${_abSel.size} unit${_abSel.size===1?'':'s'} selected`;}
 function _abRenderSumm(){
   const f=_abMode==='edit'?_abActiveUnits().filter(u=>_abSel.has(u.id)):_abSelectable().filter(u=>Number(_abVal(u).q)>0);
-  const tot=f.reduce((s,u)=>{const v=_abVal(u);return s+(Number(v.q)||0)*(Number(v.r)||0);},0);
+  const tot=f.reduce((s,u)=>{const v=_abVal(u);return s+(v.del?0:(Number(v.q)||0)*(Number(v.r)||0));},0);   // v40: removed → 0
+  const nDel=_abMode==='edit'?_abActiveUnits().filter(u=>_abSel.has(u.id)&&_abVal(u).del).length:0;
   document.getElementById('ab_summ').innerHTML=_abMode==='edit'
-    ?`<span>Editing <b>${_esc(_abCurDim().label)}</b> on <b>${_abSel.size}</b> selected location(s)</span><span>Line total: <b>₹${_inr(tot)}</b></span>`
+    ?`<span>Editing <b>${_esc(_abCurDim().label)}</b> on <b>${_abSel.size}</b> selected location(s)${nDel?` · <b style="color:#b91c1c;">${nDel} removal(s)</b>`:''}</span><span>Line total: <b>₹${_inr(tot)}</b></span>`
     :`<span>Units with a qty: <b>${f.length}</b> / ${_abSelectable().length}</span><span>Total: <b>₹${_inr(tot)}</b></span>`;
   document.getElementById('ab_fill').textContent=_abMode==='edit'?`${_abSel.size}/${_abActiveUnits().length} selected`:`${f.length}/${_abSelectable().length} filled`;
 }
@@ -5395,6 +5481,11 @@ function _abRowHtml(u){
   if(_abMode==='edit'){
     const e=(u.est&&u.est[_abDim])?u.est[_abDim]:{q:0,r:0};
     const cb=on?'<span class="ab-ck on">✓</span>':'<span class="ab-ck"></span>';
+    if(on&&v.del){return `<tr class="ab-sel" style="background:#fef2f2;"><td style="text-align:center;">${cb}</td>
+      <td style="padding-left:46px;"><span style="font-weight:600;text-decoration:line-through;color:#b91c1c;">${_esc(u.name)}</span><span class="mr-flag rem">REMOVED</span></td>
+      <td class="num"><span style="text-decoration:line-through;color:#94a3b8;">${_inr(e.q)}</span> → <b>—</b></td>
+      <td class="num"><span style="text-decoration:line-through;color:#94a3b8;">₹${_inr(e.r)}</span></td>
+      <td class="num" id="ab_amt_${u.id}"><span style="text-decoration:line-through;color:#94a3b8;">₹${_inr(e.q*e.r)}</span> <button class="mr-ic undo" title="Restore this line" onclick="_abRestoreUnit('${u.id}')">↩</button></td></tr>`;}   // v40
     let qC,rC,aC;
     if(on){qC=`<input type="number" min="0" step="0.001" value="${v.q==null?'':v.q}" placeholder="—" oninput="_abCell('${u.id}','q',this.value)">`;
       rC=`<input type="number" min="0" step="0.01" value="${v.r==null?'':v.r}" placeholder="—" oninput="_abCell('${u.id}','r',this.value)">`;
@@ -5450,14 +5541,23 @@ function _abCell(id,k,val){const u=_abUnits.find(x=>x.id===id);if(!u||_abIsLocke
   _abRenderSumm();_abErr('');}
 
 /* review popup + commit */
-function _abChanged(u){return _abMode==='edit'&&u.est&&u.est[_abDim]&&(Number(_abVal(u).q)!==Number(u.est[_abDim].q)||Number(_abVal(u).r)!==Number(u.est[_abDim].r));}
-function _abReview(){
+function _abChanged(u){if(_abMode!=='edit'||!u.est||!u.est[_abDim])return false;const v=_abVal(u);return !!v.del||Number(v.q)!==Number(u.est[_abDim].q)||Number(v.r)!==Number(u.est[_abDim].r);}  // v40: del = change
+async function _abReview(){
   let f;
   if(_abMode==='edit'){
     f=_abActiveUnits().filter(u=>_abSel.has(u.id)&&_abChanged(u));
-    if(!f.length){_abErr('No changes on the selected locations yet — adjust a qty or rate, or use Apply.');return;}
-    for(const u of f){const v=_abVal(u);if(!(Number(v.q)>0)){_abErr(`${u.name} needs a quantity above zero.`);return;}if(!(Number(v.r)>0)){_abErr(`${u.name} needs a rate.`);return;}}
+    if(!f.length){_abErr('No changes on the selected locations yet — adjust a qty or rate, use Apply, or Remove material.');return;}
+    for(const u of f){const v=_abVal(u);if(v.del)continue;if(!(Number(v.q)>0)){_abErr(`${u.name} needs a quantity above zero.`);return;}if(!(Number(v.r)>0)){_abErr(`${u.name} needs a rate.`);return;}}
     if(!document.getElementById('ab_reason').value.trim()){_abErr('Add a reason — it is kept in the revision history for the PM.');return;}
+    if(_abCtx&&_abCtx.isMat){   // v40: removal guards — empty build-up + MIR floor
+      for(const u of f){const v=_abVal(u);if(!v.del)continue;
+        const rest=(u.buildup||[]).filter(b=>String(b.material_code)!==String(_abDim));
+        if(!rest.length){_abErr(`${u.name}: removal would empty the build-up — a build-up needs at least one material line. Restore ↩ this location or revise it individually.`);return;}}
+      pbShow('Checking issued quantities…');
+      const breaches=await _abMirGuard(f);
+      pbDone();
+      if(breaches.length){_abErr('Estimate floor-lock — material already consumed by MIRs at these location(s):\n'+breaches.join('\n')+'\nRaise the qty to at least the MIR-consumed amount, or cancel the MIRs first.');return;}
+    }
   } else {
     f=_abSelectable().filter(u=>Number(_abVal(u).q)>0);
     if(!f.length){_abErr('No units have a quantity yet. Select a cluster and Apply, or type qty per row.');return;}
@@ -5470,12 +5570,17 @@ function _abReview(){
 function _abPaintDiff(){
   {const _cb=document.getElementById('ab_confirm');if(_cb)_cb.disabled=false;}
   const f=_abDiffUnits||[];
-  const total=f.reduce((s,u)=>{const v=_abVal(u);return s+v.q*v.r;},0);
+  const total=f.reduce((s,u)=>{const v=_abVal(u);return s+(v.del?0:v.q*v.r);},0);   // v40
+  const nDel=f.filter(u=>_abVal(u).del).length;
   document.getElementById('ab_dpath').innerHTML=_abMode==='edit'
-    ? `Revision on <b>${_esc(_abCurDim().label)}</b> — ${f.length} location(s), pending PM approval · tap a tower to drill down`
+    ? `Revision on <b>${_esc(_abCurDim().label)}</b> — ${f.length} location(s)${nDel?`, <b style="color:#b91c1c;">${nDel} removal(s)</b>`:''}, pending PM approval · tap a tower to drill down`
     : `New estimate — ${f.length} new unit(s) saved as drafts · tap a tower to drill down`;
   const byId=Object.fromEntries(f.map(u=>[u.id,u]));
-  const tree=_diffTree(f.map(u=>u.id),'ab',id=>{const u=byId[id];const v=_abVal(u);const e=_abMode==='edit'?u.est[_abDim]:null;const newA=v.q*v.r;const oldA=e?e.q*e.r:0;const d=newA-oldA;
+  const tree=_diffTree(f.map(u=>u.id),'ab',id=>{const u=byId[id];const v=_abVal(u);const e=_abMode==='edit'?u.est[_abDim]:null;
+    if(v.del){const oldA=e?e.q*e.r:0;   // v40: removal line
+      const right=`<span class="mr-flag rem" style="margin-right:4px;margin-left:0;">REMOVED</span><span style="text-decoration:line-through;color:#94a3b8;">₹${_inr(oldA)}</span> → <b>—</b> <span style="font-size:10px;color:#b91c1c;">−₹${_inr(oldA)}</span>`;
+      return {right,amt:0};}
+    const newA=v.q*v.r;const oldA=e?e.q*e.r:0;const d=newA-oldA;
     const right=`${e?('<span style="color:#94a3b8;">'+_inr(e.q)+'→</span>'):''}<b>${_inr(v.q)}</b>×₹${_inr(v.r)} <b style="color:var(--navy);">₹${_inr(newA)}</b>${(d&&oldA)?` <span style="font-size:10px;color:${d>0?'#15803d':'#b91c1c'};">${d>0?'+':''}₹${_inr(d)}</span>`:''}`;
     return {right,amt:newA};});
   document.getElementById('ab_dbody').innerHTML=tree+
@@ -5493,9 +5598,10 @@ async function _abCommit(){
       const f=_abActiveUnits().filter(u=>_abSel.has(u.id)&&_abChanged(u));
       let rows;
       if(_abCtx.isMat){
-        rows=f.map(u=>{const bu=JSON.parse(JSON.stringify(u.buildup||[]));const v=_abVal(u);
-          const line=bu.find(b=>String(b.material_code)===String(_abDim));
-          if(line){line.qty=Number(v.q);line.rate=_r2(v.r);_abRecalcLine(line);}
+        rows=f.map(u=>{let bu=JSON.parse(JSON.stringify(u.buildup||[]));const v=_abVal(u);
+          if(v.del){bu=bu.filter(b=>String(b.material_code)!==String(_abDim));}   // v40: bulk removal — drop the line
+          else{const line=bu.find(b=>String(b.material_code)===String(_abDim));
+            if(line){line.qty=Number(v.q);line.rate=_r2(v.r);_abRecalcLine(line);}}
           const total=_r2(bu.reduce((s,b)=>s+(Number(b.amount)||0),0));
           return {wbs_node_id:Number(_abCtx.wbsId),loc_node_id:u.id,estimate_mode:'qty',new_qty:1,new_rate:total,new_notes:'(material build-up)',reason,buildup_rows:bu.map((b,i)=>Object.assign({},b,{sno:i+1}))};});
       } else {
@@ -5558,6 +5664,48 @@ function setSubView(v){
 // LS-aware amount for a local draft (budget for LS, qty×rate otherwise)
 function _estDraftAmt(d){ return d&&d.estimate_mode==='ls' ? (Number(d.ls_budget_amount)||0) : ((Number(d.est_qty)||0)*(Number(d.est_rate)||0)); }
 
+// ── v40 · build-up diff helpers (approver line-level diff, incl. removals) ──
+function _buKey(b){const c=b&&b.material_code;return (c==null||c==='')?('n:'+String((b&&b.material_name)||'').trim().toLowerCase()):('c:'+String(c));}
+function _buParseArr(x){if(x&&typeof x==='string'){try{x=JSON.parse(x);}catch(e){x=null;}}return Array.isArray(x)?x:null;}
+function _buRemovedCount(r){
+  const ob=_buParseArr(r&&r.old_buildup_rows),nb=_buParseArr(r&&r.buildup_rows);
+  if(!ob||!ob.length||!nb)return 0;
+  const nk=new Set(nb.map(_buKey));return ob.filter(b=>!nk.has(_buKey(b))).length;
+}
+function _buDiffHtml(ob,nb){
+  const num=v=>Number(v)||0;
+  const nm=new Map(nb.map(b=>[_buKey(b),b])),om=new Map(ob.map(b=>[_buKey(b),b]));
+  const rows=[];
+  ob.forEach(b=>{const n=nm.get(_buKey(b));
+    if(!n){rows.push({t:'rem',o:b});return;}
+    const ch=[];
+    if(num(n.qty)!==num(b.qty))ch.push(`qty <span style="color:#94a3b8;">${_inr(b.qty)}</span>→<b>${_inr(n.qty)}</b>`);
+    if(num(n.wastage_pct)!==num(b.wastage_pct))ch.push(`wastage <span style="color:#94a3b8;">${_inr(b.wastage_pct)}%</span>→<b>${_inr(n.wastage_pct)}%</b>`);
+    if(num(n.rate)!==num(b.rate))ch.push(`rate <span style="color:#94a3b8;">₹${_inr(b.rate)}</span>→<b>₹${_inr(n.rate)}</b>`);
+    if(String(n.uom||'')!==String(b.uom||''))ch.push('uom changed');
+    if(String(n.material_name||'')!==String(b.material_name||''))ch.push('renamed');
+    rows.push({t:ch.length?'edt':'unc',o:b,n,ch});});
+  nb.forEach(b=>{if(!om.has(_buKey(b)))rows.push({t:'add',n:b});});
+  const pill={rem:'<span class="mr-flag rem" style="margin-left:0;">REMOVED</span>',add:'<span class="mr-flag new" style="margin-left:0;">ADDED</span>',edt:'<span class="mr-flag edt" style="margin-left:0;">EDITED</span>',unc:'<span class="mr-flag unc" style="margin-left:0;">UNCHANGED</span>'};
+  const cell=b=>`${_inr(b.qty)} ${_esc(String(b.uom||''))} × ₹${_inr(b.rate)} = ₹${_inr(num(b.amount))}`;
+  const tr=r=>{
+    const src=r.o||r.n,name=String(src.material_name||'');
+    const bg=r.t==='rem'?'#fff5f5':r.t==='add'?'#f2fdf6':r.t==='edt'?'#fffdf3':'#fff';
+    const nm2=r.t==='rem'?`<span style="text-decoration:line-through;color:#b91c1c;">${_esc(name)}</span>`:_esc(name);
+    const oa=r.o?num(r.o.amount):0,na=r.n?num(r.n.amount):0,d=na-oa;
+    const dt=(r.t==='unc'||Math.abs(d)<1e-6)?'':` <span style="font-size:10px;font-weight:800;color:${d>0?'#15803d':'#b91c1c'};">${d>0?'+':'−'}₹${_inr(Math.abs(d))}</span>`;
+    const chg=(r.t==='edt'&&r.ch)?`<div style="font-size:10.5px;color:var(--muted);">${r.ch.join(' · ')}</div>`:'';
+    return `<tr style="background:${bg};"><td style="padding:4px 8px;border-top:1px solid #eef2f6;">${nm2}</td><td style="padding:4px 8px;border-top:1px solid #eef2f6;">${pill[r.t]}${chg}</td><td style="padding:4px 8px;text-align:right;border-top:1px solid #eef2f6;white-space:nowrap;">${r.o?cell(r.o):'<span style="color:#94a3b8;">—</span>'}</td><td style="padding:4px 8px;text-align:right;border-top:1px solid #eef2f6;white-space:nowrap;">${r.n?`<b>${cell(r.n)}</b>`:'<b>—</b>'}${dt}</td></tr>`;};
+  const chgRows=rows.filter(r=>r.t!=='unc'),uncRows=rows.filter(r=>r.t==='unc');
+  const head='<tr><th style="text-align:left;padding:4px 8px;font-size:9.5px;color:var(--muted);text-transform:uppercase;">Material</th><th style="text-align:left;padding:4px 8px;font-size:9.5px;color:var(--muted);text-transform:uppercase;">Change</th><th style="text-align:right;padding:4px 8px;font-size:9.5px;color:var(--muted);text-transform:uppercase;">Before</th><th style="text-align:right;padding:4px 8px;font-size:9.5px;color:var(--muted);text-transform:uppercase;">After</th></tr>';
+  const tbl=rws=>`<table style="width:100%;border-collapse:collapse;font-size:11.5px;background:#fff;">${head}${rws.map(tr).join('')}</table>`;
+  const nRem=rows.filter(r=>r.t==='rem').length,nAdd=rows.filter(r=>r.t==='add').length,nEdt=rows.filter(r=>r.t==='edt').length;
+  const oldTot=ob.reduce((s,b)=>s+num(b.amount),0),newTot=nb.reduce((s,b)=>s+num(b.amount),0),net=newTot-oldTot;
+  return `<div style="margin-top:6px;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;">Build-up — changes vs approved (${chgRows.length} of ${rows.length} line(s) changed)</div>
+    ${chgRows.length?tbl(chgRows):'<div style="font-size:11px;color:#94a3b8;padding:4px 8px;">No line-level changes.</div>'}
+    ${uncRows.length?`<details style="margin-top:4px;"><summary style="font-size:10.5px;color:#2563eb;cursor:pointer;font-weight:700;">show ${uncRows.length} unchanged line(s)</summary>${tbl(uncRows)}</details>`:''}
+    <div style="display:flex;justify-content:flex-end;gap:18px;font-size:11px;color:var(--muted);margin-top:5px;">${nRem?`<span>Removed <b style="color:#b91c1c;">${nRem}</b></span>`:''}${nEdt?`<span>Edited <b style="color:#b45309;">${nEdt}</b></span>`:''}${nAdd?`<span>Added <b style="color:#15803d;">${nAdd}</b></span>`:''}<span>Net <b style="color:${net<0?'#b91c1c':net>0?'#15803d':'#64748b'};">${net<0?'−':net>0?'+':''}₹${_inr(Math.abs(net))}</b> · New total <b style="color:var(--navy);">₹${_inr(newTot)}</b></span></div>`;
+}
 // ── Phase C: shared estimate-breakdown renderer (used by submit / queue / history) ──
 function _subAmt(r){return Number(r&&r.estimate_mode==='ls'?(r.ls_budget_amount||0):(r&&r.new_amount!=null?r.new_amount:((r?r.new_qty:0)*(r?r.new_rate:0))))||0;}  // v37 LS-aware
 function _estBreakdownHtml(o){
@@ -5576,8 +5724,10 @@ function _estBreakdownHtml(o){
   else{ rws=rowD('Quantity',o.old_qty,o.new_qty,false)+rowD('Rate',o.old_rate,o.new_rate,true)+rowD('Amount',oldAmt,newAmt,true); }
   let bu=o.buildup_rows;
   if(bu&&typeof bu==='string'){ try{bu=JSON.parse(bu);}catch(e){bu=null;} }
+  const ob=_buParseArr(o.old_buildup_rows);                                   // v40
   let buHtml='';
-  if(Array.isArray(bu)&&bu.length){
+  if(Array.isArray(bu)&&ob&&ob.length){ buHtml=_buDiffHtml(ob,bu); }          // v40: line-level diff incl. removals
+  else if(Array.isArray(bu)&&bu.length){
     buHtml=`<div style="margin-top:6px;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;">Build-up (${bu.length})</div>
       <table style="width:100%;border-collapse:collapse;font-size:11.5px;"><tbody>`+bu.map(b=>{
         const name=b.material_name||b.name||b.material||(Array.isArray(b)?b[0]:'')||'';
@@ -5800,7 +5950,7 @@ async function estOpenQueue(){
   pbShow('Loading queue…');
   try{
     const{data,error}=await sb.from('wbs_scope_submissions')
-      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_qty,new_rate,new_amount,estimate_mode,ls_budget_amount,buildup_rows,submit_reason,submitted_by,submitted_at,status')
+      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_qty,new_rate,new_amount,estimate_mode,ls_budget_amount,buildup_rows,old_buildup_rows,submit_reason,submitted_by,submitted_at,status')
       .eq('status','pending')
       .order('submitted_at',{ascending:false});
     if(error)throw error;
@@ -5832,15 +5982,17 @@ function _renderQueue(){
   document.getElementById('queue_subtitle').textContent=`${_queueData.length} pending submission(s) awaiting decision`;
   const rowHtml=(r, _ctx='')=>{
     const act=_wbsNodes.find(n=>n.id===r.wbs_node_id);
+    const _rmN=_buRemovedCount(r);   // v40
+    const _rmPill=_rmN?` <span class="mr-flag rem" style="vertical-align:1px;">${_rmN} REMOVAL${_rmN>1?'S':''}</span>`:'';
     const diff=r.change_type==='new'
       ?`<span style="color:#0d9488;font-weight:600;">₹${_inr(_subAmt(r))}</span>`
       :`<span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(r.old_amount||0)}</span> → <span style="color:#0d9488;font-weight:600;">₹${_inr(_subAmt(r))}</span>`;
     const sel=_queueSelected.has(r.id);
     // In grouped mode, suppress full path since group headers show it
     const pathHtml=(_queueGrouped&&_ctx==='grouped')
-      ?`<div style="font-size:11px;color:var(--muted);">${_esc(act?act.name:'?')} · ${r.change_type==='new'?'New estimate':'Modification'}</div>
+      ?`<div style="font-size:11px;color:var(--muted);">${_esc(act?act.name:'?')} · ${r.change_type==='new'?'New estimate':'Modification'}${_rmPill}</div>
        <div style="font-size:10.5px;color:var(--muted);">Submitted by ${_esc(r.submitted_by)}, ${_DTF_dmhm.format(new Date(r.submitted_at))}</div>`
-      :`<div style="font-size:11px;color:var(--muted);"><b>WBS:</b> ${_esc(act?_wbsPathJS(r.wbs_node_id):'?')}</div>
+      :`<div style="font-size:11px;color:var(--muted);"><b>WBS:</b> ${_esc(act?_wbsPathJS(r.wbs_node_id):'?')}${_rmPill}</div>
        <div style="font-size:11px;color:var(--muted);"><b>Location:</b> ${_esc(_locPathJS(r.loc_node_id))}</div>
        <div style="font-size:10.5px;color:var(--muted);">By ${_esc(r.submitted_by)}, ${_DTF_dmhm.format(new Date(r.submitted_at))}</div>`;
     const open=_queueExpanded.has(r.id);
@@ -5982,7 +6134,7 @@ async function estOpenHistory(filterStatus){
   pbShow('Loading…');
   try{
     const{data,error}=await sb.from('wbs_scope_submissions')
-      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_amount,new_qty,new_rate,estimate_mode,ls_budget_amount,buildup_rows,status,submitted_at,decided_at,decided_by,decision_reason,submit_reason,submitted_by')
+      .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_amount,new_qty,new_rate,estimate_mode,ls_budget_amount,buildup_rows,old_buildup_rows,status,submitted_at,decided_at,decided_by,decision_reason,submit_reason,submitted_by')
       .order('submitted_at',{ascending:false}).limit(500);
     if(error)throw error;
     _mySubData=data||[];_histExpanded=new Set();_histSelected=new Set();_histFilter=filterStatus||'all';
