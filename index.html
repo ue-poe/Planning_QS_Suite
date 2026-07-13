@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v41 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v42 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -4117,23 +4117,31 @@ function _mrChanged(l){
 function _mrKind(l){ if(l.origin==='new')return 'added'; if(l.deleted)return 'removed'; return _mrChanged(l)?'edited':'unchanged'; }
 
 async function _matRevMirGuard(){
-  const breaches=[], codes=[];
-  _matRevLines.forEach(l=>{ if(l.material_code) codes.push(l.material_code); });
-  if(!codes.length) return breaches;
+  // v42: leaf grain (wbs_node_id, material_code, loc_node_id) — mirrors the DB
+  // trigger/RPC. Pooled per material on BOTH sides; omitted materials caught;
+  // short-closed MIR balances excluded.
+  const breaches=[];
   const used={};
   try{
     const {data}=await sb.from('pu_mir_items')
       .select('material_code,qty_required,pu_mir!inner(status)')
-      .eq('loc_node_id',_matRevCtx.locId).in('material_code',codes);
+      .eq('loc_node_id',_matRevCtx.locId)
+      .eq('wbs_node_id',_matRevCtx.wbsId)
+      .eq('is_balance_closed',false);
     (data||[]).forEach(r=>{ if(['Rejected','Cancelled'].includes(r.pu_mir?.status||''))return;
       used[r.material_code]=(used[r.material_code]||0)+Number(r.qty_required||0); });
   }catch(e){ console.warn('MIR guard skipped:',e.message); return breaches; }
+  const est={}, names={};
   _matRevLines.forEach(l=>{
     if(!l.material_code)return;
-    const consumed=used[l.material_code]||0; if(consumed<=0)return;
-    const resultQt=l.deleted?0:_mrQt(l);
-    if(resultQt < consumed-0.0001){
-      breaches.push(`• ${l.material_name||l.material_code}: ${l.deleted?'removed':('set to '+_inr(resultQt)+' '+(l.uom||''))}, but MIRs already consumed ${_inr(consumed)} here`);
+    names[l.material_code]=l.material_name||l.material_code;
+    est[l.material_code]=(est[l.material_code]||0)+(l.deleted?0:_mrQt(l));
+  });
+  Object.keys(used).forEach(code=>{
+    const consumed=used[code]; if(consumed<=0)return;
+    const total=est[code]||0;
+    if(total < consumed-0.0001){
+      breaches.push(`• ${names[code]||code}: estimate totals ${_inr(total)}, but MIRs on this activity already consumed ${_inr(consumed)} here`);
     }
   });
   return breaches;
@@ -4521,26 +4529,31 @@ async function estMaterialBuildup(wbsId,locId){
     const total=_buRowsTotal();
     const clean=_buildupRows.filter(r=>r.material_name&&r.qty>0);
     if(!clean.length){toast('Add at least one material row with qty','error');return;}
-    // v20: floor-lock pre-check — estimate qty cannot drop below live-MIR consumed
-    // at (material_code, loc_node_id). Forward-only; mirrors the DB trigger.
+    // v42: floor-lock pre-check at leaf grain (wbs_node_id, material_code,
+    // loc_node_id) — mirrors the DB trigger/RPC. Pooled per material on both
+    // sides; catches omitted MIR'd materials; excludes short-closed balances.
     try{
-      const _matCodes=clean.map(r=>r.material_code).filter(Boolean);
-      if(_matCodes.length){
-        const {data:_mirRows}=await sb.from('pu_mir_items')
-          .select('material_code,qty_required,pu_mir!inner(status)')
-          .eq('loc_node_id',locId).in('material_code',_matCodes);
-        const _used={};
-        (_mirRows||[]).forEach(r=>{
-          if(['Rejected','Cancelled'].includes(r.pu_mir?.status||''))return;
-          _used[r.material_code]=(_used[r.material_code]||0)+Number(r.qty_required||0);
-        });
-        const _breaches=clean.filter(r=>{const f=_used[r.material_code]||0;return f>0 && _buQtyTotal(r)<f-0.0001;});
-        if(_breaches.length){
-          toast('Estimate floor-lock — qty cannot drop below committed MIR qty:\n\n'
-            +_breaches.map(r=>`• ${_esc(r.material_name)}: entered ${_inr(_buQtyTotal(r))} ${_esc(r.uom||'')}, MIRs already consumed ${_inr(_used[r.material_code]||0)} here`).join('\n')
-            +'\n\nRaise the qty to at least the MIR-consumed amount, or cancel the MIRs first.','error',9000);
-          return;
-        }
+      const {data:_mirRows}=await sb.from('pu_mir_items')
+        .select('material_code,qty_required,pu_mir!inner(status)')
+        .eq('loc_node_id',locId)
+        .eq('wbs_node_id',wbsId)
+        .eq('is_balance_closed',false);
+      const _used={};
+      (_mirRows||[]).forEach(r=>{
+        if(['Rejected','Cancelled'].includes(r.pu_mir?.status||''))return;
+        _used[r.material_code]=(_used[r.material_code]||0)+Number(r.qty_required||0);
+      });
+      const _est={}, _names={};
+      clean.forEach(r=>{ if(!r.material_code)return;
+        _names[r.material_code]=r.material_name||r.material_code;
+        _est[r.material_code]=(_est[r.material_code]||0)+_buQtyTotal(r);
+      });
+      const _breaches=Object.keys(_used).filter(c=>_used[c]>0 && (_est[c]||0) < _used[c]-0.0001);
+      if(_breaches.length){
+        toast('Estimate floor-lock — qty cannot drop below committed MIR qty on this activity:\n\n'
+          +_breaches.map(c=>`• ${_esc(_names[c]||c)}: estimate totals ${_inr(_est[c]||0)}, MIRs already consumed ${_inr(_used[c])} here`).join('\n')
+          +'\n\nRaise the qty to at least the MIR-consumed amount, or cancel the MIRs first.','error',9000);
+        return;
       }
     }catch(e){ console.warn('floor-lock pre-check skipped:',e.message); }
     closeModal();
