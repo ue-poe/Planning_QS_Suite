@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v42 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v44 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -3062,11 +3062,26 @@ function estSelectRow(wbsId,checked){
   const visLeaf=new Set(_estVisCols().filter(c=>!c._isGroup).map(c=>c.id));
   _scope.filter(r=>r.wbs_node_id==wbsId&&r.scope_status!=='approved'&&visLeaf.has(r.loc_node_id)&&!_estPendingSet.has(String(r.wbs_node_id)+'|'+String(r.loc_node_id)))
     .forEach(r=>{const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);if(checked)_estSelected.add(k);else _estSelected.delete(k);});
+  // v44: local draft / rejected cells (no wbs_scope row yet) are deletable too
+  const _sm44=_scopeMap();
+  _localDrafts.forEach((d,k)=>{const i=k.indexOf('|');const w=k.slice(0,i),l=k.slice(i+1);
+    if(String(w)!==String(wbsId))return;
+    if(!visLeaf.has(l))return;
+    if(_estPendingSet.has(k))return;
+    if(_sm44[k])return; // scope-backed cells already handled above
+    if(checked)_estSelected.add(k);else _estSelected.delete(k);});
   renderEstimation();
 }
 function estSelectCol(locId,checked){
   _scope.filter(r=>r.loc_node_id===locId&&r.scope_status!=='approved'&&!_estPendingSet.has(String(r.wbs_node_id)+'|'+String(r.loc_node_id)))
     .forEach(r=>{const k=String(r.wbs_node_id)+'|'+String(r.loc_node_id);if(checked)_estSelected.add(k);else _estSelected.delete(k);});
+  // v44: local draft / rejected cells (no wbs_scope row yet) are deletable too
+  const _sm44=_scopeMap();
+  _localDrafts.forEach((d,k)=>{const i=k.indexOf('|');const l=k.slice(i+1);
+    if(String(l)!==String(locId))return;
+    if(_estPendingSet.has(k))return;
+    if(_sm44[k])return;
+    if(checked)_estSelected.add(k);else _estSelected.delete(k);});
   renderEstimation();
 }
 function estToggleCell(wbsId,locId){
@@ -3105,15 +3120,22 @@ async function estBulkDeleteConfirm(){
   pbShow(`Deleting ${deleteKeys.length} estimate(s)…`);
   try{
     if(draftPairs.length){
-      const{error}=await sb.rpc('rpc_discard_scope_drafts',{p_user:state.userName,p_pairs:draftPairs});
+      const{error}=await sb.rpc('rpc_discard_scope_drafts',{p_user:state.userName,p_pairs:draftPairs,p_include_rejected:true});
       if(error)throw error;
       draftPairs.forEach(pp=>_localDrafts.delete(String(pp.wbs_node_id)+'|'+pp.loc_node_id));
     }
+    let _rejMsgs=[];
     if(scopeRows.length){
-      const{error}=await sb.rpc('rpc_save_wbs_scope',{p_rows:scopeRows,p_user:state.userName});
+      const{data:_svData,error}=await sb.rpc('rpc_save_wbs_scope',{p_rows:scopeRows,p_user:state.userName});
       if(error)throw error;
+      _rejMsgs=((_svData&&_svData.rejected)||[]).map(x=>`• ${_esc(_wbsPathJS(Number(x.wbs_node_id)))} · ${_esc(_locPathJS(x.loc_node_id))}: ${_esc(x.reason||'blocked')}`);
     }
-    toast(`${deleteKeys.length} estimate(s) deleted`,'success');
+    if(_rejMsgs.length){
+      const _delOk=Math.max(0,deleteKeys.length-_rejMsgs.length);
+      toast(`${_delOk>0?(_delOk+' deleted · '):''}${_rejMsgs.length} blocked:\n\n`+_rejMsgs.join('\n'),'warn',9000);
+    }else{
+      toast(`${deleteKeys.length} estimate(s) deleted`,'success');
+    }
     await apiLoadScope();await _estLoadSubmissionMeta();renderEstimation();
   }catch(e){toast('Delete failed: '+e.message,'error');}
   finally{pbDone();}
@@ -3264,6 +3286,19 @@ function renderEstimation(){
           if(_estPendingSet.has(node.id+'|'+c.id))_rPending=true;
           // ── SELECT MODE CELLS ─────────────────────────────────────────
           if(_estSelectMode){
+            // v44: a LOCAL DRAFT / REJECTED cell has no wbs_scope row, so it
+            // used to fall through to the dead "+" — unselectable and therefore
+            // undeletable. Render it as a selectable amber cell instead.
+            {
+              const _dk=String(node.id)+'|'+String(c.id);
+              const _dft=(!row)?_localDrafts.get(_dk):null;
+              if(_dft&&!_estPendingSet.has(_dk)){
+                const _dsel=_estSelected.has(_dk);
+                const _damt=_estDraftAmt(_dft);
+                const _dlbl=_dft._isRejected?'rejected':'draft';
+                return`<td onclick="estToggleCell(${node.id},'${c.id}')" class="eg-sc" style="border:0.5px solid ${_dsel?'#3b82f6':'#f59e0b'};background:${_dsel?'#dbeafe':'#fffbeb'};${_dsel?'outline:2px solid #3b82f6;outline-offset:-2px;':''}" title="${_dsel?'Click to deselect':'Local '+_dlbl+' — click to select for delete'}"><div class="eg-q10" style="color:${_dsel?'#1d4ed8':'#b45309'};">${_dsel?'✓ ':''}${_dlbl}</div><div class="eg-w6" style="color:${_dsel?'#1d4ed8':'#92400e'};">₹${_inr(_damt)}</div></td>`;
+              }
+            }
             // v27: a STRANDED estimate (row exists but the pair is no longer
             // rule-eligible) was rendered here as a dead "·" — so it could not be
             // bulk-deleted, even though normal mode lets you delete it one-by-one.
@@ -5904,7 +5939,7 @@ async function estDiscardSelected(){
   estCloseSubmit();
   pbShow('Discarding…');
   try{
-    const{data,error}=await sb.rpc('rpc_discard_scope_drafts',{p_user:state.userName,p_pairs:pairs});
+    const{data,error}=await sb.rpc('rpc_discard_scope_drafts',{p_user:state.userName,p_pairs:pairs,p_include_rejected:true});
     if(error)throw error;
     pairs.forEach(p=>_localDrafts.delete(String(p.wbs_node_id)+'|'+p.loc_node_id));
     toast(`${data.discarded||0} draft(s) discarded`,'success');
@@ -6150,7 +6185,25 @@ async function estOpenHistory(filterStatus){
       .select('id,wbs_node_id,loc_node_id,change_type,old_qty,old_rate,old_amount,new_amount,new_qty,new_rate,estimate_mode,ls_budget_amount,buildup_rows,old_buildup_rows,status,submitted_at,decided_at,decided_by,decision_reason,submit_reason,submitted_by')
       .order('submitted_at',{ascending:false}).limit(500);
     if(error)throw error;
-    _mySubData=data||[];_histExpanded=new Set();_histSelected=new Set();_histFilter=filterStatus||'all';
+    // v43: merge the deletion audit trail from wbs_scope_revisions
+    let _revRows=[];
+    try{
+      const{data:_revData}=await sb.from('wbs_scope_revisions')
+        .select('id,wbs_node_id,loc_node_id,estimate_mode,old_qty,old_rate,old_amount,change_source,reason,changed_by,changed_at')
+        .in('change_source',['draft_deleted','draft_discarded','rejected_discarded','approved_deleted'])
+        .order('changed_at',{ascending:false}).limit(500);
+      _revRows=(_revData||[]).map(v=>({
+        id:'rev:'+v.id, _isDeletion:true,
+        wbs_node_id:v.wbs_node_id, loc_node_id:v.loc_node_id,
+        change_type:'modify', estimate_mode:v.estimate_mode||'qty',
+        old_qty:v.old_qty, old_rate:v.old_rate, old_amount:v.old_amount,
+        new_qty:0, new_rate:0, new_amount:0, ls_budget_amount:null,
+        buildup_rows:null, old_buildup_rows:null,
+        status:'deleted', submitted_at:v.changed_at, submitted_by:v.changed_by,
+        decision_reason:v.reason||null
+      }));
+    }catch(_e){ console.warn('deletion history skipped:',_e.message); }
+    _mySubData=(data||[]).concat(_revRows);_histExpanded=new Set();_histSelected=new Set();_histFilter=filterStatus||'all';
     document.getElementById('mysub_title').textContent='Estimation history';
     const wb=document.getElementById('mysub_withdraw_all_btn'); if(wb)wb.style.display='none';
     _renderHistoryTable();
@@ -6202,10 +6255,10 @@ function _renderHistoryTable(){
   rows.sort((a,b)=>{const x=sval(a),y=sval(b);let c=x<y?-1:x>y?1:0;return _histSort.dir==='asc'?c:-c;});
   const counts=(_mySubData||[]).reduce((m,r)=>{const s=r.status||'pending';m[s]=(m[s]||0)+1;return m;},{});
   const car=c=>_histSort.col===c?`<span style="font-size:8px;color:#0d9488;">${_histSort.dir==='asc'?'▲':'▼'}</span>`:'<span style="font-size:8px;color:#cbd5e1;">▾</span>';
-  const sp=s=>{const m={pending:['#dbeafe','#1e40af','Pending'],approved:['#dcfce7','#15803d','Approved'],rejected:['#fee2e2','#b91c1c','Rejected'],withdrawn:['#f1f5f9','#64748b','Withdrawn']}[s]||['#dbeafe','#1e40af','Pending'];return `<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;background:${m[0]};color:${m[1]};white-space:nowrap;">${m[2]}</span>`;};
+  const sp=s=>{const m={pending:['#dbeafe','#1e40af','Pending'],approved:['#dcfce7','#15803d','Approved'],rejected:['#fee2e2','#b91c1c','Rejected'],withdrawn:['#f1f5f9','#64748b','Withdrawn'],deleted:['#fef3c7','#92400e','Deleted']}[s]||['#dbeafe','#1e40af','Pending'];return `<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;background:${m[0]};color:${m[1]};white-space:nowrap;">${m[2]}</span>`;};
   const th=(col,lbl,align)=>`<th onclick="_histSortClick('${col}')" style="text-align:${align};padding:8px 10px;font-size:10.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none;">${lbl} ${car(col)}</th>`;
   const stSel=`<select onclick="event.stopPropagation()" onchange="_histSetFilter(this.value)" style="font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:6px;padding:2px 6px;margin-left:6px;text-transform:none;">`+
-    ['all','pending','approved','rejected','withdrawn'].map(s=>`<option value="${s}" ${_histFilter===s?'selected':''}>${s==='all'?'All':s[0].toUpperCase()+s.slice(1)}${s!=='all'&&counts[s]?' ('+counts[s]+')':''}</option>`).join('')+`</select>`;
+    ['all','pending','approved','rejected','withdrawn','deleted'].map(s=>`<option value="${s}" ${_histFilter===s?'selected':''}>${s==='all'?'All':s[0].toUpperCase()+s.slice(1)}${s!=='all'&&counts[s]?' ('+counts[s]+')':''}</option>`).join('')+`</select>`;
   let tbl;
   if(!rows.length){ tbl='<div style="padding:32px;text-align:center;color:var(--muted);">No records.</div>'; }
   else { tbl=`<table style="width:100%;border-collapse:collapse;">
@@ -6216,8 +6269,8 @@ function _renderHistoryTable(){
       const a=_wbsNodes.find(n=>n.id===r.wbs_node_id), isNew=r.change_type==='new';
       const amt=amtOf(r), old=Number(r.old_amount||0), open=_histExpanded.has(r.id);
       const dt=_DTF_dmyhm.format(new Date(r.submitted_at));
-      const tt=isNew?'<span style="font-size:10px;font-weight:700;background:#e7f6f0;color:#0d9488;padding:1px 6px;border-radius:5px;">NEW</span>':'<span style="font-size:10px;font-weight:700;background:#fff4e5;color:#b45309;padding:1px 6px;border-radius:5px;">REVISION</span>';
-      const amtCell=isNew?('₹'+_inr(amt)):`<span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(old)}</span> ₹${_inr(amt)}`;
+      const tt=r._isDeletion?'<span style="font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:5px;">DELETED</span>':(isNew?'<span style="font-size:10px;font-weight:700;background:#e7f6f0;color:#0d9488;padding:1px 6px;border-radius:5px;">NEW</span>':'<span style="font-size:10px;font-weight:700;background:#fff4e5;color:#b45309;padding:1px 6px;border-radius:5px;">REVISION</span>');
+      const amtCell=r._isDeletion?`<span style="text-decoration:line-through;color:#94a3b8;">₹${_inr(Number(r.old_amount||0))}</span>`:(isNew?('₹'+_inr(amt)):`<span style="text-decoration:line-through;color:#94a3b8;font-size:11px;">₹${_inr(old)}</span> ₹${_inr(amt)}`);
       let meta=`Submitted by ${_esc(r.submitted_by||'?')} · ${dt}`;
       if(r.decided_by)meta+=` · decided by ${_esc(r.decided_by)}`;
       if(r.decision_reason)meta+=` · <span style="color:#b91c1c;">${_esc(r.decision_reason)}</span>`;
