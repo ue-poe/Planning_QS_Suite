@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v45 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v46 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -2746,6 +2746,15 @@ async function _matrixCellClick(wbsNodeId,locNodeId){
   const exact=_rules.find(r=>r.wbs_node_id===wbsNodeId&&r.loc_node_id===locNodeId)||null;
   const leafCount=_leafCountUnderLoc(locNodeId);
   const wbsLeafCount=wbsNode.is_leaf?1:Math.max(1,getDescendantIds(_wbsNodes,wbsNodeId).filter(id=>{const n=_wbsNodes.find(x=>x.id===id);return n&&n.is_leaf;}).length);
+
+  // v46: block storing rules at a location node with zero active leaf units.
+  // Rules expand to leaf descendants only (fn_effective_locations), so a rule
+  // here would cover nothing. Removal path stays open so stranded rules at
+  // leafless nodes can still be cleaned up.
+  if(!exact&&leafCount===0){
+    toast(`"${locNode.name}" has no leaf units yet — add units under it in Location Structure (and mark them as leaf) before storing rules here`,'error',6000);
+    return;
+  }
 
   try{
     if(exact){
