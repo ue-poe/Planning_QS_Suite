@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Penguin Planning &amp; QS Suite v44 · Urban Excellence LLP · Poetry of Earth</title>
+<title>Penguin Planning &amp; QS Suite v45 · Urban Excellence LLP · Poetry of Earth</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ============================================================
@@ -672,6 +672,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
       <div id="rev_lsfields" style="display:none;">
         <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">New LS budget ₹</label>
         <input id="rev_ls" type="number" step="1" oninput="revValidate()" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;margin-top:5px;font-size:13px;">
+        <div id="rev_wlwrap" style="display:none;margin-top:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <div style="background:#f8fafc;padding:8px 12px;font-size:11.5px;font-weight:700;color:var(--navy);border-bottom:1px solid var(--border);">Whitelist materials — edits file with this revision <span id="rev_wlcount" style="font-weight:500;color:var(--muted);"></span></div>
+          <div id="rev_wlbody"></div>
+          <div style="padding:8px 12px;"><button type="button" onclick="_revWlAdd()" style="border:1px solid var(--border);background:#fff;border-radius:6px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);">+ Add whitelist material</button></div>
+        </div>
       </div>
       <div style="margin-top:14px;"><label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">Reason for revision (kept in history)</label>
         <input id="rev_reason" type="text" placeholder="e.g. scope increase per RFI-118" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;margin-top:5px;font-size:13px;"></div>
@@ -979,7 +984,7 @@ table.mr-diff td{padding:7px 8px;border-bottom:1px solid #eef2f6;vertical-align:
         <span class="bls-applyhint" id="bls_applyhint"></span>
       </div>
       <div id="bls_wlwrap" class="bls-wl">
-        <div class="bls-wlh">Whitelist materials — no quantity. Any whitelisted material purchased at a location consumes that location's shared budget.</div>
+        <div class="bls-wlh">Whitelist materials — no quantity. Any whitelisted material purchased at a location consumes that location's shared budget. For has-LS locations these are <b>added</b> to the existing whitelist — to edit or remove, use that cell's Revise budget.</div>
         <div id="bls_wlbody"></div>
         <div class="bls-wladd"><button onclick="_blsWlAdd()">+ Add whitelist material</button></div>
       </div>
@@ -3917,6 +3922,9 @@ async function estReviseApproved(wbsId,locId){
       document.getElementById('rev_qtyfields').style.display='none';
       document.getElementById('rev_lsfields').style.display='';
       document.getElementById('rev_ls').value=_revCtx.cur.budget;
+      _revCtx.isMatLS=(act.node_type||'')==='material';                                   // v43
+      document.getElementById('rev_wlwrap').style.display=_revCtx.isMatLS?'':'none';      // v43
+      if(_revCtx.isMatLS)await _revWlLoad(ex);                                            // v43
       const {data,error}=await sb.rpc('fn_package_consumed',{p_wbs_node_id:Number(wbsId),p_loc_node_id:locId});
       if(error)throw error;
       _revCtx.floor=Number(data)||0;
@@ -3945,6 +3953,45 @@ async function estReviseApproved(wbsId,locId){
     revValidate();
   }catch(e){fb.innerHTML='<span style="color:#b91c1c;">Could not load floor: '+_esc(e.message)+'</span>';}
 }
+// ░░ v43 · LS whitelist editor inside the revise modal (material LS only) ░░
+let _revWl=[],_revWlUid=0,_revWlOrig=[];
+async function _revWlLoad(ex){
+  await _loadMatMaster();
+  _revWl=[];_revWlOrig=[];_revWlUid=0;
+  const body=document.getElementById('rev_wlbody');
+  if(body)body.innerHTML='<div style="padding:8px 12px;font-size:12px;color:var(--muted);">Loading whitelist…</div>';
+  try{
+    const {data,error}=await sb.from('wbs_material_buildup').select('*').eq('scope_id',ex.id).order('sno');
+    if(error)throw error;
+    _revWlOrig=(data||[]);
+    _revWl=_revWlOrig.map(r=>({id:++_revWlUid,material_code:r.material_code,material_name:r.material_name||'',uom:r.uom||'',rate:Number(r.rate)||0,_orig:r}));
+  }catch(e){toast('Could not load whitelist: '+e.message,'error');}
+  _revWlRender();
+}
+function _revWlRender(){const b=document.getElementById('rev_wlbody');if(!b)return;
+  b.innerHTML=_revWl.map(w=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #f4f6fa;font-size:12.5px;"><input id="rev_wl_${w.id}" value="${_esc(w.material_name)}" placeholder="pick material…" autocomplete="off" oninput="_revWlType(${w.id},this.value)" onblur="setTimeout(_buHideSuggest,200)" style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-family:inherit;"><span style="font-size:11px;color:var(--muted);min-width:40px;">${_esc(w.uom||'')}</span><button type="button" style="cursor:pointer;color:#b91c1c;border:none;background:none;font-size:14px;" onclick="_revWlDel(${w.id})" title="Remove">✕</button></div>`).join('')||'<div style="padding:8px 12px;font-size:12px;color:var(--muted);">No whitelist materials — add at least one.</div>';
+  const c=document.getElementById('rev_wlcount');if(c)c.textContent='· '+_revWl.filter(w=>w.material_code).length+' material(s)';
+  revValidate();
+}
+function _revWlAdd(){_revWl.push({id:++_revWlUid,material_code:null,material_name:'',uom:'',rate:0,_orig:null});_revWlRender();setTimeout(()=>{const i=document.querySelectorAll('#rev_wlbody input');if(i.length)i[i.length-1].focus();},0);}
+function _revWlDel(id){_revWl=_revWl.filter(w=>w.id!==id);_revWlRender();}
+function _revWlType(id,val){const w=_revWl.find(x=>x.id===id);if(!w)return;w.material_name=val;w.material_code=null;w._orig=null;revValidate();const q=(val||'').toLowerCase().trim(),dd=_buSuggBox();if(!q){dd.style.display='none';return;}
+  const hits=_matSuggFilter(val);
+  if(!hits.length){dd.style.display='none';return;}
+  dd.innerHTML=hits.map(m=>`<div style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #f0f0f0;" onmousedown="event.preventDefault();_revWlPick(${id},'${_esc(String(m.material_code))}')"><div style="font-size:12px;">${_esc(m.material_name)}</div><div style="font-size:10px;color:var(--muted);">${_esc(m.material_code||'')} · ${_esc(m.uom||'')}</div></div>`).join('');
+  const inp=document.getElementById('rev_wl_'+id);if(inp){const r=inp.getBoundingClientRect();dd.style.left=Math.round(r.left)+'px';dd.style.top=Math.round(r.bottom+2)+'px';dd.style.minWidth=Math.max(r.width,240)+'px';dd.style.display='';}}
+function _revWlPick(id,code){const w=_revWl.find(x=>x.id===id);if(!w)return;const m=(_matMaster||[]).find(x=>String(x.material_code)===String(code));if(!m)return;w.material_code=m.material_code;w.material_name=m.material_name;w.uom=m.uom||'';w._orig=null;_matApplyPickRate(w,m);_buHideSuggest();_revWlRender();}
+function _revWlDirty(){
+  if(!_revCtx||!_revCtx.isMatLS)return false;
+  const cur=_revWl.filter(w=>w.material_code);
+  if(cur.length!==_revWlOrig.length)return true;
+  return cur.some((w,i)=>{const o=_revWlOrig[i];return !o||String(w.material_code)!==String(o.material_code)||String(w.material_name)!==String(o.material_name||'')||String(w.uom||'')!==String(o.uom||'')||Math.abs((Number(w.rate)||0)-(Number(o.rate)||0))>1e-9;});
+}
+function _revWlFinal(){
+  return _revWl.filter(w=>w.material_code).map((w,i)=>w._orig
+    ?{sno:i+1,material_code:w._orig.material_code,material_name:w._orig.material_name,uom:w._orig.uom||null,qty:Number(w._orig.qty)||0,wastage_pct:Number(w._orig.wastage_pct)||0,qty_total:Number(w._orig.qty_total)||0,rate:_r2(Number(w._orig.rate)||0),amount:_r2(Number(w._orig.amount)||0)}
+    :{sno:i+1,material_code:w.material_code,material_name:w.material_name,uom:w.uom||null,qty:0,wastage_pct:0,qty_total:0,rate:_r2(w.rate||0),amount:0});
+}
 function revValidate(){
   if(!_revCtx)return;
   const err=document.getElementById('rev_err'),btn=document.getElementById('rev_reviewbtn');
@@ -3953,6 +4000,7 @@ function revValidate(){
     const v=parseFloat(document.getElementById('rev_ls').value);
     if(isNaN(v)||v<=0)msg='Enter an LS budget greater than 0.';
     else if(v<_revCtx.floor-0.001)msg='Cannot set budget ₹'+_inr(v)+' below consumed ₹'+_inr(_revCtx.floor)+'.';
+    else if(_revCtx.isMatLS&&!_revWl.filter(w=>w.material_code).length)msg='LS package needs at least one whitelist material (pick from the master).';   // v43
   }else{
     const q=parseFloat(document.getElementById('rev_qty').value);
     const r=parseFloat(document.getElementById('rev_rate').value);
@@ -3982,6 +4030,18 @@ function revReview(){
     const v=parseFloat(document.getElementById('rev_ls').value);
     rows=row('LS budget',_revCtx.cur.budget,v,true);
     _revCtx.next={budget:v};
+    _revCtx.wlDirty=_revWlDirty();                                                        // v43
+    if(_revCtx.wlDirty){                                                                  // v43
+      const ok=new Set(_revWlOrig.map(_buKey)),nk=new Set(_revWl.filter(w=>w.material_code).map(_buKey));
+      const added=_revWl.filter(w=>w.material_code&&!ok.has(_buKey(w))).map(w=>w.material_name);
+      const removed=_revWlOrig.filter(o=>!nk.has(_buKey(o))).map(o=>o.material_name);
+      rows+='<tr><td style="padding:7px 8px;color:var(--muted);">Whitelist</td><td colspan="4" style="padding:7px 8px;font-size:12px;">'
+        +(added.length?'<span style="color:#15803d;">+ '+_esc(added.join(', '))+'</span>':'')
+        +(added.length&&removed.length?' · ':'')
+        +(removed.length?'<span style="color:#b91c1c;text-decoration:line-through;">'+_esc(removed.join(', '))+'</span>':'')
+        +((!added.length&&!removed.length)?'<span style="color:var(--muted);">updated</span>':'')
+        +' <span style="color:var(--muted);">('+_revWl.filter(w=>w.material_code).length+' total)</span></td></tr>';
+    }
   }else{
     const q=parseFloat(document.getElementById('rev_qty').value),r=parseFloat(document.getElementById('rev_rate').value);
     rows=row('Quantity',_revCtx.cur.qty,q,false)+row('Rate',_revCtx.cur.rate,r,true)+row('Amount',_revCtx.cur.qty*_revCtx.cur.rate,q*r,true);
@@ -4001,7 +4061,7 @@ async function revCommit(){
   const btn=document.getElementById('revdiff_confirm');btn.disabled=true;
   const payload={wbs_node_id:Number(_revCtx.wbsId),loc_node_id:_revCtx.locId,estimate_mode:_revCtx.mode,
     new_notes:'',reason:document.getElementById('rev_reason').value||null};
-  if(_revCtx.isLS){payload.ls_budget_amount=_revCtx.next.budget;}
+  if(_revCtx.isLS){payload.ls_budget_amount=_revCtx.next.budget;if(_revCtx.isMatLS&&_revCtx.wlDirty)payload.buildup_rows=_revWlFinal();}   // v43
   else{payload.new_qty=_revCtx.next.qty;payload.new_rate=_revCtx.next.rate;}
   pbShow('Submitting revision…');
   try{
@@ -5037,7 +5097,7 @@ async function _mbCommit(){
 // (material_code, uom) — quantities only sum within the same material+unit.
 
 // ░░ v38 · Bulk LS estimate engine (shared by material & activity/hire bulk) ░░
-let _blsCtx=null,_blsSel=new Set(),_blsBudget={},_blsWl=[],_blsUid=0,_blsCollapsed=new Set(),_blsConsumed={};
+let _blsCtx=null,_blsSel=new Set(),_blsBudget={},_blsWl=[],_blsUid=0,_blsCollapsed=new Set(),_blsConsumed={},_blsWlExist={};   // v43
 function _blsErr(m){const e=document.getElementById('bls_err');if(!e)return;if(!m){e.style.display='none';return;}e.textContent=m;e.style.display='';if(typeof toast==='function')toast(m,'warn');}
 async function estBulkLS(wbsId){
   if(!_nodeLeased(wbsId)){toast('Unlock the line first','warn');return;}
@@ -5054,6 +5114,22 @@ async function estBulkLS(wbsId){
   _blsSel=new Set();_blsBudget={};_blsUid=0;_blsConsumed={};
   {const _sm0=_scopeMap();cols.forEach(c=>{const _ex=_sm0[wbsId+'|'+c.id];if(_ex&&_ex.scope_status==='approved'&&_ex.estimate_mode==='ls')_blsBudget[c.id]=Number(_ex.ls_budget_amount)||0;});}
   _blsWl=isMat?[{id:++_blsUid,material_code:null,material_name:'',uom:'',rate:0}]:[];
+  _blsWlExist={};                                                                         // v43
+  if(isMat){                                                                              // v43: prefetch existing whitelists of has-LS locations
+    const sm1=_scopeMap();
+    const scopeIds=cols.map(c=>sm1[wbsId+'|'+c.id]).filter(x=>x&&x.scope_status==='approved'&&x.estimate_mode==='ls').map(x=>x.id);
+    for(let i=0;i<scopeIds.length;i+=50){
+      const chunk=scopeIds.slice(i,i+50);
+      let from=0;
+      for(;;){
+        const {data,error}=await sb.from('wbs_material_buildup').select('*').in('scope_id',chunk).order('id').range(from,from+999);
+        if(error){toast('Could not load existing whitelists: '+error.message,'error');return;}
+        (data||[]).forEach(r=>{(_blsWlExist[r.scope_id]=_blsWlExist[r.scope_id]||[]).push(r);});
+        if(!data||data.length<1000)break;
+        from+=1000;
+      }
+    }
+  }
   _blsCollapsed=new Set(_locNodes.filter(n=>!n.is_leaf&&n.parent_id!=null).map(n=>n.id));
   document.getElementById('bls_path').innerHTML=_esc(_wbsPathJS(wbsId));
   document.getElementById('bls_ttl').textContent='💰 Bulk LS — '+node.name;
@@ -5151,7 +5227,8 @@ function _blsRenderAll(){_blsRenderWl();_blsRenderLocs();_blsRenderBar();}
 function _blsReview(){
   const chosen=[..._blsSel];
   if(!chosen.length){_blsErr('Select at least one location.');return;}
-  if(_blsCtx.isMat&&!_blsWl.filter(w=>w.material_code).length){_blsErr('Add at least one whitelist material (pick from the master).');return;}
+  {const smw=_scopeMap();const hasNew=chosen.some(id=>!smw[_blsCtx.wbsId+'|'+id]);      // v43: revise-only may be budget-only
+   if(_blsCtx.isMat&&hasNew&&!_blsWl.filter(w=>w.material_code).length){_blsErr('New LS location(s) selected — add at least one whitelist material (pick from the master).');return;}}
   const noBud=chosen.filter(id=>!(_blsBudget[id]>0));
   if(noBud.length){_blsErr(`${noBud.length} selected location(s) have no budget — type a budget and Apply, or set each row.`);return;}
   const _below=chosen.filter(id=>{const c=_blsConsumed[id];return c!=null&&(_blsBudget[id]||0)<c-0.001;});
@@ -5172,7 +5249,7 @@ function _blsPaintDiff(){
   const rv=chosen.filter(id=>sm[_blsCtx.wbsId+'|'+id]?.scope_status==='approved');
   const qtyLock=_blsCtx.cols.filter(c=>_blsLocState(c.id)==='qtylock').length;
   const pend=_blsCtx.cols.filter(c=>_blsLocState(c.id)==='lock').length;
-  const wlTxt=_blsCtx.isMat?` · whitelist: ${_blsWl.filter(w=>w.material_code).map(w=>w.material_name).join(', ')||'—'}`:'';
+  const wlTxt=_blsCtx.isMat?` · whitelist${rv.length?' (added to existing on revises)':''}: ${_blsWl.filter(w=>w.material_code).map(w=>w.material_name).join(', ')||'—'}`:'';   // v43
   document.getElementById('bls_dpath').innerHTML=`${_blsCtx.isMat?'Material LS':'LS budget'} — <b>${chosen.length} location(s)</b>: <b>${nw.length}</b> new draft(s), <b>${rv.length}</b> budget revision(s)${wlTxt}`;
   const grp=(title,key,ids)=>{if(!ids.length)return'';const accent=key==='blsR'?'#b45309':'#a07d10';const bg=key==='blsR'?'#fff7ed':'#fffdf5';
     const tot=ids.reduce((s,id)=>s+(_blsBudget[id]||0),0);
@@ -5196,7 +5273,16 @@ async function _blsCommit(){
     for(const id of [..._blsSel]){
       const ex=sm[_blsCtx.wbsId+'|'+id];const b=_blsBudget[id]||0;if(!(b>0))continue;
       if(!ex){draftRows.push({wbs_node_id:_blsCtx.wbsId,loc_node_id:id,est_qty:0,est_rate:0,notes:'(LS package)',estimate_mode:'ls',ls_budget_amount:_r2(b),buildup_rows:wl});}
-      else if(ex.scope_status==='approved'&&ex.estimate_mode==='ls'){revRows.push({wbs_node_id:Number(_blsCtx.wbsId),loc_node_id:id,estimate_mode:'ls',ls_budget_amount:_r2(b),new_notes:'',reason});}
+      else if(ex.scope_status==='approved'&&ex.estimate_mode==='ls'){
+        const row={wbs_node_id:Number(_blsCtx.wbsId),loc_node_id:id,estimate_mode:'ls',ls_budget_amount:_r2(b),new_notes:'',reason};
+        if(_blsCtx.isMat&&wl&&wl.length){                                                 // v43: additive merge into existing whitelist
+          const exist=(_blsWlExist[ex.id]||[]).map(r=>({sno:0,material_code:r.material_code,material_name:r.material_name,uom:r.uom||null,qty:Number(r.qty)||0,wastage_pct:Number(r.wastage_pct)||0,qty_total:Number(r.qty_total)||0,rate:_r2(Number(r.rate)||0),amount:_r2(Number(r.amount)||0)}));
+          const keys=new Set(exist.map(_buKey));
+          const adds=wl.filter(w=>!keys.has(_buKey(w)));
+          if(adds.length)row.buildup_rows=exist.concat(adds).map((x,i)=>Object.assign({},x,{sno:i+1}));
+        }
+        revRows.push(row);
+      }
     }
     const parts=[];
     if(revRows.length){const {data,error}=await sb.rpc('rpc_submit_scope_revision',{p_rows:revRows,p_user:state.userName});if(error)throw error;const rej=(data&&data.rejected)||[];if(rej.length){pbDone();if(btn)btn.disabled=false;toast('Some revisions blocked: '+(rej[0].reason||'consumed floor'),'error',6000);return;}parts.push(`${revRows.length} budget revision(s)`);}
@@ -5720,7 +5806,7 @@ function _buRemovedCount(r){
   if(!ob||!ob.length||!nb)return 0;
   const nk=new Set(nb.map(_buKey));return ob.filter(b=>!nk.has(_buKey(b))).length;
 }
-function _buDiffHtml(ob,nb){
+function _buDiffHtml(ob,nb,isLS){   // v43: isLS → whitelist wording, indicative-rate cells
   const num=v=>Number(v)||0;
   const nm=new Map(nb.map(b=>[_buKey(b),b])),om=new Map(ob.map(b=>[_buKey(b),b]));
   const rows=[];
@@ -5735,7 +5821,7 @@ function _buDiffHtml(ob,nb){
     rows.push({t:ch.length?'edt':'unc',o:b,n,ch});});
   nb.forEach(b=>{if(!om.has(_buKey(b)))rows.push({t:'add',n:b});});
   const pill={rem:'<span class="mr-flag rem" style="margin-left:0;">REMOVED</span>',add:'<span class="mr-flag new" style="margin-left:0;">ADDED</span>',edt:'<span class="mr-flag edt" style="margin-left:0;">EDITED</span>',unc:'<span class="mr-flag unc" style="margin-left:0;">UNCHANGED</span>'};
-  const cell=b=>`${_inr(b.qty)} ${_esc(String(b.uom||''))} × ₹${_inr(b.rate)} = ₹${_inr(num(b.amount))}`;
+  const cell=b=>isLS?`₹${_inr(b.rate)} <span style="font-size:9.5px;color:#94a3b8;">indicative · ${_esc(String(b.uom||''))}</span>`:`${_inr(b.qty)} ${_esc(String(b.uom||''))} × ₹${_inr(b.rate)} = ₹${_inr(num(b.amount))}`;   // v43
   const tr=r=>{
     const src=r.o||r.n,name=String(src.material_name||'');
     const bg=r.t==='rem'?'#fff5f5':r.t==='add'?'#f2fdf6':r.t==='edt'?'#fffdf3':'#fff';
@@ -5749,10 +5835,10 @@ function _buDiffHtml(ob,nb){
   const tbl=rws=>`<table style="width:100%;border-collapse:collapse;font-size:11.5px;background:#fff;">${head}${rws.map(tr).join('')}</table>`;
   const nRem=rows.filter(r=>r.t==='rem').length,nAdd=rows.filter(r=>r.t==='add').length,nEdt=rows.filter(r=>r.t==='edt').length;
   const oldTot=ob.reduce((s,b)=>s+num(b.amount),0),newTot=nb.reduce((s,b)=>s+num(b.amount),0),net=newTot-oldTot;
-  return `<div style="margin-top:6px;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;">Build-up — changes vs approved (${chgRows.length} of ${rows.length} line(s) changed)</div>
+  return `<div style="margin-top:6px;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;">${isLS?'Whitelist':'Build-up'} — changes vs approved (${chgRows.length} of ${rows.length} line(s) changed)</div>
     ${chgRows.length?tbl(chgRows):'<div style="font-size:11px;color:#94a3b8;padding:4px 8px;">No line-level changes.</div>'}
     ${uncRows.length?`<details style="margin-top:4px;"><summary style="font-size:10.5px;color:#2563eb;cursor:pointer;font-weight:700;">show ${uncRows.length} unchanged line(s)</summary>${tbl(uncRows)}</details>`:''}
-    <div style="display:flex;justify-content:flex-end;gap:18px;font-size:11px;color:var(--muted);margin-top:5px;">${nRem?`<span>Removed <b style="color:#b91c1c;">${nRem}</b></span>`:''}${nEdt?`<span>Edited <b style="color:#b45309;">${nEdt}</b></span>`:''}${nAdd?`<span>Added <b style="color:#15803d;">${nAdd}</b></span>`:''}<span>Net <b style="color:${net<0?'#b91c1c':net>0?'#15803d':'#64748b'};">${net<0?'−':net>0?'+':''}₹${_inr(Math.abs(net))}</b> · New total <b style="color:var(--navy);">₹${_inr(newTot)}</b></span></div>`;
+    <div style="display:flex;justify-content:flex-end;gap:18px;font-size:11px;color:var(--muted);margin-top:5px;">${nRem?`<span>Removed <b style="color:#b91c1c;">${nRem}</b></span>`:''}${nEdt?`<span>Edited <b style="color:#b45309;">${nEdt}</b></span>`:''}${nAdd?`<span>Added <b style="color:#15803d;">${nAdd}</b></span>`:''}${isLS?'':`<span>Net <b style="color:${net<0?'#b91c1c':net>0?'#15803d':'#64748b'};">${net<0?'−':net>0?'+':''}₹${_inr(Math.abs(net))}</b> · New total <b style="color:var(--navy);">₹${_inr(newTot)}</b></span>`}</div>`;
 }
 // ── Phase C: shared estimate-breakdown renderer (used by submit / queue / history) ──
 function _subAmt(r){return Number(r&&r.estimate_mode==='ls'?(r.ls_budget_amount||0):(r&&r.new_amount!=null?r.new_amount:((r?r.new_qty:0)*(r?r.new_rate:0))))||0;}  // v37 LS-aware
@@ -5774,9 +5860,9 @@ function _estBreakdownHtml(o){
   if(bu&&typeof bu==='string'){ try{bu=JSON.parse(bu);}catch(e){bu=null;} }
   const ob=_buParseArr(o.old_buildup_rows);                                   // v40
   let buHtml='';
-  if(Array.isArray(bu)&&ob&&ob.length){ buHtml=_buDiffHtml(ob,bu); }          // v40: line-level diff incl. removals
+  if(Array.isArray(bu)&&ob&&ob.length){ buHtml=_buDiffHtml(ob,bu,isLS); }     // v40 diff · v43 LS-aware
   else if(Array.isArray(bu)&&bu.length){
-    buHtml=`<div style="margin-top:6px;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;">Build-up (${bu.length})</div>
+    buHtml=`<div style="margin-top:6px;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;">${isLS?'Whitelist':'Build-up'} (${bu.length})</div>
       <table style="width:100%;border-collapse:collapse;font-size:11.5px;"><tbody>`+bu.map(b=>{
         const name=b.material_name||b.name||b.material||(Array.isArray(b)?b[0]:'')||'';
         const q=b.qty!=null?b.qty:(b.quantity!=null?b.quantity:(Array.isArray(b)?b[2]:''));
